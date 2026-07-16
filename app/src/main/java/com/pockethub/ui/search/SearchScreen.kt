@@ -48,7 +48,6 @@ import coil.compose.AsyncImage
 import com.pockethub.data.model.Repository
 import com.pockethub.data.model.User
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun searchTabLabel(tab: SearchTab): String = when (tab) {
     SearchTab.REPOS -> stringResource(R.string.search_tab_repos)
@@ -56,6 +55,7 @@ private fun searchTabLabel(tab: SearchTab): String = when (tab) {
     SearchTab.CODE  -> stringResource(R.string.search_tab_code)
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
     initialQuery: String = "",
