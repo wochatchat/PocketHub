@@ -58,10 +58,10 @@ fun HomeScreen(
     onNavigateToRepo: (String, String) -> Unit,
 ) {
     val items = listOf(
-        BottomNavItem(Routes.TAB_EXPLORE, R.string.tab_explore, Icons.Filled.Home, Icons.Outlined.Home),
-        BottomNavItem(Routes.TAB_REPOS, R.string.tab_repos, Icons.Outlined.Code, Icons.Outlined.Code),
-        BottomNavItem(Routes.TAB_NOTIFICATIONS, R.string.tab_notifications, Icons.Filled.Notifications, Icons.Outlined.Notifications),
-        BottomNavItem(Routes.TAB_PROFILE, R.string.tab_profile, Icons.Outlined.Person, Icons.Outlined.Person),
+        BottomNavItem("explore", R.string.tab_explore, Icons.Filled.Home, Icons.Outlined.Home),
+        BottomNavItem("repos", R.string.tab_repos, Icons.Outlined.Code, Icons.Outlined.Code),
+        BottomNavItem("notifications", R.string.tab_notifications, Icons.Filled.Notifications, Icons.Outlined.Notifications),
+        BottomNavItem("profile", R.string.tab_profile, Icons.Outlined.Person, Icons.Outlined.Person),
     )
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()

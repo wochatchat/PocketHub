@@ -253,7 +253,7 @@ private fun TrendingRepoCard(
 /** Tiny colored dot used as the language indicator. Looks up a known color table. */
 @Composable
 private fun LangDot(language: String) {
-    val color = remember(language) { languageColorHex(language)?.let { parseColor(it) } ?: MaterialTheme.colorScheme.outline }
+    val color = languageColorHex(language)?.let { parseColor(it) } ?: MaterialTheme.colorScheme.outline
     Box(Modifier.size(10.dp).clip(CircleShape).background(color))
 }
 
@@ -264,9 +264,8 @@ private fun formatCount(n: Int): String = when {
 }
 
 private fun parseColor(hex: String): androidx.compose.ui.graphics.Color {
-    val cleaned = hex.removePrefix("#")
-    val v = cleaned.toLong(16)
-    return androidx.compose.ui.graphics.Color(v or 0xFF000000.toInt())
+    val v = hex.removePrefix("#").toLong(16)
+    return androidx.compose.ui.graphics.Color(v or 0xFF000000L)
 }
 
 /** GitHub's official language colors (octicons.lang-colors). Subset for the filter chips we offer. */

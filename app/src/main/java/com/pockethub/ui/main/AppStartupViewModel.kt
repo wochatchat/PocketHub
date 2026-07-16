@@ -6,8 +6,11 @@ import com.pockethub.data.remote.AccountRepository
 import com.pockethub.data.remote.AuthInterceptor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -54,7 +57,7 @@ class AppStartupViewModel @Inject constructor(
     /** Sign out the active account and trigger return to login. */
     fun signOut() {
         viewModelScope.launch {
-            val active = accounts.getActiveAccountSync()
+            val active = accounts.activeAccount.first()
             if (active != null) accounts.removeAccount(active.id)
             authInterceptor.token = ""
             _startRoute.value = Routes.LOGIN

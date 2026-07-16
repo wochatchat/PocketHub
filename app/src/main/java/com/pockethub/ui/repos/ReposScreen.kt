@@ -141,7 +141,7 @@ private fun RepoCard(repo: Repository, onClick: () -> Unit) {
         Spacer(Modifier.height(6.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (repo.language != null) {
-                val langColor = remember(repo.language) { languageColorHex(repo.language)?.let { parseColor(it) } ?: MaterialTheme.colorScheme.outline }
+                val langColor = languageColorHex(repo.language)?.let { parseColor(it) } ?: MaterialTheme.colorScheme.outline
                 Box(Modifier.size(8.dp).clip(CircleShape).background(langColor))
                 Text(" ${repo.language} ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -168,6 +168,6 @@ private fun languageColorHex(language: String): String? = when (language.lowerca
 
 private fun parseColor(hex: String): androidx.compose.ui.graphics.Color {
     val v = hex.removePrefix("#").toLong(16)
-    return androidx.compose.ui.graphics.Color(v or 0xFF000000.toInt())
+    return androidx.compose.ui.graphics.Color(v or 0xFF000000L)
 }
 
