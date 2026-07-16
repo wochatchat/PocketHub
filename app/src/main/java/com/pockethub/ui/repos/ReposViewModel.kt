@@ -4,10 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockethub.data.model.Repository
 import com.pockethub.data.remote.AccountRepository
-import com.pockethub.data.remote.GitHubApi
+import com.pockethub.data.remote.CachedRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -17,7 +18,7 @@ enum class RepoFilter { ALL, OWNER, MEMBER, PUBLIC, PRIVATE, FORKS }
 
 @HiltViewModel
 class ReposViewModel @Inject constructor(
-    private val api: GitHubApi,
+    private val cache: CachedRepository,
     private val accounts: AccountRepository,
 ) : ViewModel() {
 
@@ -25,7 +26,10 @@ class ReposViewModel @Inject constructor(
     val repos: StateFlow<List<Repository>> = _repos
 
     private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error
 
     var currentTab = MutableStateFlow(RepoTab.MINE)
     var currentFilter = MutableStateFlow(RepoFilter.ALL)
@@ -59,6 +63,7 @@ class ReposViewModel @Inject constructor(
     private fun load(append: Boolean = false) {
         viewModelScope.launch {
             _isLoading.update { true }
+            _error.update { null }
             try {
                 val result = when (currentTab.value) {
                     RepoTab.MINE -> {
@@ -73,15 +78,16 @@ class ReposViewModel @Inject constructor(
                             RepoFilter.PRIVATE -> "private"
                             else -> null
                         }
-                        api.getMyRepositories(page = currentPage, type = type, visibility = vis)
+                        cache.getMyRepositories(page = currentPage, type = type, visibility = vis)
                     }
                     RepoTab.STARRED -> {
-                        api.getStarredRepositories(page = currentPage)
+                        cache.getStarredRepositories(page = currentPage)
                     }
                 }
                 _repos.update { if (append) it + result else result }
                 canLoadMore = result.isNotEmpty()
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                _error.update { e.localizedMessage ?: "加载失败" }
                 if (!append) _repos.update { emptyList() }
             } finally {
                 _isLoading.update { false }

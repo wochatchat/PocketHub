@@ -6,6 +6,7 @@ import com.pockethub.data.local.AccountEntity
 import com.pockethub.data.model.Repository
 import com.pockethub.data.remote.AccountRepository
 import com.pockethub.data.remote.AuthInterceptor
+import com.pockethub.data.remote.CachedRepository
 import com.pockethub.data.remote.GitHubApi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +20,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val api: GitHubApi,
+    private val cache: CachedRepository,
     private val accounts: AccountRepository,
     private val authInterceptor: AuthInterceptor,
 ) : ViewModel() {
@@ -29,16 +31,17 @@ class ProfileViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
-    /** First page of the authed user's own repositories, sorted by pushed_at desc. */
     private val _topRepos = MutableStateFlow<List<Repository>>(emptyList())
     val topRepos: StateFlow<List<Repository>> = _topRepos
 
     private val _isLoadingRepos = MutableStateFlow(false)
     val isLoadingRepos: StateFlow<Boolean> = _isLoadingRepos
 
-    /** Approx count of starred repos (size of first page only, since the API doesn't easily expose totals). */
     private val _starredTotal = MutableStateFlow(0)
     val starredTotal: StateFlow<Int> = _starredTotal
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error
 
     val allAccounts: StateFlow<List<AccountEntity>> =
         accounts.allAccounts.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -51,23 +54,16 @@ class ProfileViewModel @Inject constructor(
     fun loadProfile() {
         viewModelScope.launch {
             _isLoading.update { true }
+            _error.update { null }
             try {
                 val token = accounts.getActiveToken()
-                if (token.isNotBlank()) {
-                    authInterceptor.token = token
-                }
+                if (token.isNotBlank()) authInterceptor.token = token
                 val me = api.getAuthenticatedUser()
                 _user.update { me }
-                // Kick off repo + starred loads in parallel — failures don't abort the profile.
-                launch { try { _topRepos.value = api.getMyRepositories(perPage = 10, sort = "pushed") } catch (_: Exception) {} }
-                launch {
-                    try {
-                        val starred = api.getStarredRepositories(perPage = 1)
-                        _starredTotal.value = starred.size
-                    } catch (_: Exception) {}
-                }
-            } catch (_: Exception) {
-                // continue with cached state
+                launch { try { _topRepos.value = cache.getMyRepositories(page = 1, sort = "pushed").take(10) } catch (_: Exception) {} }
+                launch { try { _starredTotal.value = cache.getStarredRepositories(page = 1).size } catch (_: Exception) {} }
+            } catch (e: Exception) {
+                _error.update { e.localizedMessage ?: "加载个人资料失败" }
             } finally {
                 _isLoading.update { false }
             }

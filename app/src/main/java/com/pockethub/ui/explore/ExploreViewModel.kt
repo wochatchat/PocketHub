@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.pockethub.data.model.FeedEvent
 import com.pockethub.data.model.Repository
 import com.pockethub.data.remote.AccountRepository
-import com.pockethub.data.remote.GitHubApi
+import com.pockethub.data.remote.CachedRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,51 +17,39 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
-/**
- * Section in the Explore feed.
- *
- * `trending` - classic GitHub-style trending, filtered by language and time window.
- * `featured`  - high-star repos that have been pushed in the last 30 days (Editor picks vibe).
- * `following` - GitHub-like received-events feed of the people you follow.
- */
 enum class ExploreSection { TRENDING, FEATURED, FOLLOWING }
 
 @HiltViewModel
 class ExploreViewModel @Inject constructor(
-    private val api: GitHubApi,
+    private val cache: CachedRepository,
     private val accounts: AccountRepository,
 ) : ViewModel() {
 
-    // ── common ─────────────────────────────────────────
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
+    val error: StateFlow<String?> = _error
 
     private val _section = MutableStateFlow(ExploreSection.TRENDING)
-    val section: StateFlow<ExploreSection> = _section.asStateFlow()
+    val section: StateFlow<ExploreSection> = _section
 
-    // ── Trending ───────────────────────────────────────
     private val _trending = MutableStateFlow<List<Repository>>(emptyList())
-    val trending: StateFlow<List<Repository>> = _trending.asStateFlow()
+    val trending: StateFlow<List<Repository>> = _trending
 
-    // Persisted filter state for the Trending section (memory-only).
     private val _trendingLang = MutableStateFlow("All")
     val trendingLang: StateFlow<String> = _trendingLang
     private val _trendingRange = MutableStateFlow("Daily")
     val trendingRange: StateFlow<String> = _trendingRange
 
-    // ── Featured ───────────────────────────────────────
     private val _featured = MutableStateFlow<List<Repository>>(emptyList())
-    val featured: StateFlow<List<Repository>> = _featured.asStateFlow()
+    val featured: StateFlow<List<Repository>> = _featured
 
-    // ── Following ──────────────────────────────────────
     private val _feed = MutableStateFlow<List<FeedEvent>>(emptyList())
-    val feed: StateFlow<List<FeedEvent>> = _feed.asStateFlow()
+    val feed: StateFlow<List<FeedEvent>> = _feed
 
     private val _feedAvailable = MutableStateFlow(true)
-    val feedAvailable: StateFlow<Boolean> = _feedAvailable.asStateFlow()
+    val feedAvailable: StateFlow<Boolean> = _feedAvailable
 
     private var loadJob: Job? = null
 
@@ -76,7 +64,6 @@ class ExploreViewModel @Inject constructor(
         if (_section.value == ExploreSection.TRENDING) load()
     }
 
-    /** Total load dispatcher; reloads the active section. */
     fun load(language: String? = null, range: String? = null) {
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
@@ -107,32 +94,26 @@ class ExploreViewModel @Inject constructor(
         }.format(DateTimeFormatter.ISO_LOCAL_DATE)
         val langPart = if (language == "All") "" else " language:$language"
         val q = "stars:>50$langPart created:>$created"
-        val result = api.searchTrending(query = q, perPage = 30, sort = "stars")
+        val result = cache.searchTrending(query = q, perPage = 30, sort = "stars")
         _trending.update { result.items }
     }
 
-    /**
-     * Featured — repos with 1k+ stars that have been pushed in the last 30 days,
-     * sorted by stars descending. Same search endpoint, different query window.
-     */
     private suspend fun loadFeatured() {
         val cutoff = LocalDate.now().minusDays(30).format(DateTimeFormatter.ISO_LOCAL_DATE)
         val q = "stars:>1000 pushed:>$cutoff"
-        val result = api.searchTrending(query = q, perPage = 25, sort = "stars")
+        val result = cache.searchTrending(query = q, perPage = 25, sort = "stars")
         _featured.update { result.items }
     }
 
     private suspend fun loadFollowingFeed() {
         val login = accounts.getActiveLogin()
         if (login.isBlank()) {
-            // No active account → silently mark the section as unavailable so the UI
-            // can show a friendly "Sign in to see what people you follow are up to" message.
             _feed.update { emptyList() }
             _feedAvailable.update { false }
             return
         }
         try {
-            val events = api.getReceivedEvents(login, perPage = 30)
+            val events = cache.getReceivedEvents(login, perPage = 30)
             _feed.update { events }
             _feedAvailable.update { true }
         } catch (e: Exception) {

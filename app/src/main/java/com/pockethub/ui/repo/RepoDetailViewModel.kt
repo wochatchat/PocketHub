@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockethub.data.model.Issue
 import com.pockethub.data.model.Repository
+import com.pockethub.data.remote.CachedRepository
 import com.pockethub.data.remote.GitHubApi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -20,6 +21,7 @@ enum class RepoTab { OVERVIEW, CODE, ISSUES, PRS, RELEASES }
 @HiltViewModel
 class RepoDetailViewModel @Inject constructor(
     private val api: GitHubApi,
+    private val cache: CachedRepository,
 ) : ViewModel() {
 
     private val _repo = MutableStateFlow<Repository?>(null)
@@ -57,7 +59,7 @@ class RepoDetailViewModel @Inject constructor(
             _isLoading.update { true }
             _error.update { null }
             try {
-                _repo.update { api.getRepository(owner, repo) }
+                _repo.update { cache.getRepository(owner, repo) }
                 loadReadme(owner, repo)
                 checkStar(owner, repo)
             } catch (e: Exception) {
@@ -70,7 +72,7 @@ class RepoDetailViewModel @Inject constructor(
 
     private fun loadReadme(owner: String, repo: String): Job = viewModelScope.launch {
         try {
-            val resp = api.getReadme(owner, repo)
+            val resp = cache.getReadme(owner, repo)
             val markdown = if (resp.encoding == "base64" && resp.content.isNotBlank()) {
                 decodeBase64(resp.content)
             } else {
@@ -101,15 +103,15 @@ class RepoDetailViewModel @Inject constructor(
                     api.star(owner, repo)
                     _isStarred.update { true }
                 }
+                cache.invalidateRepo(owner, repo)
             } catch (_: Exception) {}
         }
     }
 
-    /** Issues only — filters out pull requests by checking `pullRequest == null`. */
     fun loadIssues(owner: String, repo: String, state: String = "open") {
         viewModelScope.launch {
             try {
-                val all = api.getIssues(owner, repo, state = state)
+                val all = cache.getIssues(owner, repo, state = state)
                 _issues.update { all.filter { it.pullRequest == null } }
             } catch (e: Exception) {
                 _issues.update { emptyList() }
@@ -118,11 +120,10 @@ class RepoDetailViewModel @Inject constructor(
         }
     }
 
-    /** Pull requests — same endpoint, filtered to `pullRequest != null`. */
     fun loadPulls(owner: String, repo: String, state: String = "open") {
         viewModelScope.launch {
             try {
-                val all = api.getIssues(owner, repo, state = state)
+                val all = cache.getIssues(owner, repo, state = state)
                 _pulls.update { all.filter { it.pullRequest != null } }
             } catch (e: Exception) {
                 _pulls.update { emptyList() }
@@ -134,7 +135,7 @@ class RepoDetailViewModel @Inject constructor(
     fun loadReleases(owner: String, repo: String) {
         viewModelScope.launch {
             try {
-                _releases.update { api.getReleases(owner, repo) }
+                _releases.update { cache.getReleases(owner, repo) }
             } catch (e: Exception) {
                 _releases.update { emptyList() }
                 _error.update { e.localizedMessage ?: "加载 Releases 失败" }

@@ -3,10 +3,12 @@ package com.pockethub.ui.notifications
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockethub.data.model.GitHubNotification
+import com.pockethub.data.remote.CachedRepository
 import com.pockethub.data.remote.GitHubApi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -16,13 +18,17 @@ enum class NotifTab { UNREAD, READ }
 @HiltViewModel
 class NotificationsViewModel @Inject constructor(
     private val api: GitHubApi,
+    private val cache: CachedRepository,
 ) : ViewModel() {
 
     private val _notifications = MutableStateFlow<List<GitHubNotification>>(emptyList())
     val notifications: StateFlow<List<GitHubNotification>> = _notifications
 
     private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error
 
     var currentTab = MutableStateFlow(NotifTab.UNREAD)
 
@@ -32,11 +38,13 @@ class NotificationsViewModel @Inject constructor(
         val showAll = all ?: (currentTab.value == NotifTab.READ)
         viewModelScope.launch {
             _isLoading.update { true }
+            _error.update { null }
             try {
-                val result = api.getNotifications(perPage = 80, all = showAll)
+                val result = cache.getNotifications(perPage = 80, all = showAll)
                 _notifications.update { result.filter { it.unread == !showAll } }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 _notifications.update { emptyList() }
+                _error.update { e.localizedMessage ?: "加载通知失败" }
             } finally {
                 _isLoading.update { false }
             }
@@ -61,16 +69,4 @@ class NotificationsViewModel @Inject constructor(
             load(all = currentTab.value == NotifTab.READ)
         }
     }
-
-    /** Group notifications by repository full name. */
-    val grouped: StateFlow<Map<String, List<GitHubNotification>>>
-        get() {
-            val m = MutableStateFlow<Map<String, List<GitHubNotification>>>(emptyMap())
-            viewModelScope.launch {
-                _notifications.collect {
-                    m.update { _ -> _notifications.value.groupBy { it.repository?.fullName ?: "Unknown" } }
-                }
-            }
-            return m
-        }
 }

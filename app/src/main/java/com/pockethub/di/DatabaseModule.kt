@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.pockethub.data.local.AccountDao
 import com.pockethub.data.local.AppDatabase
+import com.pockethub.data.local.CacheDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -24,4 +25,7 @@ object DatabaseModule {
 
     @Provides
     fun provideAccountDao(db: AppDatabase): AccountDao = db.accountDao()
+
+    @Provides
+    fun provideCacheDao(db: AppDatabase): CacheDao = db.cacheDao()
 }
