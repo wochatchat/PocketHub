@@ -164,7 +164,10 @@ fun PocketHubApp(
                 }
 
                 composable(Routes.SETTINGS) {
-                    SettingsScreen(onBack = { navController.popBackStack() })
+                    SettingsScreen(
+                        onBack = { navController.popBackStack() },
+                        onSignOut = { appVm.signOut() },
+                    )
                 }
 
                 composable(

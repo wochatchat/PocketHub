@@ -75,7 +75,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.pockethub.BuildConfig
-import com.pockethub.ui.main.AppStartupViewModel
 import com.pockethub.ui.theme.ThemeMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -86,8 +85,8 @@ import java.io.File
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    onSignOut: () -> Unit = {},
     vm: SettingsViewModel = hiltViewModel(),
-    appVm: AppStartupViewModel = hiltViewModel(),
 ) {
     val themeMode by vm.themeMode.collectAsState()
     val appLocale by vm.appLocale.collectAsState()
@@ -273,7 +272,7 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showSignOutDialog = false
-                    appVm.signOut() // Navigation handled by AppNavigation observing signedOut.
+                    onSignOut() // Navigation handled by AppNavigation observing signedOut.
                 }) { Text(stringResource(R.string.action_sign_out), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = { showSignOutDialog = false }) { Text(stringResource(R.string.action_cancel)) } },
