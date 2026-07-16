@@ -1,5 +1,7 @@
 package com.pockethub.ui.notifications
 
+import com.pockethub.R
+
 import androidx.compose.ui.res.stringResource
 
 import androidx.compose.foundation.clickable

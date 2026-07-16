@@ -1,5 +1,7 @@
 package com.pockethub.ui.explore
 
+import com.pockethub.R
+
 import androidx.compose.ui.res.stringResource
 
 import androidx.compose.foundation.background
@@ -50,6 +52,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -319,7 +322,7 @@ private fun FeedEventCard(
             }
             ev.createdAt?.let { ts ->
                 Spacer(Modifier.height(6.dp))
-                Text(formatTimeAgo(ts), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(formatTimeAgo(LocalContext.current.resources, ts), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -368,18 +371,17 @@ private fun describeFeedEvent(ev: FeedEvent): Pair<String, String> {
     }
 }
 
-@Composable
-private fun formatTimeAgo(iso: String): String {
+private fun formatTimeAgo(resources: android.content.res.Resources, iso: String): String {
     return try {
         val v = iso.trim().replace("Z", "+00:00")
         val ts = java.time.OffsetDateTime.parse(v).toInstant().toEpochMilli()
         val diff = (System.currentTimeMillis() - ts).coerceAtLeast(0)
         val mins = diff / 60_000
         when {
-            mins < 1L    -> stringResource(R.string.time_ago_just_now)
-            mins < 60L   -> stringResource(R.string.time_ago_minutes, mins)
-            mins < 1440L -> stringResource(R.string.time_ago_hours, mins / 60)
-            else         -> stringResource(R.string.time_ago_days, mins / 1440)
+            mins < 1L    -> resources.getString(R.string.time_ago_just_now)
+            mins < 60L   -> resources.getString(R.string.time_ago_minutes, mins)
+            mins < 1440L -> resources.getString(R.string.time_ago_hours, mins / 60)
+            else         -> resources.getString(R.string.time_ago_days, mins / 1440)
         }
     } catch (_: Exception) { iso.take(10) }
 }

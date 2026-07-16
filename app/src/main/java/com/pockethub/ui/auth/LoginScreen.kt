@@ -1,5 +1,7 @@
 package com.pockethub.ui.auth
 
+import com.pockethub.R
+
 import androidx.compose.ui.res.stringResource
 
 import android.net.Uri
