@@ -27,7 +27,15 @@
     <string name="action_mark_all_read">全部已读</string>
     <string name="action_share">分享</string>
     <string name="action_new_issue">提 issue</string>
+    <string name="action_create_issue">创建 issue</string>
     <string name="action_back">返回</string>
+    <string name="create_issue_title">提 issue</string>
+    <string name="hint_issue_title">标题</string>
+    <string name="hint_issue_body">正文（可选）</string>
+    <string name="fork_dialog_title">Fork 这个仓库？</string>
+    <string name="fork_dialog_message">将 %1$s Fork 到你的账号。</string>
+    <string name="browse_history">浏览历史</string>
+    <string name="history_empty">还没有浏览过仓库</string>
 
     <!-- Bottom nav / tabs -->
     <string name="tab_explore">发现</string>

@@ -168,6 +168,16 @@ interface GitHubApi {
         @Query("direction") direction: String = "desc",
     ): List<Issue>
 
+    /** Create a new issue. */
+    @FormUrlEncoded
+    @POST("repos/{owner}/{repo}/issues")
+    suspend fun createIssue(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Field("title") title: String,
+        @Field("body") body: String? = null,
+    ): Issue
+
     /** Single issue detail. */
     @GET("repos/{owner}/{repo}/issues/{number}")
     suspend fun getIssue(

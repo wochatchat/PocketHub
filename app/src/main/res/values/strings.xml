@@ -27,7 +27,15 @@
     <string name="action_mark_all_read">Mark all read</string>
     <string name="action_share">Share</string>
     <string name="action_new_issue">New issue</string>
+    <string name="action_create_issue">Create issue</string>
     <string name="action_back">Back</string>
+    <string name="create_issue_title">New issue</string>
+    <string name="hint_issue_title">Title</string>
+    <string name="hint_issue_body">Body (optional)</string>
+    <string name="fork_dialog_title">Fork this repository?</string>
+    <string name="fork_dialog_message">Fork %1$s to your account.</string>
+    <string name="browse_history">Browse history</string>
+    <string name="history_empty">No repositories visited yet</string>
 
     <!-- Bottom nav / tabs -->
     <string name="tab_explore">Explore</string>

@@ -7,12 +7,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
@@ -58,6 +60,7 @@ fun HomeScreen(
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToNotifications: () -> Unit,
     onNavigateToProfile: () -> Unit,
+    onNavigateToHistory: () -> Unit,
     activeAvatarUrl: String?,
 ) {
     val items = listOf(
@@ -141,6 +144,11 @@ fun HomeScreen(
                         label = { Text(stringResource(item.labelRes), style = MaterialTheme.typography.labelSmall) },
                     )
                 }
+            }
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = onNavigateToHistory) {
+                Icon(Icons.Outlined.History, contentDescription = stringResource(R.string.browse_history))
             }
         },
     ) { innerPadding ->

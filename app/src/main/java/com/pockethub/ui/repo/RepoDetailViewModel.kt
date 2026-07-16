@@ -22,6 +22,7 @@ enum class RepoTab { OVERVIEW, CODE, ISSUES, PRS, RELEASES, COMMITS, WORKFLOWS }
 class RepoDetailViewModel @Inject constructor(
     private val api: GitHubApi,
     private val cache: CachedRepository,
+    private val history: com.pockethub.data.remote.HistoryRepository,
 ) : ViewModel() {
 
     private val _repo = MutableStateFlow<Repository?>(null)
@@ -69,6 +70,7 @@ class RepoDetailViewModel @Inject constructor(
             _error.update { null }
             try {
                 _repo.update { cache.getRepository(owner, repo) }
+                history.recordVisit(owner, repo)
                 loadReadme(owner, repo)
                 checkStar(owner, repo)
             } catch (e: Exception) {
