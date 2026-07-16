@@ -4,13 +4,17 @@
 /.idea
 .DS_Store
 /build
+/app/build
 /captures
 .externalNativeBuild
 .cxx
 local.properties
-*.apk
 *.aab
-*.keystore
 keystore.properties
-release/
 signing/
+signing.properties.bak
+
+# Keep: release.keystore, signing.properties, apk/*.apk (archived)
+# Do NOT ignore these — they must be committed for CI reproducible builds
+!release.keystore
+!signing.properties

@@ -13,23 +13,43 @@ android {
     namespace = "com.pockethub"
     compileSdk = 34
 
+    // Auto-increment version: read from version.properties (maintained by build script)
+    val versionPropsFile = rootProject.file("version.properties")
+    val (vCode, vName) = if (versionPropsFile.exists()) {
+        val p = Properties().apply { load(versionPropsFile.inputStream()) }
+        (p.getProperty("versionCode") ?: "1").toInt() to (p.getProperty("versionName") ?: "0.1.0")
+    } else { 1 to "0.1.0" }
+
     defaultConfig {
         applicationId = "com.pockethub"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = vCode
+        versionName = vName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
         // Built-in default OAuth client; users can override in Settings
-        // These are placeholders to be filled when creating the OAuth App
         buildConfigField("String", "GITHUB_DEFAULT_CLIENT_ID", "\"\"")
         buildConfigField("String", "GITHUB_DEFAULT_CLIENT_SECRET", "\"\"")
         buildConfigField("String", "GITHUB_OAUTH_REDIRECT_URI", "\"pockethub://oauth/callback\"")
         buildConfigField("String", "GITHUB_API_BASE_URL", "\"https://api.github.com/\"")
         buildConfigField("String", "GITHUB_WEB_BASE_URL", "\"https://github.com/\"")
+    }
+
+    // Read signing config from signing.properties
+    val signingPropsFile = rootProject.file("signing.properties")
+    signingConfigs {
+        if (signingPropsFile.exists()) {
+            val sp = Properties().apply { load(signingPropsFile.inputStream()) }
+            create("release") {
+                storeFile = rootProject.file(sp.getProperty("STORE_FILE"))
+                storePassword = sp.getProperty("STORE_PASSWORD")
+                keyAlias = sp.getProperty("KEY_ALIAS")
+                keyPassword = sp.getProperty("KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -39,8 +59,9 @@ android {
             versionNameSuffix = "-debug"
         }
         release {
-            isMinifyEnabled = true
+            isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 

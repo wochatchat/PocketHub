@@ -1,0 +1,46 @@
+name: Build Release APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build release APK (auto-bump version)
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
+      - name: Commit version bump + archived APK
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add version.properties apk/
+          git commit -m "chore: release v$(grep '^versionName=' version.properties | cut -d= -f2) [skip ci]" || true
+          git push
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pockethub-release
+          path: apk/*.apk
+          retention-days: 30
