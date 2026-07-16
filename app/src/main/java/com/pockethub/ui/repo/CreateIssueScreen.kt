@@ -56,6 +56,7 @@ fun CreateIssueScreen(
     val result by vm.result.collectAsState()
     val actionError by vm.actionError.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val genericError = stringResource(R.string.loading_failed)
 
     LaunchedEffect(actionError) {
         actionError?.let {
@@ -69,7 +70,7 @@ fun CreateIssueScreen(
             vm.clearResult()
             onIssueCreated(issue.number)
         }?.onFailure { e ->
-            snackbarHostState.showSnackbar(e.localizedMessage ?: stringResource(R.string.loading_failed))
+            snackbarHostState.showSnackbar(e.localizedMessage ?: genericError)
             vm.clearResult()
         }
     }
