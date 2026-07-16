@@ -1,5 +1,7 @@
 package com.pockethub.ui.settings
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,11 +21,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Brightness2
-import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Logout
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -38,26 +43,39 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.pockethub.BuildConfig
 import com.pockethub.ui.main.AppStartupViewModel
 import com.pockethub.ui.theme.ThemeMode
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,10 +87,22 @@ fun SettingsScreen(
     val themeMode by vm.themeMode.collectAsState()
     val customClientId by vm.customClientId.collectAsState()
     val customClientSecret by vm.customClientSecret.collectAsState()
+    val notifPollMinutes by vm.notifPollMinutes.collectAsState()
+    val accountCount by vm.accountCount.collectAsState()
+    val cacheSizeBytes by vm.cacheSizeBytes.collectAsState()
     var showThemeSheet by remember { mutableStateOf(false) }
     var showOAuthSheet by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     var showSignOutDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    // Compute cache size once on entry so the user sees current disk usage.
+    LaunchedEffect(Unit) {
+        val bytes = withContext(Dispatchers.IO) { appCacheSize(context.cacheDir) }
+        vm.setCacheSize(bytes)
+    }
 
     Scaffold(
         topBar = {
@@ -81,6 +111,7 @@ fun SettingsScreen(
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back") } },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
             SectionHeader("Appearance")
@@ -91,6 +122,27 @@ fun SettingsScreen(
                     Text(when (themeMode) { ThemeMode.Dark -> "Dark (Linear-inspired)"; ThemeMode.Light -> "Light (Primer-inspired)"; ThemeMode.System -> "Follow system" })
                 },
                 modifier = Modifier.clickable { showThemeSheet = true },
+            )
+            HorizontalDivider()
+
+            SectionHeader("Notifications")
+            ListItem(
+                leadingContent = { Icon(Icons.Outlined.Notifications, contentDescription = null) },
+                headlineContent = { Text("Polling cadence") },
+                supportingContent = { Text(notificationCadenceLabel(notifPollMinutes)) },
+                modifier = Modifier.clickable {
+                    // Cycle through the shared presets Off → 15m → 1h → 1d → Off.
+                    val presets = listOf(0, 15, 60, 1440)
+                    val currentIdx = presets.indexOf(notifPollMinutes).let { if (it == -1) presets.lastIndex else it }
+                    val nextIdx = (currentIdx + 1) % presets.size
+                    vm.setNotifPollMinutes(presets[nextIdx])
+                },
+            )
+            ListItem(
+                leadingContent = { Icon(Icons.Outlined.Brightness2, contentDescription = null) },
+                headlineContent = { Text("System notification settings") },
+                supportingContent = { Text("Open Android settings to manage PocketHub notifications") },
+                modifier = Modifier.clickable { openAppNotificationSettings(context) },
             )
             HorizontalDivider()
 
@@ -112,11 +164,44 @@ fun SettingsScreen(
             )
             HorizontalDivider()
 
+            SectionHeader("Storage")
+            ListItem(
+                leadingContent = { Icon(Icons.Outlined.Storage, contentDescription = null) },
+                headlineContent = { Text("Accounts") },
+                supportingContent = { Text("$accountCount account${if (accountCount == 1) "" else "s"} stored") },
+            )
+            ListItem(
+                leadingContent = { Icon(Icons.Outlined.CleaningServices, contentDescription = null) },
+                headlineContent = { Text("Clear cache") },
+                supportingContent = { Text("Currently ${formatBytes(cacheSizeBytes)}") },
+                modifier = Modifier.clickable {
+                    scope.launch {
+                        val bytes = withContext(Dispatchers.IO) { clearCache(context.cacheDir) }
+                        vm.setCacheSize(bytes)
+                        snackbarHostState.showSnackbar("Cache cleared")
+                    }
+                },
+            )
+            HorizontalDivider()
+
+            SectionHeader("Privacy & Security")
+            ListItem(
+                leadingContent = { Icon(Icons.Outlined.Shield, contentDescription = null) },
+                headlineContent = { Text("Token storage") },
+                supportingContent = { Text("Tokens are stored on-device using encrypted Room. They never leave this device except to call GitHub.") },
+            )
+            ListItem(
+                leadingContent = { Icon(Icons.Outlined.Lock, contentDescription = null) },
+                headlineContent = { Text("Analytics & telemetry") },
+                supportingContent = { Text("PocketHub does not collect any usage analytics.") },
+            )
+            HorizontalDivider()
+
             SectionHeader("About")
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.Info, contentDescription = null) },
                 headlineContent = { Text("About PocketHub") },
-                supportingContent = { Text("Version, open source licenses") },
+                supportingContent = { Text("Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})") },
                 modifier = Modifier.clickable { showAbout = true },
             )
             Spacer(Modifier.height(48.dp))
@@ -251,7 +336,7 @@ private fun ThemeOption(label: String, selected: Boolean, onClick: () -> Unit) {
 private fun AboutContent() {
     Column(Modifier.fillMaxWidth().padding(16.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("PocketHub", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text("Version 0.1.3", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text("A well-crafted open-source GitHub client for Android.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
         Text("Open Source Licenses", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -293,4 +378,49 @@ private fun OpenSourceLicensesList() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+// ── helpers ────────────────────────────────────────────────────────────
+
+private fun notificationCadenceLabel(minutes: Int): String = when (minutes) {
+    0    -> "Manual only"
+    15   -> "Every 15 minutes"
+    60   -> "Every hour"
+    1440 -> "Once a day"
+    else -> "Every ${minutes} minutes"
+}
+
+private fun openAppNotificationSettings(context: android.content.Context) {
+    val intent = Intent().apply {
+        when {
+            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O -> {
+                action = android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS
+                putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+            }
+            else -> {
+                action = android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                data = Uri.fromParts("package", context.packageName, null)
+            }
+        }
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    runCatching { context.startActivity(intent) }
+}
+
+private fun appCacheSize(cacheDir: File): Long {
+    if (!cacheDir.exists()) return 0
+    return cacheDir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+}
+
+/** Best-effort cache clear — must run on a background thread. */
+private suspend fun clearCache(dir: File): Long {
+    if (dir.exists()) dir.walkTopDown().forEach { runCatching { it.delete() } }
+    return 0L
+}
+
+private fun formatBytes(bytes: Long): String = when {
+    bytes >= 1_073_741_824L -> "%.1f GB".format(bytes / 1_073_741_824.0)
+    bytes >= 1_048_576L     -> "%.1f MB".format(bytes / 1_048_576.0)
+    bytes >= 1024L          -> "%.1f KB".format(bytes / 1024.0)
+    else                   -> "$bytes B"
 }

@@ -2,11 +2,14 @@ package com.pockethub.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pockethub.data.local.AccountDao
 import com.pockethub.data.remote.SettingsRepository
 import com.pockethub.ui.theme.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -14,6 +17,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settings: SettingsRepository,
+    private val accountDao: AccountDao,
 ) : ViewModel() {
 
     val themeMode: StateFlow<ThemeMode> = settings.themeMode
@@ -25,11 +29,36 @@ class SettingsViewModel @Inject constructor(
     val customClientSecret: StateFlow<String> = settings.customClientSecret
         .stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
+    val notifPollMinutes: StateFlow<Int> = settings.notifPollMinutes
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
+
+    private val _accountCount = MutableStateFlow(0)
+    val accountCount: StateFlow<Int> = _accountCount
+
+    private val _cacheSizeBytes = MutableStateFlow(0L)
+    val cacheSizeBytes: StateFlow<Long> = _cacheSizeBytes
+
+    init { refreshAccountCount() }
+
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { settings.setThemeMode(mode) }
     }
 
     fun setCustomOAuthClient(id: String, secret: String) {
         viewModelScope.launch { settings.setCustomOAuthClient(id, secret) }
+    }
+
+    fun setNotifPollMinutes(minutes: Int) {
+        viewModelScope.launch { settings.setNotifPollMinutes(minutes) }
+    }
+
+    fun refreshAccountCount() {
+        viewModelScope.launch {
+            _accountCount.value = accountDao.allAccounts().first().size
+        }
+    }
+
+    fun setCacheSize(bytes: Long) {
+        _cacheSizeBytes.value = bytes
     }
 }

@@ -41,6 +41,10 @@ object Routes {
     const val LOGIN = "login"
     const val HOME = "home"
 
+    // Top-level destinations reachable from home's top corners.
+    const val PROFILE = "profile"
+    const val NOTIFICATIONS = "notifications"
+
     // Detail destinations
     const val SEARCH = "search"
     const val SETTINGS = "settings"
@@ -112,10 +116,31 @@ fun PocketHubApp(
                 }
 
                 composable(Routes.HOME) {
+                    val activeAccount by appVm.activeAccount.collectAsState()
                     HomeScreen(
+                        activeAvatarUrl = activeAccount?.avatarUrl,
                         onNavigateToSearch = { navController.navigate(Routes.SEARCH) },
                         onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                         onNavigateToRepo = { owner, repo -> navController.navigate(Routes.repoDetail(owner, repo)) },
+                        onNavigateToNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
+                        onNavigateToProfile = { navController.navigate(Routes.PROFILE) },
+                    )
+                }
+
+                composable(Routes.PROFILE) {
+                    com.pockethub.ui.profile.ProfileScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
+                        onNavigateToRepo = { owner, repo -> navController.navigate(Routes.repoDetail(owner, repo)) },
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+
+                composable(Routes.NOTIFICATIONS) {
+                    com.pockethub.ui.notifications.NotificationsScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        onNavigateToRepo = { owner, repo -> navController.navigate(Routes.repoDetail(owner, repo)) },
+                        onBack = { navController.popBackStack() },
                     )
                 }
 
