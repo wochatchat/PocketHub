@@ -125,7 +125,8 @@ class DownloadManager @Inject constructor(
     private fun runNextIfIdle() {
         if (currentJob?.isActive == true) return
         scope.launch {
-            val queued = dao.activeFlow().first().firstOrNull { it.status == "QUEUED" } ?: return@launch
+            val queued = dao.flowByStates(listOf("QUEUED", "IN_PROGRESS", "FAILED")).first()
+                .firstOrNull { it.status == "QUEUED" } ?: return@launch
             executeDownload(queued)
             runNextIfIdle()
         }

@@ -547,7 +547,7 @@ private fun ReleasesTab(
     repoContext: String,
     onLinkClick: (String) -> Unit,
     onNavigateToUser: (String) -> Unit = {},
-    onDownloadAsset: (GitHubApi.ReleaseAsset) -> Unit = {},
+    onDownloadAsset: (GitHubApi.Release.ReleaseAsset) -> Unit = {},
 ) {
     if (releases.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
