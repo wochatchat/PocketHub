@@ -23,12 +23,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -43,14 +41,16 @@ import androidx.compose.ui.unit.dp
  * paragraphs, autolinks (<> and bare URLs), and GitHub-relative references
  * (#123 issue, @user, owner/repo, bare commit SHA).
  *
- * Links are clickable via [LinkAnnotation.Url] / [LinkAnnotation.Clickable] and
- * handled through [ClickableText]. By default links open in the system browser
- * through [LocalUriHandler]; pass [onLinkClick] to intercept (e.g. for in-app
+ * Links are clickable via [pushStringAnnotation] and handled through
+ * [ClickableText]. By default links open in the system browser through
+ * [LocalUriHandler]; pass [onLinkClick] to intercept (e.g. for in-app
  * navigation). Relative links are resolved against [repoContext] ("owner/repo")
  * before being handed back.
  *
  * Does NOT support: tables, footnotes, math, task lists, raw HTML, images.
  */
+private const val LINK_TAG = "url"
+
 @Composable
 fun MarkdownText(
     markdown: String,
@@ -105,15 +105,10 @@ fun MarkdownText(
                     ClickableText(
                         text = annotated,
                         style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
-                        modifier = Modifier.padding(vertical = 3.dp),
-                        onClick = { offset -> annotated.getLinkAnnotations(offset, offset).firstOrNull()?.let { link ->
-                            val url = when (val item = link.item) {
-                                is LinkAnnotation.Url -> item.url
-                                is LinkAnnotation.Clickable -> item.tag as? String
-                                else -> null
-                            }
-                            url?.let { onTap(it) }
-                        } },
+                        modifier = Modifier.padding(top = 3.dp, bottom = 3.dp),
+                        onClick = { offset ->
+                            annotated.getStringAnnotations(LINK_TAG, offset, offset).firstOrNull()?.let { onTap(it.item) }
+                        },
                     )
                 }
 
@@ -154,14 +149,9 @@ fun MarkdownText(
                                     strokeWidth = 3.dp.toPx(),
                                 )
                             },
-                        onClick = { offset -> annotated.getLinkAnnotations(offset, offset).firstOrNull()?.let { link ->
-                            val url = when (val item = link.item) {
-                                is LinkAnnotation.Url -> item.url
-                                is LinkAnnotation.Clickable -> item.tag as? String
-                                else -> null
-                            }
-                            url?.let { onTap(it) }
-                        } },
+                        onClick = { offset ->
+                            annotated.getStringAnnotations(LINK_TAG, offset, offset).firstOrNull()?.let { onTap(it.item) }
+                        },
                     )
                     Spacer(Modifier.height(4.dp))
                 }
@@ -176,15 +166,10 @@ fun MarkdownText(
                     ClickableText(
                         text = annotated,
                         style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
-                        modifier = Modifier.padding(start = (4 + indent).dp, end = 8.dp, vertical = 2.dp),
-                        onClick = { offset -> annotated.getLinkAnnotations(offset, offset).firstOrNull()?.let { link ->
-                            val url = when (val item = link.item) {
-                                is LinkAnnotation.Url -> item.url
-                                is LinkAnnotation.Clickable -> item.tag as? String
-                                else -> null
-                            }
-                            url?.let { onTap(it) }
-                        } },
+                        modifier = Modifier.padding(start = (4 + indent).dp, end = 8.dp, top = 2.dp, bottom = 2.dp),
+                        onClick = { offset ->
+                            annotated.getStringAnnotations(LINK_TAG, offset, offset).firstOrNull()?.let { onTap(it.item) }
+                        },
                     )
                 }
 
@@ -373,6 +358,14 @@ private fun renderInline(
     codeBackgroundColor: Color,
     linkColor: Color,
 ): AnnotatedString = buildAnnotatedString {
+    val linkStyle = linkStyles.style
+    fun emitLink(displayText: String, url: String) {
+        val start = length
+        pushStringAnnotation(LINK_TAG, url)
+        addStyle(linkStyle, start, start + displayText.length)
+        append(displayText)
+        pop()
+    }
     var i = 0
     while (i < text.length) {
         // Autolink <url>
@@ -381,7 +374,7 @@ private fun renderInline(
             if (close != -1) {
                 val inner = text.substring(i + 1, close)
                 if (inner.startsWith("http://") || inner.startsWith("https://")) {
-                    withLink(LinkAnnotation.Url(inner, linkStyles)) { append(inner) }
+                    emitLink(inner, inner)
                     i = close + 1; continue
                 }
             }
@@ -395,11 +388,7 @@ private fun renderInline(
                     val linkText = text.substring(i + 1, closeBracket)
                     val linkUrl = text.substring(closeBracket + 2, closeParen).trim()
                     val url = resolver(linkUrl)
-                    if (url != null) {
-                        withLink(LinkAnnotation.Url(url, linkStyles)) { append(linkText) }
-                    } else {
-                        append(linkText)
-                    }
+                    if (url != null) emitLink(linkText, url) else append(linkText)
                     i = closeParen + 1; continue
                 }
             }
@@ -410,7 +399,7 @@ private fun renderInline(
             val end = findUrlEnd(text, i)
             if (end > i) {
                 val url = text.substring(i, end)
-                withLink(LinkAnnotation.Url(url, linkStyles)) { append(url) }
+                emitLink(url, url)
                 i = end; continue
             }
         }
@@ -422,7 +411,7 @@ private fun renderInline(
                 val ref = m.value
                 val url = resolver(ref)
                 if (url != null) {
-                    withLink(LinkAnnotation.Url(url, linkStyles)) { append(ref) }
+                    emitLink(ref, url)
                     i += m.range.last + 1; continue
                 }
             }
