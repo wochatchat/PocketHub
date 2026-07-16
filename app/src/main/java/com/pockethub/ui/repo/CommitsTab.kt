@@ -51,6 +51,7 @@ import java.util.Locale
 fun CommitsTab(
     owner: String,
     repo: String,
+    onNavigateToUser: (String) -> Unit = {},
     vm: CommitsViewModel = hiltViewModel(),
 ) {
     val commits by vm.commits.collectAsState()
@@ -96,7 +97,7 @@ fun CommitsTab(
 
             else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
                 items(commits, key = { it.sha }) { commit ->
-                    CommitRow(commit = commit)
+                    CommitRow(commit = commit, onNavigateToUser = onNavigateToUser)
                 }
                 if (isLoading) {
                     item {
@@ -111,8 +112,13 @@ fun CommitsTab(
 }
 
 @Composable
-private fun CommitRow(commit: GitHubApi.Commit) {
+private fun CommitRow(
+    commit: GitHubApi.Commit,
+    onNavigateToUser: (String) -> Unit = {},
+) {
     val dateFmt = remember { DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault()) }
+    val authorLogin = commit.author?.login
+    val authorClick = authorLogin?.let { Modifier.clickable { onNavigateToUser(it) } } ?: Modifier
 
     Column(
         Modifier.fillMaxWidth()
@@ -140,11 +146,12 @@ private fun CommitRow(commit: GitHubApi.Commit) {
                 )
                 Spacer(Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    commit.author?.avatarUrl?.let {
+                    val avatarUrl = commit.author?.avatarUrl
+                    if (avatarUrl != null) {
                         AsyncImage(
-                            model = it,
+                            model = avatarUrl,
                             contentDescription = null,
-                            modifier = Modifier.size(14.dp).clip(CircleShape),
+                            modifier = Modifier.size(14.dp).clip(CircleShape).then(authorClick),
                         )
                         Spacer(Modifier.width(4.dp))
                     }
@@ -152,6 +159,7 @@ private fun CommitRow(commit: GitHubApi.Commit) {
                         commit.author?.login ?: commit.commit?.author?.name ?: stringResource(R.string.unknown),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = authorClick,
                     )
                     Spacer(Modifier.width(8.dp))
                     commit.commit?.author?.date?.let { dateStr ->

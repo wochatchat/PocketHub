@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-enum class RepoTab { OVERVIEW, CODE, ISSUES, PRS, RELEASES, COMMITS }
+enum class RepoTab { OVERVIEW, CODE, ISSUES, PRS, RELEASES, COMMITS, WORKFLOWS }
 
 @HiltViewModel
 class RepoDetailViewModel @Inject constructor(
@@ -39,6 +39,9 @@ class RepoDetailViewModel @Inject constructor(
     private val _releases = MutableStateFlow<List<GitHubApi.Release>>(emptyList())
     val releases: StateFlow<List<GitHubApi.Release>> = _releases
 
+    private val _workflowRuns = MutableStateFlow<List<GitHubApi.WorkflowRun>>(emptyList())
+    val workflowRuns: StateFlow<List<GitHubApi.WorkflowRun>> = _workflowRuns
+
     private val _readme = MutableStateFlow<String?>(null)
     val readme: StateFlow<String?> = _readme
 
@@ -47,6 +50,12 @@ class RepoDetailViewModel @Inject constructor(
 
     private val _isStarred = MutableStateFlow(false)
     val isStarred: StateFlow<Boolean> = _isStarred.asStateFlow()
+
+    private val _isForking = MutableStateFlow(false)
+    val isForking: StateFlow<Boolean> = _isForking.asStateFlow()
+
+    private val _forkMessage = MutableStateFlow<String?>(null)
+    val forkMessage: StateFlow<String?> = _forkMessage.asStateFlow()
 
     var currentTab = MutableStateFlow(RepoTab.OVERVIEW)
     private var loadedOwner: String? = null
@@ -141,6 +150,41 @@ class RepoDetailViewModel @Inject constructor(
                 _error.update { e.localizedMessage ?: "加载 Releases 失败" }
             }
         }
+    }
+
+    fun loadWorkflowRuns(owner: String, repo: String, branch: String? = null) {
+        viewModelScope.launch {
+            try {
+                val resp = api.getWorkflowRuns(owner, repo, branch = branch)
+                _workflowRuns.update { resp.runs }
+            } catch (e: Exception) {
+                _workflowRuns.update { emptyList() }
+                _error.update { e.localizedMessage ?: "加载 Workflows 失败" }
+            }
+        }
+    }
+
+    fun fork(owner: String, repo: String) {
+        viewModelScope.launch {
+            if (_isForking.value) return@launch
+            _isForking.update { true }
+            try {
+                val resp = api.forkRepository(owner, repo)
+                if (resp.isSuccessful) {
+                    _forkMessage.update { "已 fork 到当前账号" }
+                } else {
+                    _forkMessage.update { "Fork 失败: ${resp.code()}" }
+                }
+            } catch (e: Exception) {
+                _forkMessage.update { e.localizedMessage ?: "Fork 失败" }
+            } finally {
+                _isForking.update { false }
+            }
+        }
+    }
+
+    fun clearForkMessage() {
+        _forkMessage.update { null }
     }
 
     fun decodeBase64(b64: String): String {

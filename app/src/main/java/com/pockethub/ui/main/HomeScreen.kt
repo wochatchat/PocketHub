@@ -9,6 +9,7 @@ import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -101,6 +102,9 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.settings))
+                    }
                     BadgedBox(badge = {
                         if (unreadCount > 0) {
                             Badge { Text(if (unreadCount > 99) "99+" else unreadCount.toString()) }
@@ -142,7 +146,11 @@ fun HomeScreen(
     ) { innerPadding ->
         when (selectedTab) {
             0 -> ExploreScreen(modifier = Modifier.padding(innerPadding), onNavigateToRepo = onNavigateToRepo, onNavigateToUser = onNavigateToUser)
-            else -> ReposScreen(modifier = Modifier.padding(innerPadding), onNavigateToRepo = onNavigateToRepo)
+            else -> ReposScreen(
+                modifier = Modifier.padding(innerPadding),
+                onNavigateToRepo = onNavigateToRepo,
+                onNavigateToUser = onNavigateToUser,
+            )
         }
     }
 }

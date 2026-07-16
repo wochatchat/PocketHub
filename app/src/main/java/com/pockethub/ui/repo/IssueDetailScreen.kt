@@ -184,12 +184,25 @@ fun IssueDetailScreen(
 
                 // Author info
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    data.user?.avatarUrl?.let {
-                        AsyncImage(model = it, contentDescription = null, modifier = Modifier.size(18.dp).clip(CircleShape))
+                    val user = data.user
+                    if (user != null) {
+                        AsyncImage(
+                            model = user.avatarUrl,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp).clip(CircleShape)
+                                .clickable { onNavigateToUser(user.login) },
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            user.login,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.clickable { onNavigateToUser(user.login) },
+                        )
                         Spacer(Modifier.width(6.dp))
                     }
                     Text(
-                        stringResource(R.string.issue_subtitle, data.number, data.user?.login ?: stringResource(R.string.unknown), data.comments),
+                        stringResource(R.string.issue_meta, data.number, data.comments),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -256,12 +269,25 @@ fun IssueDetailScreen(
                     comments.forEach { c ->
                         Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                c.user?.avatarUrl?.let {
-                                    AsyncImage(model = it, contentDescription = null, modifier = Modifier.size(18.dp).clip(CircleShape))
+                                val user = c.user
+                                if (user != null) {
+                                    AsyncImage(
+                                        model = user.avatarUrl,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp).clip(CircleShape)
+                                            .clickable { onNavigateToUser(user.login) },
+                                    )
                                     Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        user.login,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.clickable { onNavigateToUser(user.login) },
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                } else {
+                                    Text(c.user?.login ?: stringResource(R.string.unknown), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                                 }
-                                Text(c.user?.login ?: stringResource(R.string.unknown), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                                Spacer(Modifier.width(8.dp))
                                 c.createdAt?.let {
                                     Text(dateFmt.format(parseIso(it)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }

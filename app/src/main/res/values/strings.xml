@@ -93,11 +93,13 @@
     <!-- Repo detail -->
     <string name="cd_star">Star</string>
     <string name="cd_unstar">Unstar</string>
+    <string name="action_fork">Fork</string>
     <string name="tab_overview">Overview</string>
     <string name="tab_code">Code</string>
     <string name="tab_issues">Issues</string>
     <string name="tab_prs">PRs</string>
     <string name="tab_releases">Releases</string>
+    <string name="tab_workflows">Workflows</string>
     <string name="stats_by">by %1$s</string>
     <string name="stat_forks">forks</string>
     <string name="repo_issues_header">%1$d issues</string>
@@ -107,6 +109,8 @@
     <string name="no_open_issues">No open issues</string>
     <string name="no_open_pull_requests">No open pull requests</string>
     <string name="no_releases_yet">No releases yet</string>
+    <string name="no_workflow_runs">No workflow runs</string>
+    <string name="workflow_run_status">#%1$d · %2$s · %3$s</string>
     <string name="pre_release">pre-release</string>
     <string name="released_at">Released %1$s</string>
     <string name="by_author">@%1$s</string>
@@ -117,6 +121,7 @@
     <string name="issue_state_open">Open</string>
     <string name="issue_state_closed">Closed</string>
     <string name="issue_subtitle">#%1$d opened by %2$s · %3$d comments</string>
+    <string name="issue_meta">#%1$d · %2$d comments</string>
     <string name="comments_title">Comments (%1$d)</string>
     <string name="no_comments_yet">No comments yet</string>
     <string name="no_description">_No description provided._</string>

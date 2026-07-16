@@ -4,6 +4,7 @@ import com.pockethub.R
 
 import androidx.compose.ui.res.stringResource
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,8 +27,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Campaign
+import androidx.compose.material.icons.outlined.ForkRight
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.remember
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -76,17 +81,28 @@ fun RepoDetailScreen(
     val issues by vm.issues.collectAsState()
     val pulls by vm.pulls.collectAsState()
     val releases by vm.releases.collectAsState()
+    val workflowRuns by vm.workflowRuns.collectAsState()
     val readme by vm.readme.collectAsState()
     val isLoading by vm.isLoading.collectAsState()
     val isStarred by vm.isStarred.collectAsState()
+    val isForking by vm.isForking.collectAsState()
+    val forkMessage by vm.forkMessage.collectAsState()
     val error by vm.error.collectAsState()
     val tab by vm.currentTab.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(owner, repo) { vm.loadRepo(owner, repo) }
     LaunchedEffect(owner, repo, tab) {
         if (tab == RepoTab.ISSUES) vm.loadIssues(owner, repo, state = "open")
         if (tab == RepoTab.PRS) vm.loadPulls(owner, repo, state = "open")
         if (tab == RepoTab.RELEASES) vm.loadReleases(owner, repo)
+        if (tab == RepoTab.WORKFLOWS) vm.loadWorkflowRuns(owner, repo)
+    }
+    LaunchedEffect(forkMessage) {
+        forkMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            vm.clearForkMessage()
+        }
     }
 
     Scaffold(
@@ -103,6 +119,13 @@ fun RepoDetailScreen(
                 },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back)) } },
                 actions = {
+                    IconButton(onClick = { vm.fork(owner, repo) }, enabled = !isForking) {
+                        Icon(
+                            Icons.Outlined.ForkRight,
+                            contentDescription = stringResource(R.string.action_fork),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     IconButton(onClick = { vm.toggleStar(owner, repo) }) {
                         Icon(
                             if (isStarred) Icons.Outlined.Star else Icons.Outlined.StarBorder,
@@ -113,10 +136,11 @@ fun RepoDetailScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             // Stats row
-            repoData?.let { data -> StatsRow(data) }
+            repoData?.let { data -> StatsRow(data, onNavigateToUser = onNavigateToUser) }
 
             val tabs = RepoTab.entries
             ScrollableTabRow(selectedTabIndex = tabs.indexOf(tab), edgePadding = 0.dp) {
@@ -128,6 +152,7 @@ fun RepoDetailScreen(
                         RepoTab.PRS -> stringResource(R.string.tab_prs)
                         RepoTab.RELEASES -> stringResource(R.string.tab_releases)
                         RepoTab.COMMITS -> stringResource(R.string.tab_commits)
+                        RepoTab.WORKFLOWS -> stringResource(R.string.tab_workflows)
                     }
                     Tab(
                         selected = tab == current,
@@ -158,21 +183,30 @@ fun RepoDetailScreen(
                     onLinkClick = rememberMarkdownLinkHandler(owner, repo, onNavigateToRepo, onNavigateToUser, onNavigateToIssue),
                 )
                 RepoTab.CODE -> CodeTab(owner, repo)
-                RepoTab.ISSUES -> IssuesTab(issues, onClick = onNavigateToIssue)
-                RepoTab.PRS -> PullsTab(pulls, onClick = onNavigateToIssue)
+                RepoTab.ISSUES -> IssuesTab(issues, onClick = onNavigateToIssue, onNavigateToUser = onNavigateToUser)
+                RepoTab.PRS -> PullsTab(pulls, onClick = onNavigateToIssue, onNavigateToUser = onNavigateToUser)
                 RepoTab.RELEASES -> ReleasesTab(
                     releases,
                     repoContext = "$owner/$repo",
                     onLinkClick = rememberMarkdownLinkHandler(owner, repo, onNavigateToRepo, onNavigateToUser, onNavigateToIssue),
+                    onNavigateToUser = onNavigateToUser,
                 )
-                RepoTab.COMMITS -> CommitsTab(owner, repo)
+                RepoTab.COMMITS -> CommitsTab(owner, repo, onNavigateToUser = onNavigateToUser)
+                RepoTab.WORKFLOWS -> WorkflowsTab(
+                    workflowRuns,
+                    onNavigateToUser = onNavigateToUser,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun StatsRow(data: Repository) {
+private fun StatsRow(
+    data: Repository,
+    onNavigateToUser: (String) -> Unit = {},
+) {
+    val userClickModifier = Modifier.clickable { onNavigateToUser(data.owner.login) }
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -180,13 +214,14 @@ private fun StatsRow(data: Repository) {
         AsyncImage(
             model = data.owner.avatarUrl,
             contentDescription = null,
-            modifier = Modifier.size(18.dp).clip(CircleShape),
+            modifier = Modifier.size(18.dp).clip(CircleShape).then(userClickModifier),
         )
         Spacer(Modifier.width(6.dp))
         Text(
             stringResource(R.string.stats_by, data.owner.login),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = userClickModifier,
         )
         Spacer(Modifier.weight(1f))
         StatChip(star = true, count = data.stars)
@@ -286,7 +321,11 @@ private fun OverviewTab(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun IssuesTab(issues: List<Issue>, onClick: (Int) -> Unit) {
+private fun IssuesTab(
+    issues: List<Issue>,
+    onClick: (Int) -> Unit,
+    onNavigateToUser: (String) -> Unit = {},
+) {
     if (issues.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(stringResource(R.string.no_open_issues), color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -315,11 +354,31 @@ private fun IssuesTab(issues: List<Issue>, onClick: (Int) -> Unit) {
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Text(
-                        stringResource(R.string.issue_subtitle, issue.number, issue.user?.login ?: stringResource(R.string.unknown), issue.comments),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val user = issue.user
+                        if (user != null) {
+                            AsyncImage(
+                                model = user.avatarUrl,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp).clip(CircleShape)
+                                    .clickable { onNavigateToUser(user.login) },
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                user.login,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.clickable { onNavigateToUser(user.login) },
+                            )
+                            Spacer(Modifier.width(4.dp))
+                        }
+                        Text(
+                            stringResource(R.string.issue_meta, issue.number, issue.comments),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     if (issue.labels.isNotEmpty()) {
                         Spacer(Modifier.height(4.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -340,7 +399,11 @@ private fun IssuesTab(issues: List<Issue>, onClick: (Int) -> Unit) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PullsTab(pulls: List<Issue>, onClick: (Int) -> Unit) {
+private fun PullsTab(
+    pulls: List<Issue>,
+    onClick: (Int) -> Unit,
+    onNavigateToUser: (String) -> Unit = {},
+) {
     if (pulls.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(stringResource(R.string.no_open_pull_requests), color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -367,11 +430,31 @@ private fun PullsTab(pulls: List<Issue>, onClick: (Int) -> Unit) {
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Text(
-                        stringResource(R.string.issue_subtitle, pr.number, pr.user?.login ?: stringResource(R.string.unknown), pr.comments),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val user = pr.user
+                        if (user != null) {
+                            AsyncImage(
+                                model = user.avatarUrl,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp).clip(CircleShape)
+                                    .clickable { onNavigateToUser(user.login) },
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                user.login,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.clickable { onNavigateToUser(user.login) },
+                            )
+                            Spacer(Modifier.width(4.dp))
+                        }
+                        Text(
+                            stringResource(R.string.issue_meta, pr.number, pr.comments),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
             HorizontalDivider()
@@ -385,6 +468,7 @@ private fun ReleasesTab(
     releases: List<GitHubApi.Release>,
     repoContext: String,
     onLinkClick: (String) -> Unit,
+    onNavigateToUser: (String) -> Unit = {},
 ) {
     if (releases.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -423,16 +507,23 @@ private fun ReleasesTab(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                release.author?.let { author ->
+                if (release.author != null) {
+                    val author = release.author
+                    val authorClick = Modifier.clickable { onNavigateToUser(author.login) }
                     Spacer(Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         AsyncImage(
                             model = author.avatarUrl,
                             contentDescription = null,
-                            modifier = Modifier.size(14.dp).clip(CircleShape),
+                            modifier = Modifier.size(14.dp).clip(CircleShape).then(authorClick),
                         )
                         Spacer(Modifier.width(4.dp))
-                        Text(stringResource(R.string.by_author, author.login), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            stringResource(R.string.by_author, author.login),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = authorClick,
+                        )
                     }
                 }
                 if (!release.body.isNullOrBlank()) {
@@ -452,6 +543,84 @@ private fun ReleasesTab(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                         )
+                    }
+                }
+            }
+            HorizontalDivider()
+        }
+    }
+}
+
+@Composable
+private fun WorkflowsTab(
+    runs: List<GitHubApi.WorkflowRun>,
+    onNavigateToUser: (String) -> Unit = {},
+) {
+    if (runs.isEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(stringResource(R.string.no_workflow_runs), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        return
+    }
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        items(runs, key = { it.id }) { run ->
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                // Status dot
+                val statusColor = when (run.conclusion) {
+                    "success" -> androidx.compose.ui.graphics.Color(0xFF2EA043)
+                    "failure", "cancelled" -> MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.primary
+                }
+                Box(
+                    Modifier.size(8.dp).clip(CircleShape)
+                        .background(statusColor),
+                )
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        run.name.ifBlank { run.event ?: "" },
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            stringResource(R.string.workflow_run_status, run.runNumber, run.headBranch ?: "—", run.status ?: "—"),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(Modifier.height(2.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val actor = run.actor
+                        if (actor != null) {
+                            AsyncImage(
+                                model = actor.avatarUrl,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp).clip(CircleShape)
+                                    .clickable { onNavigateToUser(actor.login) },
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                actor.login,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.clickable { onNavigateToUser(actor.login) },
+                            )
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        run.createdAt?.let {
+                            Text(
+                                formatDate(it),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }

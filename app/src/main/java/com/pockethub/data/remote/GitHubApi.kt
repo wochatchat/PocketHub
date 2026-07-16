@@ -105,6 +105,13 @@ interface GitHubApi {
         @Path("repo") repo: String,
     ): Response<Unit>
 
+    /** Fork a repository — 202 Accepted, repo object returned when complete. */
+    @POST("repos/{owner}/{repo}/forks")
+    suspend fun forkRepository(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+    ): Response<Repository>
+
     // ──────────────────────────────────────────────
     //  File browsing (content API)
     // ──────────────────────────────────────────────
@@ -340,6 +347,43 @@ interface GitHubApi {
         @Query("per_page") perPage: Int = 20,
         @Query("page") page: Int = 1,
     ): List<Release>
+
+    /** GitHub Actions workflow runs for a repo. */
+    @GET("repos/{owner}/{repo}/actions/runs")
+    suspend fun getWorkflowRuns(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Query("per_page") perPage: Int = 30,
+        @Query("page") page: Int = 1,
+        @Query("branch") branch: String? = null,
+    ): WorkflowRunsResponse
+
+    @kotlinx.serialization.Serializable
+    data class WorkflowRunsResponse(
+        @kotlinx.serialization.SerialName("total_count") val totalCount: Int = 0,
+        @kotlinx.serialization.SerialName("workflow_runs") val runs: List<WorkflowRun> = emptyList(),
+    )
+
+    @kotlinx.serialization.Serializable
+    data class WorkflowRun(
+        val id: Long = 0,
+        @kotlinx.serialization.SerialName("node_id") val nodeId: String? = null,
+        val name: String = "",
+        @kotlinx.serialization.SerialName("head_branch") val headBranch: String? = null,
+        @kotlinx.serialization.SerialName("head_sha") val headSha: String? = null,
+        val path: String? = null,
+        @kotlinx.serialization.SerialName("run_number") val runNumber: Int = 0,
+        val event: String? = null,
+        val status: String? = null,
+        val conclusion: String? = null,
+        @kotlinx.serialization.SerialName("workflow_id") val workflowId: Long? = null,
+        val url: String? = null,
+        @kotlinx.serialization.SerialName("html_url") val htmlUrl: String? = null,
+        @kotlinx.serialization.SerialName("created_at") val createdAt: String? = null,
+        @kotlinx.serialization.SerialName("updated_at") val updatedAt: String? = null,
+        @kotlinx.serialization.SerialName("run_started_at") val runStartedAt: String? = null,
+        val actor: User? = null,
+    )
 
     @kotlinx.serialization.Serializable
     data class Release(

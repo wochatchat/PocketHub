@@ -71,6 +71,7 @@ private fun repoFilterLabel(filter: RepoFilter): String = when (filter) {
 fun ReposScreen(
     modifier: Modifier = Modifier,
     onNavigateToRepo: (String, String) -> Unit,
+    onNavigateToUser: (String) -> Unit = {},
     vm: ReposViewModel = hiltViewModel(),
 ) {
     val repos by vm.repos.collectAsState()
@@ -117,7 +118,11 @@ fun ReposScreen(
 
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(repos, key = { it.id }) { repo ->
-                RepoCard(repo = repo, onClick = { onNavigateToRepo(repo.owner.login, repo.name) })
+                RepoCard(
+                    repo = repo,
+                    onClick = { onNavigateToRepo(repo.owner.login, repo.name) },
+                    onNavigateToUser = onNavigateToUser,
+                )
             }
             if (isLoading) {
                 item { Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
@@ -127,16 +132,30 @@ fun ReposScreen(
 }
 
 @Composable
-private fun RepoCard(repo: Repository, onClick: () -> Unit) {
+private fun RepoCard(
+    repo: Repository,
+    onClick: () -> Unit,
+    onNavigateToUser: (String) -> Unit = {},
+) {
     val dateFmt = remember { SimpleDateFormat("MMM d, yyyy", Locale.ENGLISH).apply { timeZone = TimeZone.getDefault() } }
+    val ownerClick = Modifier.clickable { onNavigateToUser(repo.owner.login) }
     Column(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp),
     ) {
         // Repo name
         Row(verticalAlignment = Alignment.CenterVertically) {
-            AsyncImage(model = repo.owner.avatarUrl, contentDescription = null, modifier = Modifier.size(16.dp).clip(CircleShape))
+            AsyncImage(
+                model = repo.owner.avatarUrl,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp).clip(CircleShape).then(ownerClick),
+            )
             Spacer(Modifier.width(6.dp))
-            Text(repo.owner.login, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                repo.owner.login,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = ownerClick,
+            )
             Text(" / ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(repo.name, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
             if (repo.private) {

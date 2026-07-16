@@ -93,11 +93,13 @@
     <!-- Repo detail -->
     <string name="cd_star">标星</string>
     <string name="cd_unstar">取消标星</string>
+    <string name="action_fork">Fork</string>
     <string name="tab_overview">概览</string>
     <string name="tab_code">代码</string>
     <string name="tab_issues">Issues</string>
     <string name="tab_prs">PRs</string>
     <string name="tab_releases">Releases</string>
+    <string name="tab_workflows">工作流</string>
     <string name="stats_by">%1$s</string>
     <string name="stat_forks">forks</string>
     <string name="repo_issues_header">%1$d issues</string>
@@ -107,6 +109,8 @@
     <string name="no_open_issues">没有开放的 issues</string>
     <string name="no_open_pull_requests">没有开放的 pull requests</string>
     <string name="no_releases_yet">还没有 releases</string>
+    <string name="no_workflow_runs">没有工作流运行记录</string>
+    <string name="workflow_run_status">#%1$d · %2$s · %3$s</string>
     <string name="pre_release">预发布</string>
     <string name="released_at">发布于 %1$s</string>
     <string name="by_author">@%1$s</string>
@@ -117,6 +121,7 @@
     <string name="issue_state_open">开放</string>
     <string name="issue_state_closed">已关闭</string>
     <string name="issue_subtitle">#%1$d 由 %2$s 创建于 · %3$d 条评论</string>
+    <string name="issue_meta">#%1$d · %2$d 条评论</string>
     <string name="comments_title">评论 (%1$d)</string>
     <string name="no_comments_yet">暂无评论</string>
     <string name="no_description">_暂无描述_</string>

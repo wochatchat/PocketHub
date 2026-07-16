@@ -123,7 +123,12 @@ fun SearchScreen(
             SearchTab.REPOS -> LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(repos, key = { it.id }) { repo ->
                     Row(Modifier.fillMaxWidth().clickable { onNavigateToRepo(repo.owner.login, repo.name) }.padding(vertical = 8.dp)) {
-                        AsyncImage(model = repo.owner.avatarUrl, contentDescription = null, modifier = Modifier.size(16.dp).clip(CircleShape))
+                        AsyncImage(
+                            model = repo.owner.avatarUrl,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp).clip(CircleShape)
+                                .clickable { onNavigateToUser(repo.owner.login) },
+                        )
                         Spacer(Modifier.width(8.dp))
                         Column {
                             Text("${repo.owner.login}/${repo.name}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
