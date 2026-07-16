@@ -172,11 +172,11 @@ fun ExploreScreen(
                     }
                     Spacer(Modifier.height(4.dp))
                 }
-                repoItems(trending, isLoading, error, { vm.load() }, onNavigateToRepo)
+                repoItems(trending, isLoading, error, { vm.load() }, onNavigateToRepo, onNavigateToUser)
             }
 
             ExploreSection.FEATURED -> {
-                repoItems(featured, isLoading, error, { vm.load() }, onNavigateToRepo)
+                repoItems(featured, isLoading, error, { vm.load() }, onNavigateToRepo, onNavigateToUser)
             }
 
             ExploreSection.FOLLOWING -> {
@@ -249,6 +249,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.repoItems(
     error: String?,
     onRetry: () -> Unit,
     onNavigateToRepo: (String, String) -> Unit,
+    onNavigateToUser: (String) -> Unit = {},
 ) {
     when {
         isLoading && repos.isEmpty() -> item {
