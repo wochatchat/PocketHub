@@ -1,6 +1,5 @@
 package com.pockethub.ui.auth
 
-import android.content.Intent
 import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.animation.AnimatedVisibility
@@ -27,8 +26,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowDropDown
-import androidx.compose.material.icons.automirrored.filled.ArrowDropUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
@@ -165,8 +164,8 @@ fun LoginScreen(
                     Text("Use a Personal Access Token", style = MaterialTheme.typography.labelLarge)
                     Spacer(Modifier.weight(1f))
                     Icon(
-                        if (expandedToken) Icons.AutoMirrored.Filled.ArrowDropUp
-                        else Icons.AutoMirrored.Filled.ArrowDropDown,
+                        if (expandedToken) Icons.Filled.KeyboardArrowUp
+                        else Icons.Filled.KeyboardArrowDown,
                         null,
                         modifier = Modifier.size(20.dp),
                     )
