@@ -1,5 +1,7 @@
 package com.pockethub.ui.settings
 
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockethub.data.local.AccountDao
@@ -11,8 +13,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
@@ -24,6 +28,10 @@ class SettingsViewModel @Inject constructor(
 
     val themeMode: StateFlow<ThemeMode> = settings.themeMode
         .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.Dark)
+
+    val appLocale: StateFlow<AppLocale> = settings.appLocale
+        .map { AppLocale.fromKey(it) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, AppLocale.SYSTEM)
 
     val customClientId: StateFlow<String> = settings.customClientId
         .stateIn(viewModelScope, SharingStarted.Eagerly, "")
@@ -44,6 +52,15 @@ class SettingsViewModel @Inject constructor(
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { settings.setThemeMode(mode) }
+    }
+
+    fun setAppLocale(locale: AppLocale) {
+        viewModelScope.launch {
+            settings.setAppLocale(locale.key)
+            val locales = locale.localeTag?.let { LocaleListCompat.create(Locale(it)) }
+                ?: LocaleListCompat.getEmptyLocaleList()
+            AppCompatDelegate.setApplicationLocales(locales)
+        }
     }
 
     fun setCustomOAuthClient(id: String, secret: String) {

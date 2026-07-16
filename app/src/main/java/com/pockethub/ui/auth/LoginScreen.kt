@@ -1,5 +1,7 @@
 package com.pockethub.ui.auth
 
+import androidx.compose.ui.res.stringResource
+
 import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.layout.Arrangement
@@ -71,10 +73,10 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Logo / Title
-            Text("PocketHub", style = MaterialTheme.typography.displayLarge, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.displayLarge, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             Text(
-                "Sign in to your GitHub account",
+                stringResource(R.string.login_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -84,7 +86,7 @@ fun LoginScreen(
             OutlinedTextField(
                 value = token,
                 onValueChange = { token = it },
-                label = { Text("Personal Access Token") },
+                label = { Text(stringResource(R.string.login_token_hint)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 visualTransformation = if (showToken) VisualTransformation.None else PasswordVisualTransformation(),
@@ -92,14 +94,14 @@ fun LoginScreen(
                     IconButton(onClick = { showToken = !showToken }) {
                         Icon(
                             if (showToken) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                            contentDescription = "Toggle visibility",
+                            contentDescription = stringResource(R.string.cd_toggle_visibility),
                         )
                     }
                 },
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                "A token with repo, read:user, user:email, read:org, read:notifications scopes is required.",
+                stringResource(R.string.login_description_scopes),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -114,7 +116,7 @@ fun LoginScreen(
                 if (ui.isLoading) {
                     CircularProgressIndicator(Modifier.height(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                 } else {
-                    Text("Sign in with Token")
+                    Text(stringResource(R.string.login_with_token))
                 }
             }
 
@@ -131,7 +133,7 @@ fun LoginScreen(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !ui.isLoading,
             ) {
-                Text("Sign in with GitHub")
+                Text(stringResource(R.string.login_with_oauth))
             }
 
             // Error message
@@ -148,7 +150,7 @@ fun LoginScreen(
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
                         Spacer(Modifier.height(4.dp))
-                        TextButton(onClick = { vm.clearError() }) { Text("Dismiss") }
+                        TextButton(onClick = { vm.clearError() }) { Text(stringResource(R.string.action_dismiss)) }
                     }
                 }
             }

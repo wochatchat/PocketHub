@@ -85,7 +85,7 @@ fun HomeScreen(
                                 contentAlignment = androidx.compose.ui.Alignment.Center,
                             ) {
                                 Text(
-                                    "ME",
+                                    stringResource(R.string.profile_avatar_fallback),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )

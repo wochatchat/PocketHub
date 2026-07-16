@@ -19,6 +19,7 @@ coil = "2.7.0"
 work = "2.9.1"
 coroutines = "1.9.0"
 browser = "1.8.0"
+appcompat = "1.7.0"
 
 [libraries]
 # AndroidX core
@@ -47,6 +48,9 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 
 # DataStore
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+
+# AppCompat (per-app language switching)
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 
 # Browser (OAuth custom tab)
 androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }

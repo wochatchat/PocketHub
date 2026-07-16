@@ -1,5 +1,7 @@
 package com.pockethub.ui.repos
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -54,6 +56,16 @@ private val FILTERS = listOf(
 )
 
 @Composable
+private fun repoFilterLabel(filter: RepoFilter): String = when (filter) {
+    RepoFilter.ALL    -> stringResource(R.string.repo_filter_all)
+    RepoFilter.OWNER  -> stringResource(R.string.repo_filter_owner)
+    RepoFilter.MEMBER -> stringResource(R.string.repo_filter_member)
+    RepoFilter.PUBLIC -> stringResource(R.string.repo_filter_public)
+    RepoFilter.PRIVATE -> stringResource(R.string.repo_filter_private)
+    RepoFilter.FORKS  -> stringResource(R.string.repo_filter_forks)
+}
+
+@Composable
 fun ReposScreen(
     modifier: Modifier = Modifier,
     onNavigateToRepo: (String, String) -> Unit,
@@ -80,9 +92,9 @@ fun ReposScreen(
         // Tab selector
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
             SegmentedButton(selected = tab == RepoTab.MINE, onClick = { vm.switchTab(RepoTab.MINE) },
-                shape = SegmentedButtonDefaults.itemShape(0, 2), label = { Text("My Repos") })
+                shape = SegmentedButtonDefaults.itemShape(0, 2), label = { Text(stringResource(R.string.tab_my_repos)) })
             SegmentedButton(selected = tab == RepoTab.STARRED, onClick = { vm.switchTab(RepoTab.STARRED) },
-                shape = SegmentedButtonDefaults.itemShape(1, 2), label = { Text("Starred") })
+                shape = SegmentedButtonDefaults.itemShape(1, 2), label = { Text(stringResource(R.string.tab_starred)) })
         }
 
         // Filter chips
@@ -91,7 +103,7 @@ fun ReposScreen(
                 FilterChip(
                     selected = filter == FILTERS[idx],
                     onClick = { vm.setFilter(FILTERS[idx]) },
-                    label = { Text(FILTERS[idx].name.lowercase().replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelSmall) },
+                    label = { Text(repoFilterLabel(FILTERS[idx]), style = MaterialTheme.typography.labelSmall) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                     ),
@@ -127,7 +139,7 @@ private fun RepoCard(repo: Repository, onClick: () -> Unit) {
             Text(repo.name, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
             if (repo.private) {
                 Spacer(Modifier.width(6.dp))
-                Text("Private", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.repo_private), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -148,11 +160,11 @@ private fun RepoCard(repo: Repository, onClick: () -> Unit) {
             Icon(Icons.Outlined.Star, null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(" ${repo.stars}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.width(10.dp))
-            Text("Forks: ${repo.forks}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.repo_forks, repo.forks), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.width(10.dp))
-            Text("Issues: ${repo.openIssues}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.repo_issues, repo.openIssues), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.width(10.dp))
-            repo.pushedAt?.let { Text("Updated ${it.take(10)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            repo.pushedAt?.let { Text(stringResource(R.string.repo_updated, it.take(10)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }

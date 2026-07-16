@@ -1,5 +1,7 @@
 package com.pockethub.ui.profile
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -74,10 +76,10 @@ fun ProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Me", fontWeight = FontWeight.SemiBold) },
+                title = { Text(stringResource(R.string.title_profile), fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
             )
@@ -101,7 +103,7 @@ fun ProfileScreen(
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp)) {
                     Icon(Icons.Outlined.Folder, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(8.dp))
-                    Text("Top repositories", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.top_repositories), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 }
             }
 
@@ -114,7 +116,7 @@ fun ProfileScreen(
             } else if (topRepos.isEmpty()) {
                 item {
                     Text(
-                        "Nothing yet — repositories will appear here once they're loaded.",
+                        stringResource(R.string.profile_no_repos_yet),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 16.dp),
@@ -133,7 +135,7 @@ fun ProfileScreen(
             if (allAccounts.size > 1) {
                 item {
                     Text(
-                        "Accounts",
+                        stringResource(R.string.accounts),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(start = 16.dp, top = 8.dp),
@@ -163,7 +165,7 @@ fun ProfileScreen(
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(16.dp)) {
                         Icon(Icons.Outlined.Settings, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(12.dp))
-                        Text("Settings", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                        Text(stringResource(R.string.settings), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
                         Spacer(Modifier.weight(1f))
                         Text("›", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -222,10 +224,10 @@ private fun StatsRow(user: User?, starredTotal: Int) {
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
-        StatPill("Followers", user?.followers ?: 0)
-        StatPill("Following", user?.following ?: 0)
-        StatPill("Repos", user?.publicRepos ?: 0)
-        StatPill("Starred", starredTotal)
+        StatPill(stringResource(R.string.followers), user?.followers ?: 0)
+        StatPill(stringResource(R.string.following), user?.following ?: 0)
+        StatPill(stringResource(R.string.repos), user?.publicRepos ?: 0)
+        StatPill(stringResource(R.string.starred), starredTotal)
     }
 }
 
@@ -240,10 +242,10 @@ private fun StatPill(label: String, count: Int) {
 @Composable
 private fun AdditionalInfo(user: User?) {
     val rows: List<Triple<androidx.compose.ui.graphics.vector.ImageVector, String, String>> = buildList {
-        user?.company?.takeIf { it.isNotBlank() }?.let { add(Triple(Icons.Outlined.Apartment, "Company", it)) }
-        user?.location?.takeIf { it.isNotBlank() }?.let { add(Triple(Icons.Outlined.LocationOn, "Location", it)) }
-        user?.blog?.takeIf { it.isNotBlank() }?.let { add(Triple(Icons.Outlined.Public, "Website", it)) }
-        user?.email?.takeIf { it.isNotBlank() }?.let { add(Triple(Icons.Outlined.Email, "Email", it)) }
+        user?.company?.takeIf { it.isNotBlank() }?.let { add(Triple(Icons.Outlined.Apartment, stringResource(R.string.company), it)) }
+        user?.location?.takeIf { it.isNotBlank() }?.let { add(Triple(Icons.Outlined.LocationOn, stringResource(R.string.location), it)) }
+        user?.blog?.takeIf { it.isNotBlank() }?.let { add(Triple(Icons.Outlined.Public, stringResource(R.string.website), it)) }
+        user?.email?.takeIf { it.isNotBlank() }?.let { add(Triple(Icons.Outlined.Email, stringResource(R.string.email), it)) }
     }
     if (rows.isEmpty()) return
     Card(
@@ -331,12 +333,12 @@ private fun AccountRow(
         if (isActive) {
             AssistChip(
                 onClick = {},
-                label = { Text("Active") },
+                label = { Text(stringResource(R.string.active)) },
                 colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
             )
         } else {
-            IconButton(onClick = onSwitch) { Icon(Icons.Outlined.SwapHoriz, contentDescription = "Switch") }
+            IconButton(onClick = onSwitch) { Icon(Icons.Outlined.SwapHoriz, contentDescription = stringResource(R.string.action_switch)) }
         }
-        IconButton(onClick = onRemove) { Icon(Icons.Outlined.Delete, contentDescription = "Remove") }
+        IconButton(onClick = onRemove) { Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.action_remove)) }
     }
 }

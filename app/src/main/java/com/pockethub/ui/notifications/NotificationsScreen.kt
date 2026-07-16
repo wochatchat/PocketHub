@@ -1,5 +1,7 @@
 package com.pockethub.ui.notifications
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -62,10 +64,10 @@ fun NotificationsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Notifications", fontWeight = FontWeight.SemiBold) },
+                title = { Text(stringResource(R.string.tab_notifications), fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
             )
@@ -76,13 +78,13 @@ fun NotificationsScreen(
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 SingleChoiceSegmentedButtonRow(Modifier.weight(1f)) {
                     SegmentedButton(selected = tab == NotifTab.UNREAD, onClick = { vm.switchTab(NotifTab.UNREAD) },
-                        shape = SegmentedButtonDefaults.itemShape(0, 2), label = { Text("Unread") })
+                        shape = SegmentedButtonDefaults.itemShape(0, 2), label = { Text(stringResource(R.string.tab_unread)) })
                     SegmentedButton(selected = tab == NotifTab.READ, onClick = { vm.switchTab(NotifTab.READ) },
-                        shape = SegmentedButtonDefaults.itemShape(1, 2), label = { Text("Read") })
+                        shape = SegmentedButtonDefaults.itemShape(1, 2), label = { Text(stringResource(R.string.tab_read)) })
                 }
                 Spacer(Modifier.width(8.dp))
                 TextButton(onClick = { vm.markAllRead() }, enabled = tab == NotifTab.UNREAD && notifications.isNotEmpty()) {
-                    Text("Mark all read")
+                    Text(stringResource(R.string.action_mark_all_read))
                 }
             }
 
@@ -93,7 +95,7 @@ fun NotificationsScreen(
 
             if (notifications.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No notifications", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.no_notifications), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 return@Column
             }
@@ -160,7 +162,7 @@ private fun NotificationItem(
 
         // Mark read
         if (notif.unread) {
-            IconButton(onClick = onMarkRead) { Icon(Icons.Outlined.Done, contentDescription = "Mark read", modifier = Modifier.size(18.dp)) }
+            IconButton(onClick = onMarkRead) { Icon(Icons.Outlined.Done, contentDescription = stringResource(R.string.cd_mark_read), modifier = Modifier.size(18.dp)) }
         }
     }
 }

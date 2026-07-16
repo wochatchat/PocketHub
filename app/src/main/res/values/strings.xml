@@ -1,24 +1,213 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">PocketHub</string>
+
+    <!-- Login -->
     <string name="login_welcome">Welcome to PocketHub</string>
-    <string name="login_subtitle">Sign in to your GitHub account to get started.</string>
+    <string name="login_subtitle">Sign in to your GitHub account</string>
     <string name="login_with_token">Sign in with Token</string>
     <string name="login_with_oauth">Sign in with GitHub</string>
     <string name="login_token_hint">Personal Access Token</string>
     <string name="login_oauth_hint">Client ID (optional)</string>
+    <string name="login_description_scopes">A token with repo, read:user, user:email, read:org, read:notifications scopes is required.</string>
+
+    <!-- Common actions -->
     <string name="action_search">Search</string>
     <string name="action_sign_in">Sign in</string>
     <string name="action_sign_out">Sign out</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_dismiss">Dismiss</string>
+    <string name="action_switch">Switch</string>
+    <string name="action_remove">Remove</string>
+    <string name="action_save">Save</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_show">Show</string>
+    <string name="action_hide">Hide</string>
+    <string name="action_mark_all_read">Mark all read</string>
+    <string name="action_back">Back</string>
+
+    <!-- Bottom nav / tabs -->
     <string name="tab_explore">Explore</string>
     <string name="tab_repos">Repos</string>
     <string name="tab_notifications">Notifications</string>
     <string name="tab_profile">Me</string>
+    <string name="profile_avatar_fallback">ME</string>
+
+    <!-- Explore -->
+    <string name="section_trending">Trending</string>
+    <string name="section_featured">Featured</string>
+    <string name="section_following">Following</string>
+    <string name="trending_language_all">All</string>
+    <string name="time_range_daily">Daily</string>
+    <string name="time_range_weekly">Weekly</string>
+    <string name="time_range_monthly">Monthly</string>
+    <string name="error_couldnt_load">Couldn\'t load</string>
+    <string name="following_feed_unavailable_title">Following feed unavailable</string>
+    <string name="following_feed_unavailable_subtitle">Sign in to see what the people you follow are up to.</string>
+    <string name="feed_empty_title">Your feed is quiet</string>
+    <string name="feed_empty_subtitle">Activity from people you follow will appear here.</string>
+    <string name="no_repositories_found">No repositories found</string>
+    <string name="no_repositories_subtitle">Try a different language or time window.</string>
+    <string name="feed_someone">someone</string>
+
+    <!-- Feed event verbs -->
+    <string name="feed_push_verb">pushed %1$d commits</string>
+    <string name="feed_starred_verb">starred</string>
+    <string name="feed_forked_verb">forked</string>
+    <string name="feed_forked_as">as %1$s</string>
+    <string name="feed_created_repository">created repository</string>
+    <string name="feed_created_branch">created branch %1$s</string>
+    <string name="feed_created_tag">created tag %1$s</string>
+    <string name="feed_created_default">created a %1$s</string>
+    <string name="feed_deleted_repository">deleted repository</string>
+    <string name="feed_deleted_branch">deleted branch %1$s</string>
+    <string name="feed_deleted_tag">deleted tag %1$s</string>
+    <string name="feed_deleted_default">deleted %1$s</string>
+    <string name="feed_public">made public</string>
+    <string name="feed_released">released</string>
+    <string name="feed_unknown">%1$s</string>
+
+    <!-- Notifications -->
+    <string name="tab_unread">Unread</string>
+    <string name="tab_read">Read</string>
+    <string name="no_notifications">No notifications</string>
+    <string name="cd_mark_read">Mark read</string>
+    <string name="cd_toggle_visibility">Toggle visibility</string>
+
+    <!-- Profile -->
+    <string name="title_profile">Me</string>
+    <string name="top_repositories">Top repositories</string>
+    <string name="profile_no_repos_yet">Nothing yet — repositories will appear here once they\'re loaded.</string>
+    <string name="accounts">Accounts</string>
+    <string name="active">Active</string>
+    <string name="followers">Followers</string>
+    <string name="following">Following</string>
+    <string name="repos">Repos</string>
+    <string name="starred">Starred</string>
+    <string name="company">Company</string>
+    <string name="location">Location</string>
+    <string name="website">Website</string>
+    <string name="email">Email</string>
+
+    <!-- Repo detail -->
+    <string name="cd_star">Star</string>
+    <string name="cd_unstar">Unstar</string>
+    <string name="tab_overview">Overview</string>
+    <string name="tab_code">Code</string>
+    <string name="tab_issues">Issues</string>
+    <string name="tab_prs">PRs</string>
+    <string name="tab_releases">Releases</string>
+    <string name="stats_by">by %1$s</string>
+    <string name="stat_forks">forks</string>
+    <string name="repo_issues_header">%1$d issues</string>
+    <string name="readme_title">README</string>
+    <string name="readme_loading">Loading README…</string>
+    <string name="readme_unavailable">No README available for %1$s.</string>
+    <string name="no_open_issues">No open issues</string>
+    <string name="no_open_pull_requests">No open pull requests</string>
+    <string name="no_releases_yet">No releases yet</string>
+    <string name="pre_release">pre-release</string>
+    <string name="released_at">Released %1$s</string>
+    <string name="by_author">@%1$s</string>
+    <string name="asset_download">⬇ %1$s (%2$s, %3$d downloads)</string>
+
+    <!-- Issue detail -->
+    <string name="loading_failed">Failed to load</string>
+    <string name="issue_state_open">Open</string>
+    <string name="issue_state_closed">Closed</string>
+    <string name="issue_subtitle">#%1$d opened by %2$s · %3$d comments</string>
+    <string name="comments_title">Comments (%1$d)</string>
+    <string name="no_comments_yet">No comments yet</string>
+    <string name="no_description">_No description provided._</string>
+    <string name="no_content">_No content_</string>
+    <string name="unknown">unknown</string>
+
+    <!-- Code browser -->
+    <string name="cd_up">Up</string>
+    <string name="cd_back_to_directory">Back to directory</string>
+    <string name="error_load_files">Couldn\'t load files</string>
+    <string name="directory_empty">This directory is empty</string>
+    <string name="binary_preview_unavailable">Binary file preview not available</string>
+    <string name="breadcrumb_root">root</string>
+
+    <!-- My repos -->
+    <string name="tab_my_repos">My Repos</string>
+    <string name="repo_private">Private</string>
+    <string name="repo_forks">Forks: %1$d</string>
+    <string name="repo_issues">Issues: %1$d</string>
+    <string name="repo_updated">Updated %1$s</string>
+
+    <!-- Repo filter chips -->
+    <string name="repo_filter_all">All</string>
+    <string name="repo_filter_owner">Owner</string>
+    <string name="repo_filter_member">Member</string>
+    <string name="repo_filter_public">Public</string>
+    <string name="repo_filter_private">Private</string>
+    <string name="repo_filter_forks">Forks</string>
+
+    <!-- Search -->
+    <string name="search_placeholder">Search GitHub…</string>
+    <string name="search_tab_repos">Repos</string>
+    <string name="search_tab_users">Users</string>
+    <string name="search_tab_code">Code</string>
+
+    <!-- Settings -->
     <string name="settings">Settings</string>
+    <string name="section_appearance">Appearance</string>
+    <string name="section_language">Language</string>
+    <string name="language">Language</string>
+    <string name="locale_system">Follow system</string>
+    <string name="locale_english">English</string>
+    <string name="locale_chinese">中文（简体）</string>
     <string name="theme">Theme</string>
     <string name="theme_dark">Dark (Linear-inspired)</string>
     <string name="theme_light">Light (Primer-inspired)</string>
     <string name="theme_system">Follow system</string>
-    <string name="about">About</string>
+    <string name="section_notifications">Notifications</string>
+    <string name="polling_cadence">Polling cadence</string>
+    <string name="system_notification_settings">System notification settings</string>
+    <string name="system_notification_settings_summary">Open Android settings to manage PocketHub notifications</string>
+    <string name="section_account">Account</string>
+    <string name="sign_out_summary">Sign out of the current account and return to login</string>
+    <string name="section_authentication">Authentication</string>
+    <string name="custom_oauth_client">Custom OAuth Client</string>
+    <string name="custom_oauth_client_not_configured">Not configured (using PAT-only)</string>
+    <string name="custom_oauth_client_configured">Client ID %1$s…</string>
+    <string name="section_storage">Storage</string>
+    <string name="clear_cache">Clear cache</string>
+    <string name="clear_cache_summary">Currently %1$s</string>
+    <string name="accounts_summary">%1$d account(s) stored</string>
+    <string name="section_privacy_security">Privacy &amp; Security</string>
+    <string name="section_about">About</string>
+    <string name="token_storage">Token storage</string>
+    <string name="token_storage_summary">Tokens are stored on-device using encrypted Room. They never leave this device except to call GitHub.</string>
+    <string name="analytics_telemetry">Analytics &amp; telemetry</string>
+    <string name="analytics_telemetry_summary">PocketHub does not collect any usage analytics.</string>
+    <string name="about_pockethub">About PocketHub</string>
+    <string name="about_description">A well-crafted open-source GitHub client for Android.</string>
     <string name="open_source_licenses">Open Source Licenses</string>
+    <string name="sign_out_dialog_title">Sign out</string>
+    <string name="sign_out_dialog_message">Sign out of the current account? You\'ll need to log in again to access PocketHub.</string>
+    <string name="custom_oauth_client_title">Custom OAuth Client</string>
+    <string name="custom_oauth_client_summary">Configure your own OAuth App if you don\'t want to use PAT login.</string>
+    <string name="client_id">Client ID</string>
+    <string name="client_secret">Client Secret</string>
+    <string name="cache_cleared">Cache cleared</string>
+    <string name="version_template">Version %1$s (%2$d)</string>
+    <string name="by_author_license">by %1$s · %2$s</string>
+    <string name="pockethub_license">PocketHub itself is licensed under the Apache License 2.0.</string>
+
+    <!-- Notification cadence -->
+    <string name="notification_cadence_manual">Manual only</string>
+    <string name="notification_cadence_15m">Every 15 minutes</string>
+    <string name="notification_cadence_1h">Every hour</string>
+    <string name="notification_cadence_1d">Once a day</string>
+    <string name="notification_cadence_min">Every %1$d minutes</string>
+
+    <!-- Time ago -->
+    <string name="time_ago_just_now">just now</string>
+    <string name="time_ago_minutes">%1$dm ago</string>
+    <string name="time_ago_hours">%1$dh ago</string>
+    <string name="time_ago_days">%1$dd ago</string>
 </resources>

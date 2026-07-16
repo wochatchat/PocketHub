@@ -1,5 +1,7 @@
 package com.pockethub.ui.settings
 
+import androidx.compose.ui.res.stringResource
+
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.clickable
@@ -29,6 +31,7 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -85,12 +88,14 @@ fun SettingsScreen(
     appVm: AppStartupViewModel = hiltViewModel(),
 ) {
     val themeMode by vm.themeMode.collectAsState()
+    val appLocale by vm.appLocale.collectAsState()
     val customClientId by vm.customClientId.collectAsState()
     val customClientSecret by vm.customClientSecret.collectAsState()
     val notifPollMinutes by vm.notifPollMinutes.collectAsState()
     val accountCount by vm.accountCount.collectAsState()
     val cacheSizeBytes by vm.cacheSizeBytes.collectAsState()
     var showThemeSheet by remember { mutableStateOf(false) }
+    var showLanguageSheet by remember { mutableStateOf(false) }
     var showOAuthSheet by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     var showSignOutDialog by remember { mutableStateOf(false) }
@@ -107,28 +112,37 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings", fontWeight = FontWeight.SemiBold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back") } },
+                title = { Text(stringResource(R.string.settings), fontWeight = FontWeight.SemiBold) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back)) } },
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
-            SectionHeader("Appearance")
+            SectionHeader(stringResource(R.string.section_appearance))
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.Palette, contentDescription = null) },
-                headlineContent = { Text("Theme") },
+                headlineContent = { Text(stringResource(R.string.theme)) },
                 supportingContent = {
-                    Text(when (themeMode) { ThemeMode.Dark -> "Dark (Linear-inspired)"; ThemeMode.Light -> "Light (Primer-inspired)"; ThemeMode.System -> "Follow system" })
+                    Text(when (themeMode) { ThemeMode.Dark -> stringResource(R.string.theme_dark); ThemeMode.Light -> stringResource(R.string.theme_light); ThemeMode.System -> stringResource(R.string.theme_system) })
                 },
                 modifier = Modifier.clickable { showThemeSheet = true },
             )
             HorizontalDivider()
 
-            SectionHeader("Notifications")
+            SectionHeader(stringResource(R.string.section_language))
+            ListItem(
+                leadingContent = { Icon(Icons.Outlined.Translate, contentDescription = null) },
+                headlineContent = { Text(stringResource(R.string.language)) },
+                supportingContent = { Text(localeLabel(appLocale)) },
+                modifier = Modifier.clickable { showLanguageSheet = true },
+            )
+            HorizontalDivider()
+
+            SectionHeader(stringResource(R.string.section_notifications))
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.Notifications, contentDescription = null) },
-                headlineContent = { Text("Polling cadence") },
+                headlineContent = { Text(stringResource(R.string.polling_cadence)) },
                 supportingContent = { Text(notificationCadenceLabel(notifPollMinutes)) },
                 modifier = Modifier.clickable {
                     // Cycle through the shared presets Off → 15m → 1h → 1d → Off.
@@ -140,68 +154,68 @@ fun SettingsScreen(
             )
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.Brightness2, contentDescription = null) },
-                headlineContent = { Text("System notification settings") },
-                supportingContent = { Text("Open Android settings to manage PocketHub notifications") },
+                headlineContent = { Text(stringResource(R.string.system_notification_settings)) },
+                supportingContent = { Text(stringResource(R.string.system_notification_settings_summary)) },
                 modifier = Modifier.clickable { openAppNotificationSettings(context) },
             )
             HorizontalDivider()
 
-            SectionHeader("Account")
+            SectionHeader(stringResource(R.string.section_account))
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.Logout, contentDescription = null) },
-                headlineContent = { Text("Sign out") },
-                supportingContent = { Text("Sign out of the current account and return to login") },
+                headlineContent = { Text(stringResource(R.string.action_sign_out)) },
+                supportingContent = { Text(stringResource(R.string.sign_out_summary)) },
                 modifier = Modifier.clickable { showSignOutDialog = true },
             )
             HorizontalDivider()
 
-            SectionHeader("Authentication")
+            SectionHeader(stringResource(R.string.section_authentication))
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.VpnKey, contentDescription = null) },
-                headlineContent = { Text("Custom OAuth Client") },
-                supportingContent = { Text(if (customClientId.isBlank()) "Not configured (using PAT-only)" else "Client ID ${customClientId.take(8)}…") },
+                headlineContent = { Text(stringResource(R.string.custom_oauth_client)) },
+                supportingContent = { Text(if (customClientId.isBlank()) stringResource(R.string.custom_oauth_client_not_configured) else stringResource(R.string.custom_oauth_client_configured, customClientId.take(8))) },
                 modifier = Modifier.clickable { showOAuthSheet = true },
             )
             HorizontalDivider()
 
-            SectionHeader("Storage")
+            SectionHeader(stringResource(R.string.section_storage))
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.Storage, contentDescription = null) },
-                headlineContent = { Text("Accounts") },
-                supportingContent = { Text("$accountCount account${if (accountCount == 1) "" else "s"} stored") },
+                headlineContent = { Text(stringResource(R.string.accounts)) },
+                supportingContent = { Text(stringResource(R.string.accounts_summary, accountCount)) },
             )
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.CleaningServices, contentDescription = null) },
-                headlineContent = { Text("Clear cache") },
-                supportingContent = { Text("Currently ${formatBytes(cacheSizeBytes)}") },
+                headlineContent = { Text(stringResource(R.string.clear_cache)) },
+                supportingContent = { Text(stringResource(R.string.clear_cache_summary, formatBytes(cacheSizeBytes))) },
                 modifier = Modifier.clickable {
                     scope.launch {
                         val bytes = withContext(Dispatchers.IO) { clearCache(context.cacheDir) }
                         vm.setCacheSize(bytes)
-                        snackbarHostState.showSnackbar("Cache cleared")
+                        snackbarHostState.showSnackbar(context.getString(R.string.cache_cleared))
                     }
                 },
             )
             HorizontalDivider()
 
-            SectionHeader("Privacy & Security")
+            SectionHeader(stringResource(R.string.section_privacy_security))
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.Shield, contentDescription = null) },
-                headlineContent = { Text("Token storage") },
-                supportingContent = { Text("Tokens are stored on-device using encrypted Room. They never leave this device except to call GitHub.") },
+                headlineContent = { Text(stringResource(R.string.token_storage)) },
+                supportingContent = { Text(stringResource(R.string.token_storage_summary)) },
             )
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.Lock, contentDescription = null) },
-                headlineContent = { Text("Analytics & telemetry") },
-                supportingContent = { Text("PocketHub does not collect any usage analytics.") },
+                headlineContent = { Text(stringResource(R.string.analytics_telemetry)) },
+                supportingContent = { Text(stringResource(R.string.analytics_telemetry_summary)) },
             )
             HorizontalDivider()
 
-            SectionHeader("About")
+            SectionHeader(stringResource(R.string.section_about))
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.Info, contentDescription = null) },
-                headlineContent = { Text("About PocketHub") },
-                supportingContent = { Text("Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})") },
+                headlineContent = { Text(stringResource(R.string.about_pockethub)) },
+                supportingContent = { Text(stringResource(R.string.version_template, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)) },
                 modifier = Modifier.clickable { showAbout = true },
             )
             Spacer(Modifier.height(48.dp))
@@ -211,10 +225,25 @@ fun SettingsScreen(
     if (showThemeSheet) {
         ModalBottomSheet(onDismissRequest = { showThemeSheet = false }, sheetState = rememberModalBottomSheetState()) {
             Column(Modifier.padding(bottom = 24.dp)) {
-                Text("Theme", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(16.dp))
-                ThemeOption("Dark (Linear-inspired)", themeMode == ThemeMode.Dark) { vm.setThemeMode(ThemeMode.Dark); showThemeSheet = false }
-                ThemeOption("Light (Primer-inspired)", themeMode == ThemeMode.Light) { vm.setThemeMode(ThemeMode.Light); showThemeSheet = false }
-                ThemeOption("Follow system", themeMode == ThemeMode.System) { vm.setThemeMode(ThemeMode.System); showThemeSheet = false }
+                Text(stringResource(R.string.theme), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(16.dp))
+                ThemeOption(stringResource(R.string.theme_dark), themeMode == ThemeMode.Dark) { vm.setThemeMode(ThemeMode.Dark); showThemeSheet = false }
+                ThemeOption(stringResource(R.string.theme_light), themeMode == ThemeMode.Light) { vm.setThemeMode(ThemeMode.Light); showThemeSheet = false }
+                ThemeOption(stringResource(R.string.theme_system), themeMode == ThemeMode.System) { vm.setThemeMode(ThemeMode.System); showThemeSheet = false }
+            }
+        }
+    }
+
+    if (showLanguageSheet) {
+        ModalBottomSheet(onDismissRequest = { showLanguageSheet = false }, sheetState = rememberModalBottomSheetState()) {
+            Column(Modifier.padding(bottom = 24.dp)) {
+                Text(stringResource(R.string.language), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(16.dp))
+                AppLocale.entries.forEach { locale ->
+                    LanguageOption(
+                        label = localeLabel(locale),
+                        selected = appLocale == locale,
+                        onClick = { vm.setAppLocale(locale); showLanguageSheet = false },
+                    )
+                }
             }
         }
     }
@@ -237,15 +266,15 @@ fun SettingsScreen(
     if (showSignOutDialog) {
         AlertDialog(
             onDismissRequest = { showSignOutDialog = false },
-            title = { Text("Sign out") },
-            text = { Text("Sign out of the current account? You'll need to log in again to access PocketHub.") },
+            title = { Text(stringResource(R.string.sign_out_dialog_title)) },
+            text = { Text(stringResource(R.string.sign_out_dialog_message)) },
             confirmButton = {
                 TextButton(onClick = {
                     showSignOutDialog = false
                     appVm.signOut() // Navigation handled by AppNavigation observing signedOut.
-                }) { Text("Sign out", color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.action_sign_out), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { showSignOutDialog = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { showSignOutDialog = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }
@@ -282,16 +311,16 @@ private fun OAuthClientSheet(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Custom OAuth Client", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.custom_oauth_client_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(
-                "Configure your own OAuth App if you don't want to use PAT login.",
+                stringResource(R.string.custom_oauth_client_summary),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             OutlinedTextField(
                 value = id,
                 onValueChange = { id = it },
-                label = { Text("Client ID") },
+                label = { Text(stringResource(R.string.client_id)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 leadingIcon = { Icon(Icons.Outlined.VpnKey, null, modifier = Modifier.size(18.dp)) },
@@ -299,14 +328,14 @@ private fun OAuthClientSheet(
             OutlinedTextField(
                 value = secret,
                 onValueChange = { secret = it },
-                label = { Text("Client Secret") },
+                label = { Text(stringResource(R.string.client_secret)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 visualTransformation = if (showSecret) VisualTransformation.None else PasswordVisualTransformation(),
                 leadingIcon = { Icon(Icons.Outlined.Lock, null, modifier = Modifier.size(18.dp)) },
                 trailingIcon = {
                     TextButton(onClick = { showSecret = !showSecret }) {
-                        Text(if (showSecret) "Hide" else "Show", style = MaterialTheme.typography.labelMedium)
+                        Text(stringResource(if (showSecret) R.string.action_hide else R.string.action_show), style = MaterialTheme.typography.labelMedium)
                     }
                 },
             )
@@ -314,9 +343,9 @@ private fun OAuthClientSheet(
                 Button(
                     onClick = { onSave(id.trim(), secret.trim()) },
                     enabled = id.isNotBlank(),
-                ) { Text("Save") }
-                OutlinedButton(onClick = { onSave("", "") }) { Text("Clear") }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                ) { Text(stringResource(R.string.action_save)) }
+                OutlinedButton(onClick = { onSave("", "") }) { Text(stringResource(R.string.action_clear)) }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
             }
             Spacer(Modifier.height(24.dp))
         }
@@ -333,13 +362,22 @@ private fun ThemeOption(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
+private fun LanguageOption(label: String, selected: Boolean, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        RadioButton(selected = selected, onClick = onClick)
+        Spacer(Modifier.height(0.dp))
+        Text(label, modifier = Modifier.padding(start = 12.dp))
+    }
+}
+
+@Composable
 private fun AboutContent() {
     Column(Modifier.fillMaxWidth().padding(16.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("PocketHub", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text("Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("A well-crafted open-source GitHub client for Android.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.version_template, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(R.string.about_description), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
-        Text("Open Source Licenses", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.open_source_licenses), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(8.dp))
         OpenSourceLicensesList()
     }
@@ -367,13 +405,13 @@ private fun OpenSourceLicensesList() {
         libs.forEach { (name, author, license) ->
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                Text("by $author · $license", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.by_author_license, author, license), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 HorizontalDivider(Modifier.padding(top = 6.dp))
             }
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            "PocketHub itself is licensed under the Apache License 2.0.",
+            stringResource(R.string.pockethub_license),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -382,12 +420,20 @@ private fun OpenSourceLicensesList() {
 
 // ── helpers ────────────────────────────────────────────────────────────
 
+@Composable
+private fun localeLabel(locale: AppLocale): String = when (locale) {
+    AppLocale.SYSTEM -> stringResource(R.string.locale_system)
+    AppLocale.ENGLISH -> stringResource(R.string.locale_english)
+    AppLocale.CHINESE -> stringResource(R.string.locale_chinese)
+}
+
+@Composable
 private fun notificationCadenceLabel(minutes: Int): String = when (minutes) {
-    0    -> "Manual only"
-    15   -> "Every 15 minutes"
-    60   -> "Every hour"
-    1440 -> "Once a day"
-    else -> "Every ${minutes} minutes"
+    0    -> stringResource(R.string.notification_cadence_manual)
+    15   -> stringResource(R.string.notification_cadence_15m)
+    60   -> stringResource(R.string.notification_cadence_1h)
+    1440 -> stringResource(R.string.notification_cadence_1d)
+    else -> stringResource(R.string.notification_cadence_min, minutes)
 }
 
 private fun openAppNotificationSettings(context: android.content.Context) {

@@ -1,5 +1,7 @@
 package com.pockethub.ui.repo
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,7 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.pockethub.ui.markdown.MarkdownText
-import java.text.SimpleDateFormat
+import java.text.DateFormat
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,7 +59,7 @@ fun IssueDetailScreen(
     val comments by vm.comments.collectAsState()
     val isLoading by vm.isLoading.collectAsState()
     val error by vm.error.collectAsState()
-    val dateFmt = remember { SimpleDateFormat("MMM d, yyyy", Locale.ENGLISH) }
+    val dateFmt = remember { DateFormat.getDateInstance(DateFormat.MEDIUM) }
 
     LaunchedEffect(owner, repo, issueNumber) { vm.loadIssue(owner, repo, issueNumber) }
 
@@ -67,7 +69,7 @@ fun IssueDetailScreen(
                 title = { Text("#$issueNumber", style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
             )
@@ -86,12 +88,12 @@ fun IssueDetailScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text("加载失败", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.loading_failed), style = MaterialTheme.typography.titleMedium)
                 Text(error ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = { vm.retry(owner, repo, issueNumber) }) {
                     Icon(Icons.Outlined.Refresh, null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("重试")
+                    Text(stringResource(R.string.action_retry))
                 }
             }
             return@Scaffold
@@ -114,7 +116,7 @@ fun IssueDetailScreen(
                             .background(stateColor.copy(alpha = 0.12f), CircleShape)
                             .padding(horizontal = 8.dp, vertical = 2.dp),
                     ) {
-                        Text(data.state, style = MaterialTheme.typography.labelSmall, color = stateColor)
+                        Text(stringResource(if (data.state == "open") R.string.issue_state_open else R.string.issue_state_closed), style = MaterialTheme.typography.labelSmall, color = stateColor)
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -123,7 +125,7 @@ fun IssueDetailScreen(
                         Spacer(Modifier.width(6.dp))
                     }
                     Text(
-                        "${data.user?.login ?: "unknown"} · ${data.createdAt?.let { dateFmt.format(parseIso(it)) } ?: ""} · ${data.comments} comments",
+                        stringResource(R.string.issue_subtitle, data.number, data.user?.login ?: stringResource(R.string.unknown), data.comments),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -146,18 +148,18 @@ fun IssueDetailScreen(
                 }
                 Spacer(Modifier.height(4.dp))
                 MarkdownText(
-                    markdown = data.body ?: "_No description provided._",
+                    markdown = data.body ?: stringResource(R.string.no_description),
                     modifier = Modifier.fillMaxWidth(),
                 )
 
                 // Comments section
                 Spacer(Modifier.height(8.dp))
                 HorizontalDivider()
-                Text("Comments (${comments.size})", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.comments_title, comments.size), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 if (comments.isEmpty() && data.comments > 0) {
                     CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                 } else if (comments.isEmpty()) {
-                    Text("No comments yet", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.no_comments_yet), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     comments.forEach { c ->
                         Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -166,14 +168,14 @@ fun IssueDetailScreen(
                                     AsyncImage(model = it, contentDescription = null, modifier = Modifier.size(18.dp).clip(CircleShape))
                                     Spacer(Modifier.width(6.dp))
                                 }
-                                Text(c.user?.login ?: "unknown", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                                Text(c.user?.login ?: stringResource(R.string.unknown), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                                 Spacer(Modifier.width(8.dp))
                                 c.createdAt?.let {
                                     Text(dateFmt.format(parseIso(it)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                             MarkdownText(
-                                markdown = c.body.ifBlank { "_No content_" },
+                                markdown = c.body.ifBlank { stringResource(R.string.no_content) },
                                 modifier = Modifier.fillMaxWidth(),
                             )
                             HorizontalDivider()

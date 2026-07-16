@@ -1,5 +1,7 @@
 package com.pockethub.ui.explore
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -61,6 +63,13 @@ private val LANGUAGES = listOf("All", "Kotlin", "TypeScript", "Python", "Rust", 
 private val TIME_RANGES = listOf("Daily", "Weekly", "Monthly")
 
 @Composable
+private fun rangeLabel(range: String): String = when (range) {
+    "Weekly"  -> stringResource(R.string.time_range_weekly)
+    "Monthly" -> stringResource(R.string.time_range_monthly)
+    else      -> stringResource(R.string.time_range_daily)
+}
+
+@Composable
 fun ExploreScreen(
     modifier: Modifier = Modifier,
     onNavigateToRepo: (String, String) -> Unit,
@@ -91,9 +100,9 @@ fun ExploreScreen(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             ) {
                 val sections = listOf(
-                    ExploreSection.TRENDING to "Trending",
-                    ExploreSection.FEATURED to "Featured",
-                    ExploreSection.FOLLOWING to "Following",
+                    ExploreSection.TRENDING to stringResource(R.string.section_trending),
+                    ExploreSection.FEATURED to stringResource(R.string.section_featured),
+                    ExploreSection.FOLLOWING to stringResource(R.string.section_following),
                 )
                 sections.forEachIndexed { idx, (value, label) ->
                     SegmentedButton(
@@ -130,7 +139,7 @@ fun ExploreScreen(
                             FilterChip(
                                 selected = selectedLang == lang,
                                 onClick = { vm.setTrendingFilters(lang, selectedRange) },
-                                label = { Text(lang, style = MaterialTheme.typography.labelMedium) },
+                                label = { Text(if (lang == "All") stringResource(R.string.trending_language_all) else lang, style = MaterialTheme.typography.labelMedium) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                     selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -149,7 +158,7 @@ fun ExploreScreen(
                             FilterChip(
                                 selected = selectedRange == range,
                                 onClick = { vm.setTrendingFilters(selectedLang, range) },
-                                label = { Text(range, style = MaterialTheme.typography.labelMedium) },
+                                label = { Text(rangeLabel(range), style = MaterialTheme.typography.labelMedium) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                                     selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -181,9 +190,9 @@ fun ExploreScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             Icon(Icons.Outlined.Group, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(36.dp))
-                            Text("Following feed unavailable", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                            Text(stringResource(R.string.following_feed_unavailable_title), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                             Text(
-                                "Sign in to see what the people you follow are up to.",
+                                stringResource(R.string.following_feed_unavailable_subtitle),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -191,7 +200,7 @@ fun ExploreScreen(
                         }
                     }
                 } else if (feed.isEmpty()) {
-                    item { EmptyState("Your feed is quiet", "Activity from people you follow will appear here.") }
+                    item { EmptyState(stringResource(R.string.feed_empty_title), stringResource(R.string.feed_empty_subtitle)) }
                 } else {
                     items(feed, key = { it.id }) { ev -> FeedEventCard(ev, onNavigateToRepo = onNavigateToRepo) }
                 }
@@ -223,9 +232,9 @@ private fun ErrorState(message: String, onRetry: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Icon(Icons.Outlined.CloudOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(36.dp))
-        Text("Couldn't load", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+        Text(stringResource(R.string.error_couldnt_load), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 4)
-        TextButton(onClick = onRetry) { Text("Retry") }
+        TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
     }
 }
 
@@ -246,7 +255,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.repoItems(
         error != null && repos.isEmpty() -> item {
             ErrorState(message = error, onRetry = onRetry)
         }
-        repos.isEmpty() && !isLoading -> item { EmptyState("No repositories found", "Try a different language or time window.") }
+        repos.isEmpty() && !isLoading -> item { EmptyState(stringResource(R.string.no_repositories_found), stringResource(R.string.no_repositories_subtitle)) }
         else -> {
             items(repos, key = { it.id }) { repo ->
                 TrendingRepoCard(repo = repo, onClick = { onNavigateToRepo(repo.owner.login, repo.name) })
@@ -266,7 +275,7 @@ private fun FeedEventCard(
     val ownerLogin = repoName?.substringBefore('/', "")?.ifEmpty { null }
     val repoShort = repoName?.substringAfter('/', "")?.ifEmpty { null } ?: repoName
 
-    val (verb, secondary) = describe(ev)
+    val (verb, secondary) = describeFeedEvent(ev)
 
     val base = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
     val modifier = if (ownerLogin != null && repoShort != null) {
@@ -290,7 +299,7 @@ private fun FeedEventCard(
                     Spacer(Modifier.width(8.dp))
                 }
                 Text(
-                    text = ev.actor?.displayLogin ?: ev.actor?.login ?: "someone",
+                    text = ev.actor?.displayLogin ?: ev.actor?.login ?: stringResource(R.string.feed_someone),
                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.onSurface,
                 )
@@ -316,41 +325,50 @@ private fun FeedEventCard(
     }
 }
 
-private fun describe(ev: FeedEvent): Pair<String, String> {
+@Composable
+private fun describeFeedEvent(ev: FeedEvent): Pair<String, String> {
     return when (ev.type) {
         "PushEvent" -> {
             val count = ev.payload?.size ?: ev.payload?.commits?.size ?: 0
             val cMsgs = ev.payload?.commits?.mapNotNull { it.message }
                 ?.take(3)?.joinToString("\n") { "· " + it.substringBefore("\n").take(80) }
                 .orEmpty()
-            "pushed $count commit${if (count == 1) "" else "s"} to" to cMsgs
+            stringResource(R.string.feed_push_verb, count) to cMsgs
         }
-        "WatchEvent" -> "starred" to ""
+        "WatchEvent" -> stringResource(R.string.feed_starred_verb) to ""
         "ForkEvent" -> {
             val f = ev.payload?.forkee?.fullName
-            "forked" to (f?.let { "as $it" } ?: "")
+            stringResource(R.string.feed_forked_verb) to (f?.let { stringResource(R.string.feed_forked_as, it) } ?: "")
         }
         "CreateEvent" -> {
-            val kind = ev.payload?.refType ?: "ref"
-            val ref = ev.payload?.ref ?: ""
-            "created a $kind${if (ref.isNotBlank()) " $ref" else ""} in" to ""
+            when (ev.payload?.refType) {
+                "repository" -> stringResource(R.string.feed_created_repository)
+                "branch" -> stringResource(R.string.feed_created_branch, ev.payload?.ref ?: "")
+                "tag"    -> stringResource(R.string.feed_created_tag, ev.payload?.ref ?: "")
+                else     -> stringResource(R.string.feed_created_default, ev.payload?.refType ?: "ref")
+            } to ""
         }
         "DeleteEvent" -> {
-            val ref = ev.payload?.ref ?: ""
-            "deleted ${ev.payload?.refType ?: "ref"}${if (ref.isNotBlank()) " $ref" else ""} from" to ""
+            when (ev.payload?.refType) {
+                "repository" -> stringResource(R.string.feed_deleted_repository)
+                "branch" -> stringResource(R.string.feed_deleted_branch, ev.payload?.ref ?: "")
+                "tag"    -> stringResource(R.string.feed_deleted_tag, ev.payload?.ref ?: "")
+                else     -> stringResource(R.string.feed_deleted_default, ev.payload?.refType ?: "ref")
+            } to ""
         }
-        "PublicEvent" -> "made public" to ""
-        "ReleaseEvent" -> "released in" to ""
+        "PublicEvent" -> stringResource(R.string.feed_public) to ""
+        "ReleaseEvent" -> stringResource(R.string.feed_released) to ""
         else -> {
             val pretty = ev.type.removeSuffix("Event")
                 .replace("(?=[A-Z])".toRegex(), " ")
                 .trim().lowercase()
                 .replaceFirstChar { it.uppercase() }
-            "$pretty in" to ""
+            stringResource(R.string.feed_unknown, pretty) to ""
         }
     }
 }
 
+@Composable
 private fun formatTimeAgo(iso: String): String {
     return try {
         val v = iso.trim().replace("Z", "+00:00")
@@ -358,10 +376,10 @@ private fun formatTimeAgo(iso: String): String {
         val diff = (System.currentTimeMillis() - ts).coerceAtLeast(0)
         val mins = diff / 60_000
         when {
-            mins < 1L    -> "just now"
-            mins < 60L   -> "${mins}m ago"
-            mins < 1440L -> "${mins / 60}h ago"
-            else         -> "${mins / 1440}d ago"
+            mins < 1L    -> stringResource(R.string.time_ago_just_now)
+            mins < 60L   -> stringResource(R.string.time_ago_minutes, mins)
+            mins < 1440L -> stringResource(R.string.time_ago_hours, mins / 60)
+            else         -> stringResource(R.string.time_ago_days, mins / 1440)
         }
     } catch (_: Exception) { iso.take(10) }
 }

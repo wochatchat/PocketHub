@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PocketHub</string>
+
+    <!-- Login -->
+    <string name="login_welcome">欢迎使用 PocketHub</string>
+    <string name="login_subtitle">登录你的 GitHub 账号</string>
+    <string name="login_with_token">使用 Token 登录</string>
+    <string name="login_with_oauth">使用 GitHub 登录</string>
+    <string name="login_token_hint">Personal Access Token</string>
+    <string name="login_oauth_hint">Client ID（可选）</string>
+    <string name="login_description_scopes">需要拥有 repo、read:user、user:email、read:org、read:notifications 权限的 Token。</string>
+
+    <!-- Common actions -->
+    <string name="action_search">搜索</string>
+    <string name="action_sign_in">登录</string>
+    <string name="action_sign_out">登出</string>
+    <string name="action_retry">重试</string>
+    <string name="action_dismiss">关闭</string>
+    <string name="action_switch">切换</string>
+    <string name="action_remove">移除</string>
+    <string name="action_save">保存</string>
+    <string name="action_clear">清除</string>
+    <string name="action_cancel">取消</string>
+    <string name="action_show">显示</string>
+    <string name="action_hide">隐藏</string>
+    <string name="action_mark_all_read">全部已读</string>
+    <string name="action_back">返回</string>
+
+    <!-- Bottom nav / tabs -->
+    <string name="tab_explore">发现</string>
+    <string name="tab_repos">仓库</string>
+    <string name="tab_notifications">通知</string>
+    <string name="tab_profile">我</string>
+    <string name="profile_avatar_fallback">我</string>
+
+    <!-- Explore -->
+    <string name="section_trending">趋势</string>
+    <string name="section_featured">精选</string>
+    <string name="section_following">关注</string>
+    <string name="trending_language_all">全部</string>
+    <string name="time_range_daily">今日</string>
+    <string name="time_range_weekly">本周</string>
+    <string name="time_range_monthly">本月</string>
+    <string name="error_couldnt_load">加载失败</string>
+    <string name="following_feed_unavailable_title">关注动态不可用</string>
+    <string name="following_feed_unavailable_subtitle">登录后可查看你关注的人的动态。</string>
+    <string name="feed_empty_title">暂无动态</string>
+    <string name="feed_empty_subtitle">你关注的人有新活动时会显示在这里。</string>
+    <string name="no_repositories_found">未找到仓库</string>
+    <string name="no_repositories_subtitle">试试其他语言或时间范围。</string>
+    <string name="feed_someone">某人</string>
+
+    <!-- Feed event verbs -->
+    <string name="feed_push_verb">推送了 %1$d 个提交</string>
+    <string name="feed_starred_verb">标星了</string>
+    <string name="feed_forked_verb">复刻了</string>
+    <string name="feed_forked_as">到 %1$s</string>
+    <string name="feed_created_repository">创建了仓库</string>
+    <string name="feed_created_branch">创建了分支 %1$s</string>
+    <string name="feed_created_tag">创建了标签 %1$s</string>
+    <string name="feed_created_default">创建了 %1$s</string>
+    <string name="feed_deleted_repository">删除了仓库</string>
+    <string name="feed_deleted_branch">删除了分支 %1$s</string>
+    <string name="feed_deleted_tag">删除了标签 %1$s</string>
+    <string name="feed_deleted_default">删除了 %1$s</string>
+    <string name="feed_public">设为公开</string>
+    <string name="feed_released">发布了</string>
+    <string name="feed_unknown">%1$s</string>
+
+    <!-- Notifications -->
+    <string name="tab_unread">未读</string>
+    <string name="tab_read">已读</string>
+    <string name="no_notifications">没有通知</string>
+    <string name="cd_mark_read">标为已读</string>
+    <string name="cd_toggle_visibility">切换可见性</string>
+
+    <!-- Profile -->
+    <string name="title_profile">我</string>
+    <string name="top_repositories">热门仓库</string>
+    <string name="profile_no_repos_yet">还没有内容 — 加载完成后会显示在这里。</string>
+    <string name="accounts">账号</string>
+    <string name="active">当前</string>
+    <string name="followers">关注者</string>
+    <string name="following">关注中</string>
+    <string name="repos">仓库</string>
+    <string name="starred">已标星</string>
+    <string name="company">公司</string>
+    <string name="location">位置</string>
+    <string name="website">网站</string>
+    <string name="email">邮箱</string>
+
+    <!-- Repo detail -->
+    <string name="cd_star">标星</string>
+    <string name="cd_unstar">取消标星</string>
+    <string name="tab_overview">概览</string>
+    <string name="tab_code">代码</string>
+    <string name="tab_issues">Issues</string>
+    <string name="tab_prs">PRs</string>
+    <string name="tab_releases">Releases</string>
+    <string name="stats_by">%1$s</string>
+    <string name="stat_forks">forks</string>
+    <string name="repo_issues_header">%1$d issues</string>
+    <string name="readme_title">README</string>
+    <string name="readme_loading">正在加载 README…</string>
+    <string name="readme_unavailable">%1$s 暂无 README。</string>
+    <string name="no_open_issues">没有开放的 issues</string>
+    <string name="no_open_pull_requests">没有开放的 pull requests</string>
+    <string name="no_releases_yet">还没有 releases</string>
+    <string name="pre_release">预发布</string>
+    <string name="released_at">发布于 %1$s</string>
+    <string name="by_author">@%1$s</string>
+    <string name="asset_download">⬇ %1$s (%2$s, %3$d 次下载)</string>
+
+    <!-- Issue detail -->
+    <string name="loading_failed">加载失败</string>
+    <string name="issue_state_open">开放</string>
+    <string name="issue_state_closed">已关闭</string>
+    <string name="issue_subtitle">#%1$d 由 %2$s 创建于 · %3$d 条评论</string>
+    <string name="comments_title">评论 (%1$d)</string>
+    <string name="no_comments_yet">暂无评论</string>
+    <string name="no_description">_暂无描述_</string>
+    <string name="no_content">_无内容_</string>
+    <string name="unknown">未知</string>
+
+    <!-- Code browser -->
+    <string name="cd_up">向上</string>
+    <string name="cd_back_to_directory">返回目录</string>
+    <string name="error_load_files">文件加载失败</string>
+    <string name="directory_empty">目录为空</string>
+    <string name="binary_preview_unavailable">无法预览二进制文件</string>
+    <string name="breadcrumb_root">根目录</string>
+
+    <!-- My repos -->
+    <string name="tab_my_repos">我的仓库</string>
+    <string name="repo_private">私有</string>
+    <string name="repo_forks">Forks: %1$d</string>
+    <string name="repo_issues">Issues: %1$d</string>
+    <string name="repo_updated">更新于 %1$s</string>
+
+    <!-- Repo filter chips -->
+    <string name="repo_filter_all">全部</string>
+    <string name="repo_filter_owner">所有者</string>
+    <string name="repo_filter_member">成员</string>
+    <string name="repo_filter_public">公开</string>
+    <string name="repo_filter_private">私有</string>
+    <string name="repo_filter_forks">Forks</string>
+
+    <!-- Search -->
+    <string name="search_placeholder">搜索 GitHub…</string>
+    <string name="search_tab_repos">仓库</string>
+    <string name="search_tab_users">用户</string>
+    <string name="search_tab_code">代码</string>
+
+    <!-- Settings -->
+    <string name="settings">设置</string>
+    <string name="section_appearance">外观</string>
+    <string name="section_language">语言</string>
+    <string name="language">语言</string>
+    <string name="locale_system">跟随系统</string>
+    <string name="locale_english">English</string>
+    <string name="locale_chinese">中文（简体）</string>
+    <string name="theme">主题</string>
+    <string name="theme_dark">深色（Linear 风格）</string>
+    <string name="theme_light">浅色（Primer 风格）</string>
+    <string name="theme_system">跟随系统</string>
+    <string name="section_notifications">通知</string>
+    <string name="polling_cadence">轮询频率</string>
+    <string name="system_notification_settings">系统通知设置</string>
+    <string name="system_notification_settings_summary">打开 Android 设置管理 PocketHub 通知</string>
+    <string name="section_account">账号</string>
+    <string name="sign_out_summary">退出当前账号并返回登录页</string>
+    <string name="section_authentication">认证</string>
+    <string name="custom_oauth_client">自定义 OAuth Client</string>
+    <string name="custom_oauth_client_not_configured">未配置（仅使用 PAT）</string>
+    <string name="custom_oauth_client_configured">Client ID %1$s…</string>
+    <string name="section_storage">存储</string>
+    <string name="clear_cache">清除缓存</string>
+    <string name="clear_cache_summary">当前 %1$s</string>
+    <string name="accounts_summary">已存储 %1$d 个账号</string>
+    <string name="section_privacy_security">隐私与安全</string>
+    <string name="section_about">关于</string>
+    <string name="token_storage">Token 存储</string>
+    <string name="token_storage_summary">Token 使用加密 Room 存储在设备本地，除调用 GitHub 外不会离开本机。</string>
+    <string name="analytics_telemetry">分析与遥测</string>
+    <string name="analytics_telemetry_summary">PocketHub 不收集任何使用数据。</string>
+    <string name="about_pockethub">关于 PocketHub</string>
+    <string name="about_description">一款精心打造的 Android 开源 GitHub 客户端。</string>
+    <string name="open_source_licenses">开源许可证</string>
+    <string name="sign_out_dialog_title">退出登录</string>
+    <string name="sign_out_dialog_message">确定退出当前账号？退出后需要重新登录才能使用 PocketHub。</string>
+    <string name="custom_oauth_client_title">自定义 OAuth Client</string>
+    <string name="custom_oauth_client_summary">如果你不想使用 PAT 登录，可以配置自己的 OAuth App。</string>
+    <string name="client_id">Client ID</string>
+    <string name="client_secret">Client Secret</string>
+    <string name="cache_cleared">缓存已清除</string>
+    <string name="version_template">版本 %1$s (%2$d)</string>
+    <string name="by_author_license">%1$s · %2$s</string>
+    <string name="pockethub_license">PocketHub 本身基于 Apache License 2.0 发布。</string>
+
+    <!-- Notification cadence -->
+    <string name="notification_cadence_manual">仅手动</string>
+    <string name="notification_cadence_15m">每 15 分钟</string>
+    <string name="notification_cadence_1h">每小时</string>
+    <string name="notification_cadence_1d">每天一次</string>
+    <string name="notification_cadence_min">每 %1$d 分钟</string>
+
+    <!-- Time ago -->
+    <string name="time_ago_just_now">刚刚</string>
+    <string name="time_ago_minutes">%1$d 分钟前</string>
+    <string name="time_ago_hours">%1$d 小时前</string>
+    <string name="time_ago_days">%1$d 天前</string>
+</resources>

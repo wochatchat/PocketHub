@@ -1,5 +1,7 @@
 package com.pockethub.ui.repo
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -83,9 +85,9 @@ fun CodeTab(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Text(state.error ?: "Couldn't load files", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(state.error ?: stringResource(R.string.error_load_files), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
-                TextButton(onClick = { vm.listDir(state.currentPath) }) { Text("Retry") }
+                TextButton(onClick = { vm.listDir(state.currentPath) }) { Text(stringResource(R.string.action_retry)) }
             }
 
             else -> LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
@@ -96,7 +98,7 @@ fun CodeTab(
                 }
                 if (state.entries.isEmpty()) {
                     item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                        Text("This directory is empty", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.directory_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } }
                 }
             }
@@ -120,12 +122,12 @@ private fun BreadcrumbBar(
     ) {
         if (canGoUp) {
             IconButton(onClick = onUp) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Up")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_up))
             }
         }
         // Render each segment as a tappable label.
         pathStack.forEachIndexed { idx, path ->
-            val label = if (idx == 0) "root" else path.substringAfterLast('/')
+            val label = if (idx == 0) stringResource(R.string.breadcrumb_root) else path.substringAfterLast('/')
             if (idx > 0) Text(" / ", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
                 text = label,
@@ -175,7 +177,7 @@ private fun FileViewerContent(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onClose) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to directory")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back_to_directory))
             }
             Text(entry.path, style = MaterialTheme.typography.labelMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
@@ -195,7 +197,7 @@ private fun FileViewerContent(
             Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Icon(Icons.AutoMirrored.Outlined.Article, null, modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
-                Text("Binary file preview not available", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.binary_preview_unavailable), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 entry.downloadUrl?.let { url ->
                     Spacer(Modifier.height(8.dp))
                     Text(url, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)

@@ -1,5 +1,7 @@
 package com.pockethub.ui.repo
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -53,7 +55,7 @@ import coil.compose.AsyncImage
 import com.pockethub.data.model.Issue
 import com.pockethub.data.model.Repository
 import com.pockethub.ui.markdown.MarkdownText
-import java.text.SimpleDateFormat
+import java.text.DateFormat
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -95,12 +97,12 @@ fun RepoDetailScreen(
                         fontWeight = FontWeight.SemiBold,
                     )
                 },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back") } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back)) } },
                 actions = {
                     IconButton(onClick = { vm.toggleStar(owner, repo) }) {
                         Icon(
                             if (isStarred) Icons.Outlined.Star else Icons.Outlined.StarBorder,
-                            contentDescription = if (isStarred) "Unstar" else "Star",
+                            contentDescription = if (isStarred) stringResource(R.string.cd_unstar) else stringResource(R.string.cd_star),
                             tint = if (isStarred) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -116,11 +118,11 @@ fun RepoDetailScreen(
             ScrollableTabRow(selectedTabIndex = tabs.indexOf(tab), edgePadding = 0.dp) {
                 tabs.forEach { current ->
                     val label = when (current) {
-                        RepoTab.OVERVIEW -> "Overview"
-                        RepoTab.CODE -> "Code"
-                        RepoTab.ISSUES -> "Issues"
-                        RepoTab.PRS -> "PRs"
-                        RepoTab.RELEASES -> "Releases"
+                        RepoTab.OVERVIEW -> stringResource(R.string.tab_overview)
+                        RepoTab.CODE -> stringResource(R.string.tab_code)
+                        RepoTab.ISSUES -> stringResource(R.string.tab_issues)
+                        RepoTab.PRS -> stringResource(R.string.tab_prs)
+                        RepoTab.RELEASES -> stringResource(R.string.tab_releases)
                     }
                     Tab(
                         selected = tab == current,
@@ -164,16 +166,16 @@ private fun StatsRow(data: Repository) {
         )
         Spacer(Modifier.width(6.dp))
         Text(
-            "by ${data.owner.login}",
+            stringResource(R.string.stats_by, data.owner.login),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.weight(1f))
         StatChip(star = true, count = data.stars)
         Spacer(Modifier.width(8.dp))
-        StatChip(star = false, count = data.forks, label = "forks")
+        StatChip(star = false, count = data.forks, label = stringResource(R.string.stat_forks))
         Spacer(Modifier.width(8.dp))
-        Text("${data.openIssues} issues", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(R.string.repo_issues_header, data.openIssues), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -230,18 +232,18 @@ private fun OverviewTab(owner: String, repo: String, repoData: Repository?, read
             }
             HorizontalDivider()
             // README
-            Text("README", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.readme_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             if (readme != null) {
                 MarkdownText(markdown = readme, modifier = Modifier.fillMaxWidth())
             } else if (isLoading) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))
-                    Text("Loading README…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.readme_loading), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
                 Text(
-                    "No README available for $owner/$repo.",
+                    stringResource(R.string.readme_unavailable, "$owner/$repo"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -256,7 +258,7 @@ private fun OverviewTab(owner: String, repo: String, repoData: Repository?, read
 private fun IssuesTab(issues: List<Issue>, onClick: (Int) -> Unit) {
     if (issues.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No open issues", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.no_open_issues), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         return
     }
@@ -283,7 +285,7 @@ private fun IssuesTab(issues: List<Issue>, onClick: (Int) -> Unit) {
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        "#${issue.number} opened by ${issue.user?.login ?: "unknown"} · ${issue.comments} comments",
+                        stringResource(R.string.issue_subtitle, issue.number, issue.user?.login ?: stringResource(R.string.unknown), issue.comments),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -310,7 +312,7 @@ private fun IssuesTab(issues: List<Issue>, onClick: (Int) -> Unit) {
 private fun PullsTab(pulls: List<Issue>, onClick: (Int) -> Unit) {
     if (pulls.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No open pull requests", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.no_open_pull_requests), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         return
     }
@@ -335,7 +337,7 @@ private fun PullsTab(pulls: List<Issue>, onClick: (Int) -> Unit) {
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        "#${pr.number} opened by ${pr.user?.login ?: "unknown"} · ${pr.comments} comments",
+                        stringResource(R.string.issue_subtitle, pr.number, pr.user?.login ?: stringResource(R.string.unknown), pr.comments),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -359,7 +361,7 @@ private fun ReleasesTab(releases: List<GitHubApi.Release>) {
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(8.dp))
-                Text("No releases yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.no_releases_yet), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         return
@@ -373,7 +375,7 @@ private fun ReleasesTab(releases: List<GitHubApi.Release>) {
                         Spacer(Modifier.width(8.dp))
                         AssistChip(
                             onClick = {},
-                            label = { Text("pre-release", style = MaterialTheme.typography.labelSmall) },
+                            label = { Text(stringResource(R.string.pre_release), style = MaterialTheme.typography.labelSmall) },
                             colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                         )
                     }
@@ -381,7 +383,7 @@ private fun ReleasesTab(releases: List<GitHubApi.Release>) {
                 release.name?.let { if (it != release.tagName) Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 release.publishedAt?.let {
                     Text(
-                        "Released ${formatDate(it)}",
+                        stringResource(R.string.released_at, formatDate(it)),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -395,7 +397,7 @@ private fun ReleasesTab(releases: List<GitHubApi.Release>) {
                             modifier = Modifier.size(14.dp).clip(CircleShape),
                         )
                         Spacer(Modifier.width(4.dp))
-                        Text("@${author.login}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.by_author, author.login), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 if (!release.body.isNullOrBlank()) {
@@ -409,7 +411,7 @@ private fun ReleasesTab(releases: List<GitHubApi.Release>) {
                     Spacer(Modifier.height(6.dp))
                     release.assets.forEach { asset ->
                         Text(
-                            "⬇ ${asset.name} (${humanReadableSize(asset.size)}, ${asset.downloadCount} downloads)",
+                            stringResource(R.string.asset_download, asset.name, humanReadableSize(asset.size), asset.downloadCount),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                         )
@@ -421,8 +423,9 @@ private fun ReleasesTab(releases: List<GitHubApi.Release>) {
     }
 }
 
-private val dateFmt = SimpleDateFormat("MMM d, yyyy", Locale.ENGLISH)
-private fun formatDate(s: String): String = try { dateFmt.format(java.time.OffsetDateTime.parse(s)) } catch (_: Exception) { s.take(10) }
+private fun formatDate(s: String): String = try {
+    DateFormat.getDateInstance(DateFormat.MEDIUM).format(java.time.OffsetDateTime.parse(s))
+} catch (_: Exception) { s.take(10) }
 private fun humanReadableSize(bytes: Long): String = when {
     bytes >= 1_048_576 -> "%.1f MB".format(bytes / 1_048_576.0)
     bytes >= 1024 -> "%.1f KB".format(bytes / 1024.0)

@@ -28,6 +28,7 @@ class SettingsRepository @Inject constructor(
     // ── Keys ──────────────────────────────────────────────
     private object Keys {
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        val APP_LOCALE = stringPreferencesKey("app_locale")
         val CUSTOM_CLIENT_ID = stringPreferencesKey("custom_client_id")
         val CUSTOM_CLIENT_SECRET = stringPreferencesKey("custom_client_secret")
         val NOTIF_POLL_MINUTES = intPreferencesKey("notif_poll_minutes")
@@ -46,6 +47,17 @@ class SettingsRepository @Inject constructor(
     suspend fun setThemeMode(mode: ThemeMode) {
         context.dataStore.edit { prefs ->
             prefs[Keys.THEME_MODE] = mode.name.lowercase()
+        }
+    }
+
+    // ── Language ──────────────────────────────────────────
+    val appLocale: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[Keys.APP_LOCALE] ?: com.pockethub.ui.settings.AppLocale.SYSTEM.key
+    }
+
+    suspend fun setAppLocale(locale: String) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.APP_LOCALE] = locale
         }
     }
 

@@ -1,5 +1,7 @@
 package com.pockethub.ui.search
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,6 +48,13 @@ import com.pockethub.data.model.User
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+private fun searchTabLabel(tab: SearchTab): String = when (tab) {
+    SearchTab.REPOS -> stringResource(R.string.search_tab_repos)
+    SearchTab.USERS -> stringResource(R.string.search_tab_users)
+    SearchTab.CODE  -> stringResource(R.string.search_tab_code)
+}
+
+@Composable
 fun SearchScreen(
     initialQuery: String = "",
     onNavigateToRepo: (String, String) -> Unit,
@@ -73,7 +82,7 @@ fun SearchScreen(
                 TextField(
                     value = query,
                     onValueChange = { vm.query.value = it },
-                    placeholder = { Text("Search GitHub…") },
+                    placeholder = { Text(stringResource(R.string.search_placeholder)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     colors = TextFieldDefaults.colors(
@@ -81,12 +90,12 @@ fun SearchScreen(
                         unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                     ),
                     trailingIcon = {
-                        IconButton(onClick = { vm.search() }) { Icon(Icons.Outlined.Search, contentDescription = "Search") }
+                        IconButton(onClick = { vm.search() }) { Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.action_search)) }
                     },
                 )
             },
             navigationIcon = {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back") }
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
             },
         )
 
@@ -97,7 +106,7 @@ fun SearchScreen(
                     selected = tab == current,
                     onClick = { vm.switchTab(current) },
                     shape = SegmentedButtonDefaults.itemShape(idx, SearchTab.entries.size),
-                    label = { Text(current.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                    label = { Text(searchTabLabel(current)) },
                 )
             }
         }
