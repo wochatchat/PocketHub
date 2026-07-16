@@ -133,6 +133,7 @@
 
     <!-- My repos -->
     <string name="tab_my_repos">My Repos</string>
+    <string name="tab_starred">Starred</string>
     <string name="repo_private">Private</string>
     <string name="repo_forks">Forks: %1$d</string>
     <string name="repo_issues">Issues: %1$d</string>
