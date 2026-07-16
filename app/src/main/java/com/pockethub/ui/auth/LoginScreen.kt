@@ -27,8 +27,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowDropDown
-import androidx.compose.material.icons.automirrored.outlined.ArrowDropUp
+import androidx.compose.material.icons.automirrored.filled.ArrowDropDown
+import androidx.compose.material.icons.automirrored.filled.ArrowDropUp
+import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.Lock
@@ -164,8 +165,8 @@ fun LoginScreen(
                     Text("Use a Personal Access Token", style = MaterialTheme.typography.labelLarge)
                     Spacer(Modifier.weight(1f))
                     Icon(
-                        if (expandedToken) Icons.AutoMirrored.Outlined.ArrowDropUp
-                        else Icons.AutoMirrored.Outlined.ArrowDropDown,
+                        if (expandedToken) Icons.AutoMirrored.Filled.ArrowDropUp
+                        else Icons.AutoMirrored.Filled.ArrowDropDown,
                         null,
                         modifier = Modifier.size(20.dp),
                     )
@@ -194,8 +195,8 @@ fun LoginScreen(
                                 }
                             },
                             shape = RoundedCornerShape(14.dp),
-                            colors = TextFieldDefaults.outlinedTextFieldColors(
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                            colors = TextFieldDefaults.colors(
+                                unfocusedIndicatorColor = MaterialTheme.colorScheme.outlineVariant,
                             ),
                         )
                         Text(
@@ -323,7 +324,7 @@ private fun GitHubLogo(
     tint: Color = MaterialTheme.colorScheme.onSurface,
 ) {
     Icon(
-        imageVector = androidx.compose.material.icons.Icons.Filled.Pets,
+        imageVector = Icons.Filled.Pets,
         contentDescription = "GitHub",
         tint = tint,
         modifier = modifier,
