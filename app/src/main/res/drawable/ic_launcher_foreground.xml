@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Simple "P" monogram as a placeholder -->
+    <path
+        android:fillColor="#57606A"
+        android:pathData="M54,28 m-20,0 a20,20 0 1,0 40,0 a20,20 0 1,0 -40,0 M44,44 L44,84 L52,84 L52,68 L60,68 L60,60 L52,60 L52,44 Z" />
+</vector>
