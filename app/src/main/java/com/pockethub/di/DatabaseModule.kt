@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.pockethub.data.local.AccountDao
 import com.pockethub.data.local.AppDatabase
 import com.pockethub.data.local.CacheDao
+import com.pockethub.data.local.DownloadDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
