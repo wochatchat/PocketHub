@@ -358,7 +358,7 @@ private fun renderInline(
     codeBackgroundColor: Color,
     linkColor: Color,
 ): AnnotatedString = buildAnnotatedString {
-    val linkStyle = linkStyles.style
+    val linkStyle = linkStyles.style ?: SpanStyle()
     fun emitLink(displayText: String, url: String) {
         val start = length
         addStringAnnotation(LINK_TAG, url, start, start + displayText.length)
