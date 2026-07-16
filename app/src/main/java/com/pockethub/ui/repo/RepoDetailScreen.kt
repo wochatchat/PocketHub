@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.ForkRight
 import androidx.compose.material.icons.outlined.Share
@@ -142,8 +143,8 @@ fun RepoDetailScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            if (tab == RepoTab.OVERVIEW) {
-                FloatingActionButton(
+            when (tab) {
+                RepoTab.OVERVIEW -> FloatingActionButton(
                     onClick = {
                         val url = repoData?.htmlUrl ?: "https://github.com/$owner/$repo"
                         val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
@@ -157,6 +158,17 @@ fun RepoDetailScreen(
                 ) {
                     Icon(Icons.Outlined.Share, contentDescription = stringResource(R.string.action_share))
                 }
+                RepoTab.ISSUES -> FloatingActionButton(
+                    onClick = {
+                        val url = "https://github.com/$owner/$repo/issues/new"
+                        context.startActivity(
+                            android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)),
+                        )
+                    },
+                ) {
+                    Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.action_new_issue))
+                }
+                else -> {}
             }
         },
     ) { padding ->

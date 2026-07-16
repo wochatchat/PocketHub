@@ -26,6 +26,7 @@
     <string name="action_hide">Hide</string>
     <string name="action_mark_all_read">Mark all read</string>
     <string name="action_share">Share</string>
+    <string name="action_new_issue">New issue</string>
     <string name="action_back">Back</string>
 
     <!-- Bottom nav / tabs -->
