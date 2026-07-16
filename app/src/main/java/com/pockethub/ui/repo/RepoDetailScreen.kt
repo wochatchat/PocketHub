@@ -469,21 +469,21 @@ private fun rememberMarkdownLinkHandler(
     onNavigateToIssue: (Int) -> Unit,
 ): (String) -> Unit {
     val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
-    return { url ->
+    return link@{ url ->
         // Issues in current repo
         Regex("^https://github\\.com/[^/]+/[^/]+/issues/(\\d+)$").matchEntire(url)?.let {
             it.groupValues[1].toIntOrNull()?.let { n -> onNavigateToIssue(n) }
-            return@url
+            return@link
         }
         // Repo URLs
         Regex("^https://github\\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/?.*$").matchEntire(url)?.let {
             onNavigateToRepo(it.groupValues[1], it.groupValues[2])
-            return@url
+            return@link
         }
         // User/profile URLs
         Regex("^https://github\\.com/([A-Za-z0-9_.-]+)$").matchEntire(url)?.let {
             onNavigateToUser(it.groupValues[1])
-            return@url
+            return@link
         }
         // External links
         runCatching { uriHandler.openUri(url) }

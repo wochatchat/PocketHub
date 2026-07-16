@@ -28,6 +28,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -380,8 +381,7 @@ private fun renderInline(
             if (close != -1) {
                 val inner = text.substring(i + 1, close)
                 if (inner.startsWith("http://") || inner.startsWith("https://")) {
-                    addLink(LinkAnnotation.Url(inner, linkStyles), start = length, end = length + inner.length)
-                    append(inner)
+                    withLink(LinkAnnotation.Url(inner, linkStyles)) { append(inner) }
                     i = close + 1; continue
                 }
             }
@@ -396,9 +396,10 @@ private fun renderInline(
                     val linkUrl = text.substring(closeBracket + 2, closeParen).trim()
                     val url = resolver(linkUrl)
                     if (url != null) {
-                        addLink(LinkAnnotation.Url(url, linkStyles), start = length, end = length + linkText.length)
+                        withLink(LinkAnnotation.Url(url, linkStyles)) { append(linkText) }
+                    } else {
+                        append(linkText)
                     }
-                    append(linkText)
                     i = closeParen + 1; continue
                 }
             }
@@ -409,8 +410,7 @@ private fun renderInline(
             val end = findUrlEnd(text, i)
             if (end > i) {
                 val url = text.substring(i, end)
-                addLink(LinkAnnotation.Url(url, linkStyles), start = length, end = length + url.length)
-                append(url)
+                withLink(LinkAnnotation.Url(url, linkStyles)) { append(url) }
                 i = end; continue
             }
         }
@@ -422,8 +422,7 @@ private fun renderInline(
                 val ref = m.value
                 val url = resolver(ref)
                 if (url != null) {
-                    addLink(LinkAnnotation.Url(url, linkStyles), start = length, end = length + ref.length)
-                    append(ref)
+                    withLink(LinkAnnotation.Url(url, linkStyles)) { append(ref) }
                     i += m.range.last + 1; continue
                 }
             }

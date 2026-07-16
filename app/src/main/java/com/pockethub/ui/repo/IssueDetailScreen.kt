@@ -90,14 +90,14 @@ fun IssueDetailScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
-    val onLinkClick: (String) -> Unit = { url ->
+    val onLinkClick: (String) -> Unit = link@{ url ->
         Regex("^https://github\\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/?.*$").matchEntire(url)?.let {
             onNavigateToRepo(it.groupValues[1], it.groupValues[2])
-            return@url
+            return@link
         }
         Regex("^https://github\\.com/([A-Za-z0-9_.-]+)$").matchEntire(url)?.let {
             onNavigateToUser(it.groupValues[1])
-            return@url
+            return@link
         }
         runCatching { uriHandler.openUri(url) }
     }
