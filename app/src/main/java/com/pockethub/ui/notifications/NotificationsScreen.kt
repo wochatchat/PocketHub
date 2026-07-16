@@ -17,9 +17,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CircleNotifications
 import androidx.compose.material.icons.outlined.Done
-import androidx.compose.material.icons.outlined.IssueAction
+import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Merge
-import androidx.compose.material.icons.outlined.Release
+import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -94,7 +94,7 @@ fun NotificationsScreen(
                 items(items, key = { it.id }) { notif ->
                     NotificationItem(
                         notif = notif,
-                        onMarkRead = { vm.markRead(it.id) },
+                        onMarkRead = { vm.markRead(notif.id) },
                         onClick = {
                             val owner = repoFullName.substringBefore('/')
                             val repo = repoFullName.substringAfter('/')
@@ -120,8 +120,8 @@ private fun NotificationItem(
         // Type icon
         val icon = when (notif.subject.type) {
             "PullRequest" -> Icons.Outlined.Merge
-            "Release"     -> Icons.Outlined.Release
-            "Issue"       -> Icons.Outlined.IssueAction
+            "Release"     -> Icons.Outlined.NewReleases
+            "Issue"       -> Icons.Outlined.Email
             else          -> Icons.Outlined.CircleNotifications
         }
         Icon(icon, contentDescription = notif.subject.type, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
