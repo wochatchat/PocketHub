@@ -67,8 +67,8 @@ class DownloadManager @Inject constructor(
 
     /** All downloads (active+done), full DB stream. */
     fun allFlow(): Flow<List<DownloadEntity>> = dao.allFlow()
-    fun activeFlow(): Flow<List<DownloadEntity>> = dao.activeFlow()
-    fun doneFlow(): Flow<List<DownloadEntity>> = dao.doneFlow()
+    fun activeFlow(): Flow<List<DownloadEntity>> = dao.flowByStates(listOf("QUEUED", "IN_PROGRESS", "FAILED"))
+    fun doneFlow(): Flow<List<DownloadEntity>> = dao.flowByState("DONE")
 
     suspend fun get(url: String): DownloadEntity? = dao.byUrl(url)
 
@@ -91,6 +91,7 @@ class DownloadManager @Inject constructor(
             // row exists but file is gone (user cleaned disk) — fall through to create fresh
         }
 
+        val now = System.currentTimeMillis()
         val entity = DownloadEntity(
             url = req.url,
             fileName = req.fileName,
@@ -100,6 +101,8 @@ class DownloadManager @Inject constructor(
             sizeBytes = req.sizeBytes,
             localPath = destFile.absolutePath,
             status = "QUEUED",
+            createdAt = now,
+            updatedAt = now,
         )
         dao.upsert(entity)
 
@@ -113,7 +116,7 @@ class DownloadManager @Inject constructor(
     suspend fun retry(url: String) {
         val existing = dao.byUrl(url) ?: return
         destFileOrNull(existing)?.delete()
-        dao.upsert(existing.copy(status = "QUEUED", downloadedBytes = 0, progressPct = 0, errorMsg = "", updatedAt = System.currentTimeMillis()))
+        dao.upsert(existing.copy(status = "QUEUED", downloadedBytes = 0, progressPct = 0, errorMsg = "", updatedAt = System.currentTimeMillis(), createdAt = System.currentTimeMillis()))
         _events.tryEmit(DownloadEvent.Started(url))
         runNextIfIdle()
     }
@@ -179,7 +182,7 @@ class DownloadManager @Inject constructor(
                 val dlClient = client.newBuilder().followRedirects(true).build()
                 val response = withContext(ioDispatcher) { dlClient.newCall(request).execute() }
                 if (!response.isSuccessful) {
-                    dao.markFailed(currentUrl, "HTTP ${response.code}", System.currentTimeMillis())
+                    dao.setStatusWithError(currentUrl, "FAILED", "HTTP ${response.code}", System.currentTimeMillis())
                     _events.tryEmit(DownloadEvent.Failed(currentUrl, "HTTP ${response.code}"))
                     return@launch
                 }
@@ -205,7 +208,7 @@ class DownloadManager @Inject constructor(
                                 // Throttle progress reports to 1 update per 100KB to save DB writes.
                                 if (totalRead - lastReport >= 100 * 1024 || totalRead == totalBytes) {
                                     val pct = if (totalBytes > 0) ((totalRead * 100) / totalBytes).toInt() else 0
-                                    dao.reportProgress(currentUrl, totalRead, pct.coerceIn(0, 100), System.currentTimeMillis())
+                                    dao.setStatusWithProgress(currentUrl, "IN_PROGRESS", totalRead, pct.coerceIn(0, 100), System.currentTimeMillis())
                                     lastReport = totalRead
                                 }
                             }
@@ -221,16 +224,16 @@ class DownloadManager @Inject constructor(
                     destFile.delete()
                 }
 
-                dao.markDone(currentUrl, totalBytes, System.currentTimeMillis())
+                dao.setStatusWithSize(currentUrl, "DONE", totalBytes, 100, System.currentTimeMillis())
                 _events.tryEmit(DownloadEvent.Done(currentUrl, targetFile.absolutePath))
             } catch (e: kotlinx.coroutines.CancellationException) {
                 destFile.delete()
-                dao.markFailed(currentUrl, "Cancelled", System.currentTimeMillis())
+                dao.setStatusWithError(currentUrl, "FAILED", "Cancelled", System.currentTimeMillis())
                 throw e
             } catch (e: Throwable) {
                 destFile.delete()
                 val msg = e.localizedMessage ?: e.javaClass.simpleName
-                dao.markFailed(currentUrl, msg, System.currentTimeMillis())
+                dao.setStatusWithError(currentUrl, "FAILED", msg, System.currentTimeMillis())
                 _events.tryEmit(DownloadEvent.Failed(currentUrl, msg))
             }
         }
