@@ -67,15 +67,18 @@ fun RepoDetailScreen(
 ) {
     val repoData by vm.repo.collectAsState()
     val issues by vm.issues.collectAsState()
+    val pulls by vm.pulls.collectAsState()
     val releases by vm.releases.collectAsState()
     val readme by vm.readme.collectAsState()
     val isLoading by vm.isLoading.collectAsState()
     val isStarred by vm.isStarred.collectAsState()
+    val error by vm.error.collectAsState()
     val tab by vm.currentTab.collectAsState()
 
     LaunchedEffect(owner, repo) { vm.loadRepo(owner, repo) }
     LaunchedEffect(owner, repo, tab) {
         if (tab == RepoTab.ISSUES) vm.loadIssues(owner, repo, state = "open")
+        if (tab == RepoTab.PRS) vm.loadPulls(owner, repo, state = "open")
         if (tab == RepoTab.RELEASES) vm.loadReleases(owner, repo)
     }
 
@@ -115,6 +118,7 @@ fun RepoDetailScreen(
                         RepoTab.OVERVIEW -> "Overview"
                         RepoTab.CODE -> "Code"
                         RepoTab.ISSUES -> "Issues"
+                        RepoTab.PRS -> "PRs"
                         RepoTab.RELEASES -> "Releases"
                     }
                     Tab(
@@ -125,10 +129,21 @@ fun RepoDetailScreen(
                 }
             }
 
+            // Inline error banner shown across all tabs except Overview (which has its own empty state).
+            if (error != null && tab != RepoTab.OVERVIEW) {
+                Text(
+                    text = error!!,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                )
+            }
+
             when (tab) {
                 RepoTab.OVERVIEW -> OverviewTab(owner, repo, repoData, readme, isLoading)
                 RepoTab.CODE -> CodeTab(owner, repo)
                 RepoTab.ISSUES -> IssuesTab(issues, onClick = onNavigateToIssue)
+                RepoTab.PRS -> PullsTab(pulls, onClick = onNavigateToIssue)
                 RepoTab.RELEASES -> ReleasesTab(releases)
             }
         }
@@ -282,6 +297,47 @@ private fun IssuesTab(issues: List<Issue>, onClick: (Int) -> Unit) {
                             }
                         }
                     }
+                }
+            }
+            HorizontalDivider()
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PullsTab(pulls: List<Issue>, onClick: (Int) -> Unit) {
+    if (pulls.isEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("No open pull requests", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        return
+    }
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        items(pulls, key = { it.id }) { pr ->
+            Row(
+                Modifier.fillMaxWidth().clickable { onClick(pr.number) }.padding(vertical = 10.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Icon(
+                    Icons.Outlined.Campaign, null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        pr.title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        "#${pr.number} opened by ${pr.user?.login ?: "unknown"} · ${pr.comments} comments",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
             HorizontalDivider()

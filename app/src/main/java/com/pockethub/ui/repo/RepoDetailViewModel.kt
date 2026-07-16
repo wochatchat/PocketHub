@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-enum class RepoTab { OVERVIEW, CODE, ISSUES, RELEASES }
+enum class RepoTab { OVERVIEW, CODE, ISSUES, PRS, RELEASES }
 
 @HiltViewModel
 class RepoDetailViewModel @Inject constructor(
@@ -23,16 +23,22 @@ class RepoDetailViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _repo = MutableStateFlow<Repository?>(null)
-    val repo: StateFlow<Repository?> = _repo.asStateFlow()
+    val repo: StateFlow<Repository?> = _repo
 
     private val _issues = MutableStateFlow<List<Issue>>(emptyList())
-    val issues: StateFlow<List<Issue>> = _issues.asStateFlow()
+    val issues: StateFlow<List<Issue>> = _issues
+
+    private val _pulls = MutableStateFlow<List<Issue>>(emptyList())
+    val pulls: StateFlow<List<Issue>> = _pulls
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error
 
     private val _releases = MutableStateFlow<List<GitHubApi.Release>>(emptyList())
-    val releases: StateFlow<List<GitHubApi.Release>> = _releases.asStateFlow()
+    val releases: StateFlow<List<GitHubApi.Release>> = _releases
 
     private val _readme = MutableStateFlow<String?>(null)
-    val readme: StateFlow<String?> = _readme.asStateFlow()
+    val readme: StateFlow<String?> = _readme
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -49,13 +55,13 @@ class RepoDetailViewModel @Inject constructor(
         loadedOwner = owner; loadedRepo = repo
         viewModelScope.launch {
             _isLoading.update { true }
+            _error.update { null }
             try {
                 _repo.update { api.getRepository(owner, repo) }
-                // Preload README right away — Overview is the default tab.
                 loadReadme(owner, repo)
                 checkStar(owner, repo)
-            } catch (_: Exception) {
-                // keep cached
+            } catch (e: Exception) {
+                _error.update { e.localizedMessage ?: "加载仓库失败" }
             } finally {
                 _isLoading.update { false }
             }
@@ -99,12 +105,28 @@ class RepoDetailViewModel @Inject constructor(
         }
     }
 
+    /** Issues only — filters out pull requests by checking `pullRequest == null`. */
     fun loadIssues(owner: String, repo: String, state: String = "open") {
         viewModelScope.launch {
             try {
-                _issues.update { api.getIssues(owner, repo, state = state) }
-            } catch (_: Exception) {
+                val all = api.getIssues(owner, repo, state = state)
+                _issues.update { all.filter { it.pullRequest == null } }
+            } catch (e: Exception) {
                 _issues.update { emptyList() }
+                _error.update { e.localizedMessage ?: "加载 Issues 失败" }
+            }
+        }
+    }
+
+    /** Pull requests — same endpoint, filtered to `pullRequest != null`. */
+    fun loadPulls(owner: String, repo: String, state: String = "open") {
+        viewModelScope.launch {
+            try {
+                val all = api.getIssues(owner, repo, state = state)
+                _pulls.update { all.filter { it.pullRequest != null } }
+            } catch (e: Exception) {
+                _pulls.update { emptyList() }
+                _error.update { e.localizedMessage ?: "加载 PR 失败" }
             }
         }
     }
@@ -113,15 +135,15 @@ class RepoDetailViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 _releases.update { api.getReleases(owner, repo) }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 _releases.update { emptyList() }
+                _error.update { e.localizedMessage ?: "加载 Releases 失败" }
             }
         }
     }
 
     fun decodeBase64(b64: String): String {
         return try {
-            // GitHub's base64 content sometimes contains newlines that the decoder dislikes.
             val cleaned = b64.replace("\n", "")
             String(Base64.decode(cleaned, Base64.DEFAULT), Charsets.UTF_8)
         } catch (_: Exception) {
