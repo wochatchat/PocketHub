@@ -91,7 +91,19 @@ fun IssueDetailScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
-    val onLinkClick: (String) -> Unit = link@{ url ->
+    val onLinkClick: (String, com.pockethub.ui.markdown.LinkKind) -> Unit = link@{ url, kind ->
+        // DOWNLOADABLE — open in browser (issue view lacks a downloadVm hook; users can download via browser)
+        if (kind == com.pockethub.ui.markdown.LinkKind.DOWNLOADABLE ||
+            kind == com.pockethub.ui.markdown.LinkKind.IMAGE_URL ||
+            kind == com.pockethub.ui.markdown.LinkKind.IMAGE
+        ) {
+            runCatching { uriHandler.openUri(url) }
+            return@link
+        }
+        // Issue / PR links inside the body —
+        // Same repo, same issue-number navigation isn't wired through here, so we let it fall
+        // through to the browser path below (the user sees it opened externally, which is OK
+        // because issue/PR README links in issue bodies are usually cross-repo refs).
         Regex("^https://github\\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/?.*$").matchEntire(url)?.let {
             onNavigateToRepo(it.groupValues[1], it.groupValues[2])
             return@link

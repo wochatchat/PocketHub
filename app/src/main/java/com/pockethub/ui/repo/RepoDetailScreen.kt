@@ -224,7 +224,7 @@ fun RepoDetailScreen(
                     readme,
                     isLoading,
                     onTopicClick = { topic -> onNavigateToSearch(topic) },
-                    onLinkClick = rememberMarkdownLinkHandler(owner, repo, onNavigateToRepo, onNavigateToUser, onNavigateToIssue),
+                    onLinkClick = rememberMarkdownLinkHandler(owner, repo, onNavigateToRepo, onNavigateToUser, onNavigateToIssue, downloadVm = downloadVm, onNavigateToDownloads = onNavigateToDownloads),
                 )
                 RepoTab.CODE -> CodeTab(owner, repo)
                 RepoTab.ISSUES -> IssuesTab(issues, onClick = onNavigateToIssue, onNavigateToUser = onNavigateToUser)
@@ -232,7 +232,7 @@ fun RepoDetailScreen(
                 RepoTab.RELEASES -> ReleasesTab(
                     releases,
                     repoContext = "$owner/$repo",
-                    onLinkClick = rememberMarkdownLinkHandler(owner, repo, onNavigateToRepo, onNavigateToUser, onNavigateToIssue),
+                    onLinkClick = rememberMarkdownLinkHandler(owner, repo, onNavigateToRepo, onNavigateToUser, onNavigateToIssue, downloadVm = downloadVm, onNavigateToDownloads = onNavigateToDownloads),
                     onNavigateToUser = onNavigateToUser,
                     onDownloadAsset = { asset ->
                         downloadVm.enqueue(
@@ -337,7 +337,7 @@ private fun OverviewTab(
     readme: String?,
     isLoading: Boolean,
     onTopicClick: (String) -> Unit = {},
-    onLinkClick: (String) -> Unit,
+    onLinkClick: (String, com.pockethub.ui.markdown.LinkKind) -> Unit,
 ) {
     if (isLoading && repoData == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -545,7 +545,7 @@ private fun PullsTab(
 private fun ReleasesTab(
     releases: List<GitHubApi.Release>,
     repoContext: String,
-    onLinkClick: (String) -> Unit,
+    onLinkClick: (String, com.pockethub.ui.markdown.LinkKind) -> Unit,
     onNavigateToUser: (String) -> Unit = {},
     onDownloadAsset: (GitHubApi.Release.ReleaseAsset) -> Unit = {},
 ) {
@@ -729,25 +729,53 @@ private fun rememberMarkdownLinkHandler(
     onNavigateToRepo: (String, String) -> Unit,
     onNavigateToUser: (String) -> Unit,
     onNavigateToIssue: (Int) -> Unit,
-): (String) -> Unit {
+    downloadVm: com.pockethub.ui.download.DownloadViewModel,
+    onNavigateToDownloads: (tab: String) -> Unit,
+): (String, com.pockethub.ui.markdown.LinkKind) -> Unit {
     val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
-    return link@{ url ->
-        // Issues in current repo
-        Regex("^https://github\\.com/[^/]+/[^/]+/issues/(\\d+)$").matchEntire(url)?.let {
+    return link@{ url, kind ->
+        // DOWNLOADABLE — enqueue into the in-app download manager (CDN raw / release assets / etc.)
+        if (kind == com.pockethub.ui.markdown.LinkKind.DOWNLOADABLE) {
+            val display = url.substringAfterLast('/').ifBlank { "download.bin" }
+            downloadVm.enqueue(
+                com.pockethub.data.download.DownloadManager.EnqueueRequest(
+                    url = url,
+                    fileName = display,
+                    contentType = guessAssetMime(display),
+                    sizeBytes = 0L,
+                    repoKey = "$owner/$repo",
+                    releaseTag = "",
+                )
+            )
+            onNavigateToDownloads("active")
+            return@link
+        }
+        // IMAGE_URL — open in browser so the user can see full-res image
+        if (kind == com.pockethub.ui.markdown.LinkKind.IMAGE_URL) {
+            runCatching { uriHandler.openUri(url) }
+            return@link
+        }
+        // IMAGE (wrapped) — fall through to the wrap target's classification
+        if (kind == com.pockethub.ui.markdown.LinkKind.IMAGE) {
+            runCatching { uriHandler.openUri(url) }
+            return@link
+        }
+        // GitHub issues / PRs
+        Regex("^https://github\\.com/[^/]+/[^/]+/(?:issues|pull)/(\\d+)$").matchEntire(url)?.let {
             it.groupValues[1].toIntOrNull()?.let { n -> onNavigateToIssue(n) }
             return@link
         }
-        // Repo URLs
-        Regex("^https://github\\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/?.*$").matchEntire(url)?.let {
+        // Repo URLs (must come after issue/pull matcher)
+        Regex("^https://github\\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)(?:/.*)?$").matchEntire(url)?.let {
             onNavigateToRepo(it.groupValues[1], it.groupValues[2])
             return@link
         }
-        // User/profile URLs
-        Regex("^https://github\\.com/([A-Za-z0-9_.-]+)$").matchEntire(url)?.let {
+        // User/profile URLs (single segment)
+        Regex("^https://github\\.com/([A-Za-z0-9_.-]+)/?$").matchEntire(url)?.let {
             onNavigateToUser(it.groupValues[1])
             return@link
         }
-        // External links
+        // External links — open in system browser
         runCatching { uriHandler.openUri(url) }
     }
 }
