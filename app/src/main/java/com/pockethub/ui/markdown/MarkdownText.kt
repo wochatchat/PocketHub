@@ -361,9 +361,8 @@ private fun renderInline(
     val linkStyle = linkStyles.style
     fun emitLink(displayText: String, url: String) {
         val start = length
-        val end = start + displayText.length
-        pushStringAnnotation(tag = LINK_TAG, annotation = url, start = start, end = end)
-        addStyle(linkStyle, start, end)
+        pushStringAnnotation(LINK_TAG, url)
+        addStyle(linkStyle, start, start + displayText.length)
         append(displayText)
         pop()
     }
