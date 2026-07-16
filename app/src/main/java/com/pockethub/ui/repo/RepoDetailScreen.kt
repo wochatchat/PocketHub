@@ -235,6 +235,7 @@ private fun OverviewTab(owner: String, repo: String, repoData: Repository?, read
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun IssuesTab(issues: List<Issue>, onClick: (Int) -> Unit) {
     if (issues.isEmpty()) {
