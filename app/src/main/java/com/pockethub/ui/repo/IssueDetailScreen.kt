@@ -73,6 +73,8 @@ fun IssueDetailScreen(
     owner: String,
     repo: String,
     issueNumber: Int,
+    onNavigateToRepo: (String, String) -> Unit = { _, _ -> },
+    onNavigateToUser: (String) -> Unit = {},
     onBack: () -> Unit,
     vm: IssueDetailViewModel = hiltViewModel(),
 ) {
@@ -87,6 +89,18 @@ fun IssueDetailScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+    val onLinkClick: (String) -> Unit = { url ->
+        Regex("^https://github\\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/?.*$").matchEntire(url)?.let {
+            onNavigateToRepo(it.groupValues[1], it.groupValues[2])
+            return@url
+        }
+        Regex("^https://github\\.com/([A-Za-z0-9_.-]+)$").matchEntire(url)?.let {
+            onNavigateToUser(it.groupValues[1])
+            return@url
+        }
+        runCatching { uriHandler.openUri(url) }
+    }
 
     // Show action errors as snackbar
     LaunchedEffect(actionError) {
@@ -226,6 +240,8 @@ fun IssueDetailScreen(
                 MarkdownText(
                     markdown = data.body ?: stringResource(R.string.no_description),
                     modifier = Modifier.fillMaxWidth(),
+                    repoContext = "$owner/$repo",
+                    onLinkClick = onLinkClick,
                 )
 
                 // Comments section
@@ -253,6 +269,8 @@ fun IssueDetailScreen(
                             MarkdownText(
                                 markdown = c.body.ifBlank { stringResource(R.string.no_content) },
                                 modifier = Modifier.fillMaxWidth(),
+                                repoContext = "$owner/$repo",
+                                onLinkClick = onLinkClick,
                             )
                             HorizontalDivider()
                         }

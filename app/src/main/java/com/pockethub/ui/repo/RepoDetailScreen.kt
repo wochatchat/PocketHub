@@ -66,6 +66,8 @@ fun RepoDetailScreen(
     owner: String,
     repo: String,
     onNavigateToIssue: (Int) -> Unit,
+    onNavigateToRepo: (String, String) -> Unit = { _, _ -> },
+    onNavigateToUser: (String) -> Unit = {},
     onNavigateToSearch: (String) -> Unit = {},
     onBack: () -> Unit,
     vm: RepoDetailViewModel = hiltViewModel(),
@@ -146,11 +148,23 @@ fun RepoDetailScreen(
             }
 
             when (tab) {
-                RepoTab.OVERVIEW -> OverviewTab(owner, repo, repoData, readme, isLoading, onTopicClick = { topic -> onNavigateToSearch(topic) })
+                RepoTab.OVERVIEW -> OverviewTab(
+                    owner,
+                    repo,
+                    repoData,
+                    readme,
+                    isLoading,
+                    onTopicClick = { topic -> onNavigateToSearch(topic) },
+                    onLinkClick = rememberMarkdownLinkHandler(owner, repo, onNavigateToRepo, onNavigateToUser, onNavigateToIssue),
+                )
                 RepoTab.CODE -> CodeTab(owner, repo)
                 RepoTab.ISSUES -> IssuesTab(issues, onClick = onNavigateToIssue)
                 RepoTab.PRS -> PullsTab(pulls, onClick = onNavigateToIssue)
-                RepoTab.RELEASES -> ReleasesTab(releases)
+                RepoTab.RELEASES -> ReleasesTab(
+                    releases,
+                    repoContext = "$owner/$repo",
+                    onLinkClick = rememberMarkdownLinkHandler(owner, repo, onNavigateToRepo, onNavigateToUser, onNavigateToIssue),
+                )
                 RepoTab.COMMITS -> CommitsTab(owner, repo)
             }
         }
@@ -203,7 +217,15 @@ private fun StatChip(star: Boolean, count: Int, label: String = "") {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun OverviewTab(owner: String, repo: String, repoData: Repository?, readme: String?, isLoading: Boolean, onTopicClick: (String) -> Unit = {}) {
+private fun OverviewTab(
+    owner: String,
+    repo: String,
+    repoData: Repository?,
+    readme: String?,
+    isLoading: Boolean,
+    onTopicClick: (String) -> Unit = {},
+    onLinkClick: (String) -> Unit,
+) {
     if (isLoading && repoData == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         return
@@ -238,7 +260,12 @@ private fun OverviewTab(owner: String, repo: String, repoData: Repository?, read
             // README
             Text(stringResource(R.string.readme_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             if (readme != null) {
-                MarkdownText(markdown = readme, modifier = Modifier.fillMaxWidth())
+                MarkdownText(
+                    markdown = readme,
+                    modifier = Modifier.fillMaxWidth(),
+                    repoContext = "$owner/$repo",
+                    onLinkClick = onLinkClick,
+                )
             } else if (isLoading) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
@@ -354,7 +381,11 @@ private fun PullsTab(pulls: List<Issue>, onClick: (Int) -> Unit) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ReleasesTab(releases: List<GitHubApi.Release>) {
+private fun ReleasesTab(
+    releases: List<GitHubApi.Release>,
+    repoContext: String,
+    onLinkClick: (String) -> Unit,
+) {
     if (releases.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -409,6 +440,8 @@ private fun ReleasesTab(releases: List<GitHubApi.Release>) {
                     MarkdownText(
                         markdown = release.body.take(2000),
                         modifier = Modifier.fillMaxWidth(),
+                        repoContext = repoContext,
+                        onLinkClick = onLinkClick,
                     )
                 }
                 if (release.assets.isNotEmpty()) {
@@ -424,6 +457,36 @@ private fun ReleasesTab(releases: List<GitHubApi.Release>) {
             }
             HorizontalDivider()
         }
+    }
+}
+
+@Composable
+private fun rememberMarkdownLinkHandler(
+    owner: String,
+    repo: String,
+    onNavigateToRepo: (String, String) -> Unit,
+    onNavigateToUser: (String) -> Unit,
+    onNavigateToIssue: (Int) -> Unit,
+): (String) -> Unit {
+    val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+    return { url ->
+        // Issues in current repo
+        Regex("^https://github\\.com/[^/]+/[^/]+/issues/(\\d+)$").matchEntire(url)?.let {
+            it.groupValues[1].toIntOrNull()?.let { n -> onNavigateToIssue(n) }
+            return@url
+        }
+        // Repo URLs
+        Regex("^https://github\\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/?.*$").matchEntire(url)?.let {
+            onNavigateToRepo(it.groupValues[1], it.groupValues[2])
+            return@url
+        }
+        // User/profile URLs
+        Regex("^https://github\\.com/([A-Za-z0-9_.-]+)$").matchEntire(url)?.let {
+            onNavigateToUser(it.groupValues[1])
+            return@url
+        }
+        // External links
+        runCatching { uriHandler.openUri(url) }
     }
 }
 

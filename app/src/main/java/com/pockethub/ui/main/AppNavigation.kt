@@ -177,6 +177,8 @@ fun PocketHubApp(
                         owner = owner,
                         repo = repo,
                         onNavigateToIssue = { n -> navController.navigate(Routes.issueDetail(owner, repo, n)) },
+                        onNavigateToRepo = { o, r -> navController.navigate(Routes.repoDetail(o, r)) },
+                        onNavigateToUser = { login -> navController.navigate(Routes.userDetail(login)) },
                         onNavigateToSearch = { query -> navController.navigate(Routes.search(query)) },
                         onBack = { navController.popBackStack() },
                     )
@@ -197,6 +199,8 @@ fun PocketHubApp(
                         owner = owner,
                         repo = repo,
                         issueNumber = number,
+                        onNavigateToRepo = { o, r -> navController.navigate(Routes.repoDetail(o, r)) },
+                        onNavigateToUser = { login -> navController.navigate(Routes.userDetail(login)) },
                         onBack = { navController.popBackStack() },
                     )
                 }
