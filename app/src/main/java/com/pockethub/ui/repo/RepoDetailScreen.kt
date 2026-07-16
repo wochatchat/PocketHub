@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.ForkRight
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.SnackbarHost
@@ -37,6 +38,7 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -47,6 +49,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -90,6 +93,7 @@ fun RepoDetailScreen(
     val error by vm.error.collectAsState()
     val tab by vm.currentTab.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
 
     LaunchedEffect(owner, repo) { vm.loadRepo(owner, repo) }
     LaunchedEffect(owner, repo, tab) {
@@ -137,6 +141,24 @@ fun RepoDetailScreen(
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        floatingActionButton = {
+            if (tab == RepoTab.OVERVIEW) {
+                FloatingActionButton(
+                    onClick = {
+                        val url = repoData?.htmlUrl ?: "https://github.com/$owner/$repo"
+                        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(android.content.Intent.EXTRA_TEXT, url)
+                        }
+                        context.startActivity(
+                            android.content.Intent.createChooser(intent, context.getString(R.string.action_share)),
+                        )
+                    },
+                ) {
+                    Icon(Icons.Outlined.Share, contentDescription = stringResource(R.string.action_share))
+                }
+            }
+        },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             // Stats row

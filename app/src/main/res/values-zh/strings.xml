@@ -25,6 +25,7 @@
     <string name="action_show">显示</string>
     <string name="action_hide">隐藏</string>
     <string name="action_mark_all_read">全部已读</string>
+    <string name="action_share">分享</string>
     <string name="action_back">返回</string>
 
     <!-- Bottom nav / tabs -->
