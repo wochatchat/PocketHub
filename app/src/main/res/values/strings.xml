@@ -123,6 +123,29 @@
     <string name="no_content">_No content_</string>
     <string name="unknown">unknown</string>
 
+    <!-- Issue actions -->
+    <string name="action_comment">Comment</string>
+    <string name="action_close_issue">Close issue</string>
+    <string name="action_reopen_issue">Reopen issue</string>
+    <string name="comment_placeholder">Write a comment…</string>
+    <string name="cd_open_in_browser">Open in browser</string>
+    <string name="cd_send_comment">Send comment</string>
+
+    <!-- Commits -->
+    <string name="tab_commits">Commits</string>
+    <string name="commit_author_subtitle">%1$s · %2$s</string>
+    <string name="commit_files_changed">%1$d files changed</string>
+    <string name="commit_additions_deletions">+%1$d / -%2$d</string>
+    <string name="commit_no_more">No more commits</string>
+    <string name="commit_detail">Commit Detail</string>
+    <string name="commit_stats">Stats</string>
+    <string name="commit_files">Files changed</string>
+    <string name="commit_message_line">%1$s</string>
+
+    <!-- User detail -->
+    <string name="user_repositories">Repositories</string>
+    <string name="user_no_repos">No public repositories</string>
+
     <!-- Code browser -->
     <string name="cd_up">Up</string>
     <string name="cd_back_to_directory">Back to directory</string>

@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-enum class RepoTab { OVERVIEW, CODE, ISSUES, PRS, RELEASES }
+enum class RepoTab { OVERVIEW, CODE, ISSUES, PRS, RELEASES, COMMITS }
 
 @HiltViewModel
 class RepoDetailViewModel @Inject constructor(

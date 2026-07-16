@@ -76,6 +76,7 @@ private fun rangeLabel(range: String): String = when (range) {
 fun ExploreScreen(
     modifier: Modifier = Modifier,
     onNavigateToRepo: (String, String) -> Unit,
+    onNavigateToUser: (String) -> Unit = {},
     vm: ExploreViewModel = hiltViewModel(),
 ) {
     val section by vm.section.collectAsState()
@@ -205,7 +206,7 @@ fun ExploreScreen(
                 } else if (feed.isEmpty()) {
                     item { EmptyState(stringResource(R.string.feed_empty_title), stringResource(R.string.feed_empty_subtitle)) }
                 } else {
-                    items(feed, key = { it.id }) { ev -> FeedEventCard(ev, onNavigateToRepo = onNavigateToRepo) }
+                    items(feed, key = { it.id }) { ev -> FeedEventCard(ev, onNavigateToRepo = onNavigateToRepo, onNavigateToUser = onNavigateToUser) }
                 }
                 if (isLoading && feed.isNotEmpty()) {
                     item { LoadingFooter() }
@@ -261,7 +262,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.repoItems(
         repos.isEmpty() && !isLoading -> item { EmptyState(stringResource(R.string.no_repositories_found), stringResource(R.string.no_repositories_subtitle)) }
         else -> {
             items(repos, key = { it.id }) { repo ->
-                TrendingRepoCard(repo = repo, onClick = { onNavigateToRepo(repo.owner.login, repo.name) })
+                TrendingRepoCard(repo = repo, onClick = { onNavigateToRepo(repo.owner.login, repo.name) }, onNavigateToUser = onNavigateToUser)
             }
             item { Spacer(Modifier.height(16.dp)) }
         }
@@ -273,6 +274,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.repoItems(
 private fun FeedEventCard(
     ev: FeedEvent,
     onNavigateToRepo: (String, String) -> Unit,
+    onNavigateToUser: (String) -> Unit,
 ) {
     val repoName = ev.repo?.name
     val ownerLogin = repoName?.substringBefore('/', "")?.ifEmpty { null }
@@ -297,7 +299,12 @@ private fun FeedEventCard(
                     AsyncImage(
                         model = url,
                         contentDescription = ev.actor.login,
-                        modifier = Modifier.size(20.dp).clip(CircleShape),
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .clickable {
+                                ev.actor?.login?.let { login -> onNavigateToUser(login) }
+                            },
                     )
                     Spacer(Modifier.width(8.dp))
                 }
@@ -305,6 +312,9 @@ private fun FeedEventCard(
                     text = ev.actor?.displayLogin ?: ev.actor?.login ?: stringResource(R.string.feed_someone),
                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.clickable {
+                        ev.actor?.login?.let { login -> onNavigateToUser(login) }
+                    },
                 )
                 Text(" $verb", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -411,6 +421,7 @@ private fun LoadingFooter() {
 private fun TrendingRepoCard(
     repo: Repository,
     onClick: () -> Unit,
+    onNavigateToUser: (String) -> Unit = {},
 ) {
     Card(
         modifier = Modifier
@@ -426,13 +437,17 @@ private fun TrendingRepoCard(
                 AsyncImage(
                     model = repo.owner.avatarUrl,
                     contentDescription = repo.owner.login,
-                    modifier = Modifier.size(20.dp).clip(CircleShape),
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .clickable { onNavigateToUser(repo.owner.login) },
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = repo.owner.login,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.clickable { onNavigateToUser(repo.owner.login) },
                 )
                 Text(" / ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(

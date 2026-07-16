@@ -50,10 +50,12 @@ object Routes {
     const val SETTINGS = "settings"
     const val REPO_DETAIL = "repo/{owner}/{repo}"
     const val ISSUE_DETAIL = "repo/{owner}/{repo}/issues/{number}"
+    const val USER_DETAIL = "user/{login}"
 
     fun repoDetail(owner: String, repo: String) = "repo/$owner/$repo"
     fun issueDetail(owner: String, repo: String, number: Int) = "repo/$owner/$repo/issues/$number"
     fun search(query: String = "") = "search?query=${java.net.URLEncoder.encode(query.ifBlank { " " }, "UTF-8")}"
+    fun userDetail(login: String) = "user/$login"
 }
 
 /**
@@ -123,6 +125,7 @@ fun PocketHubApp(
                         onNavigateToSearch = { navController.navigate(Routes.search()) },
                         onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                         onNavigateToRepo = { owner, repo -> navController.navigate(Routes.repoDetail(owner, repo)) },
+                        onNavigateToUser = { login -> navController.navigate(Routes.userDetail(login)) },
                         onNavigateToNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                         onNavigateToProfile = { navController.navigate(Routes.PROFILE) },
                     )
@@ -155,6 +158,7 @@ fun PocketHubApp(
                     com.pockethub.ui.search.SearchScreen(
                         initialQuery = initialQuery,
                         onNavigateToRepo = { owner, repo -> navController.navigate(Routes.repoDetail(owner, repo)) },
+                        onNavigateToUser = { login -> navController.navigate(Routes.userDetail(login)) },
                         onBack = { navController.popBackStack() },
                     )
                 }
@@ -193,6 +197,18 @@ fun PocketHubApp(
                         owner = owner,
                         repo = repo,
                         issueNumber = number,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+
+                composable(
+                    Routes.USER_DETAIL,
+                    arguments = listOf(navArgument("login") { type = NavType.StringType }),
+                ) { backStackEntry ->
+                    val login = backStackEntry.arguments?.getString("login") ?: return@composable
+                    com.pockethub.ui.user.UserDetailScreen(
+                        login = login,
+                        onNavigateToRepo = { owner, repo -> navController.navigate(Routes.repoDetail(owner, repo)) },
                         onBack = { navController.popBackStack() },
                     )
                 }

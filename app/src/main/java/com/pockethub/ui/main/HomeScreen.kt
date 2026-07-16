@@ -54,6 +54,7 @@ fun HomeScreen(
     onNavigateToSearch: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToRepo: (String, String) -> Unit,
+    onNavigateToUser: (String) -> Unit = {},
     onNavigateToNotifications: () -> Unit,
     onNavigateToProfile: () -> Unit,
     activeAvatarUrl: String?,
@@ -140,7 +141,7 @@ fun HomeScreen(
         },
     ) { innerPadding ->
         when (selectedTab) {
-            0 -> ExploreScreen(modifier = Modifier.padding(innerPadding), onNavigateToRepo = onNavigateToRepo)
+            0 -> ExploreScreen(modifier = Modifier.padding(innerPadding), onNavigateToRepo = onNavigateToRepo, onNavigateToUser = onNavigateToUser)
             else -> ReposScreen(modifier = Modifier.padding(innerPadding), onNavigateToRepo = onNavigateToRepo)
         }
     }

@@ -190,6 +190,148 @@ interface GitHubApi {
         val reactions: Int = 0,
     )
 
+    // ── Issue / PR actions ──────────────────────────────
+
+    /** Create a comment on an issue or PR. */
+    @FormUrlEncoded
+    @POST("repos/{owner}/{repo}/issues/{number}/comments")
+    suspend fun createIssueComment(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("number") number: Int,
+        @Field("body") body: String,
+    ): IssueComment
+
+    /** Close or reopen an issue (state = "open" or "closed"). */
+    @FormUrlEncoded
+    @PATCH("repos/{owner}/{repo}/issues/{number}")
+    suspend fun updateIssueState(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("number") number: Int,
+        @Field("state") state: String, // "open" or "closed"
+    ): Issue
+
+    /** Edit an existing comment. */
+    @FormUrlEncoded
+    @PATCH("repos/{owner}/{repo}/issues/comments/{comment_id}")
+    suspend fun editIssueComment(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("comment_id") commentId: Long,
+        @Field("body") body: String,
+    ): IssueComment
+
+    /** Delete a comment. */
+    @DELETE("repos/{owner}/{repo}/issues/comments/{comment_id}")
+    suspend fun deleteIssueComment(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("comment_id") commentId: Long,
+    ): Response<Unit>
+
+    // ── Commits ──────────────────────────────────────────
+
+    /** List commits for a repo (paginated). */
+    @GET("repos/{owner}/{repo}/commits")
+    suspend fun getCommits(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 30,
+        @Query("sha") sha: String? = null, // branch or commit SHA
+    ): List<Commit>
+
+    /** Single commit detail (includes files diff). */
+    @GET("repos/{owner}/{repo}/commits/{ref}")
+    suspend fun getCommit(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("ref") ref: String,
+    ): CommitDetail
+
+    @kotlinx.serialization.Serializable
+    data class Commit(
+        val sha: String = "",
+        @kotlinx.serialization.SerialName("html_url") val htmlUrl: String? = null,
+        val commit: CommitInfo? = null,
+        val author: User? = null,
+        val committer: User? = null,
+        @kotlinx.serialization.SerialName("parents") val parents: List<Parent> = emptyList(),
+    ) {
+        @kotlinx.serialization.Serializable
+        data class CommitInfo(
+            val message: String = "",
+            val author: CommitAuthor? = null,
+            val committer: CommitAuthor? = null,
+        ) {
+            @kotlinx.serialization.Serializable
+            data class CommitAuthor(
+                val name: String = "",
+                val email: String = "",
+                val date: String? = null,
+            )
+        }
+        @kotlinx.serialization.Serializable
+        data class Parent(val sha: String = "")
+    }
+
+    @kotlinx.serialization.Serializable
+    data class CommitDetail(
+        val sha: String = "",
+        @kotlinx.serialization.SerialName("html_url") val htmlUrl: String? = null,
+        val commit: Commit.CommitInfo? = null,
+        val author: User? = null,
+        val committer: User? = null,
+        val stats: CommitStats? = null,
+        val files: List<CommitFile> = emptyList(),
+        @kotlinx.serialization.SerialName("parents") val parents: List<Commit.Parent> = emptyList(),
+    ) {
+        @kotlinx.serialization.Serializable
+        data class CommitStats(
+            val total: Int = 0,
+            val additions: Int = 0,
+            val deletions: Int = 0,
+        )
+
+        @kotlinx.serialization.Serializable
+        data class CommitFile(
+            val sha: String = "",
+            val filename: String = "",
+            val status: String = "", // "added" | "modified" | "removed" | "renamed"
+            val additions: Int = 0,
+            val deletions: Int = 0,
+            val changes: Int = 0,
+            val patch: String? = null,
+            @kotlinx.serialization.SerialName("raw_url") val rawUrl: String? = null,
+            @kotlinx.serialization.SerialName("blob_url") val blobUrl: String? = null,
+        )
+    }
+
+    // ── Branches ──────────────────────────────────────────
+
+    /** List branches for a repo. */
+    @GET("repos/{owner}/{repo}/branches")
+    suspend fun getBranches(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 30,
+    ): List<Branch>
+
+    @kotlinx.serialization.Serializable
+    data class Branch(
+        val name: String = "",
+        val commit: BranchCommit? = null,
+        val `protected`: Boolean = false,
+    ) {
+        @kotlinx.serialization.Serializable
+        data class BranchCommit(
+            val sha: String = "",
+            @kotlinx.serialization.SerialName("url") val url: String? = null,
+        )
+    }
+
     /** Releases for a repo. */
     @GET("repos/{owner}/{repo}/releases")
     suspend fun getReleases(

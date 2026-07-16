@@ -125,6 +125,7 @@ fun RepoDetailScreen(
                         RepoTab.ISSUES -> stringResource(R.string.tab_issues)
                         RepoTab.PRS -> stringResource(R.string.tab_prs)
                         RepoTab.RELEASES -> stringResource(R.string.tab_releases)
+                        RepoTab.COMMITS -> stringResource(R.string.tab_commits)
                     }
                     Tab(
                         selected = tab == current,
@@ -150,6 +151,7 @@ fun RepoDetailScreen(
                 RepoTab.ISSUES -> IssuesTab(issues, onClick = onNavigateToIssue)
                 RepoTab.PRS -> PullsTab(pulls, onClick = onNavigateToIssue)
                 RepoTab.RELEASES -> ReleasesTab(releases)
+                RepoTab.COMMITS -> CommitsTab(owner, repo)
             }
         }
     }

@@ -60,6 +60,7 @@ private fun searchTabLabel(tab: SearchTab): String = when (tab) {
 fun SearchScreen(
     initialQuery: String = "",
     onNavigateToRepo: (String, String) -> Unit,
+    onNavigateToUser: (String) -> Unit = {},
     onBack: () -> Unit,
     vm: SearchViewModel = hiltViewModel(),
 ) {
@@ -133,7 +134,12 @@ fun SearchScreen(
             }
             SearchTab.USERS -> LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(users, key = { it.login }) { user ->
-                    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .clickable { onNavigateToUser(user.login) }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         AsyncImage(model = user.avatarUrl, contentDescription = null, modifier = Modifier.size(24.dp).clip(CircleShape))
                         Spacer(Modifier.width(8.dp))
                         Column {

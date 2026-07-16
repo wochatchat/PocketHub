@@ -123,6 +123,29 @@
     <string name="no_content">_无内容_</string>
     <string name="unknown">未知</string>
 
+    <!-- Issue actions -->
+    <string name="action_comment">评论</string>
+    <string name="action_close_issue">关闭 Issue</string>
+    <string name="action_reopen_issue">重新打开 Issue</string>
+    <string name="comment_placeholder">写下评论…</string>
+    <string name="cd_open_in_browser">在浏览器中打开</string>
+    <string name="cd_send_comment">发送评论</string>
+
+    <!-- Commits -->
+    <string name="tab_commits">提交</string>
+    <string name="commit_author_subtitle">%1$s · %2$s</string>
+    <string name="commit_files_changed">%1$d 个文件变更</string>
+    <string name="commit_additions_deletions">+%1$d / -%2$d</string>
+    <string name="commit_no_more">没有更多提交了</string>
+    <string name="commit_detail">提交详情</string>
+    <string name="commit_stats">统计</string>
+    <string name="commit_files">变更文件</string>
+    <string name="commit_message_line">%1$s</string>
+
+    <!-- User detail -->
+    <string name="user_repositories">仓库</string>
+    <string name="user_no_repos">暂无公开仓库</string>
+
     <!-- Code browser -->
     <string name="cd_up">向上</string>
     <string name="cd_back_to_directory">返回目录</string>
