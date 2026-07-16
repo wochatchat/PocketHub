@@ -247,12 +247,46 @@ interface GitHubApi {
     suspend fun markAllNotificationsRead(): Response<Unit>
 
     // ──────────────────────────────────────────────
+    //  Activity feed (received_events — for the "Following" feed section)
+    // ──────────────────────────────────────────────
+
+    /** Public activity of a user (works for any public user; private events need the authed user). */
+    @GET("users/{login}/received_events")
+    suspend fun getReceivedEvents(
+        @Path("login") login: String,
+        @Query("per_page") perPage: Int = 30,
+        @Query("page") page: Int = 1,
+    ): List<com.pockethub.data.model.FeedEvent>
+
+    /** Public activity of a single user. */
+    @GET("users/{login}/events")
+    suspend fun getUserEvents(
+        @Path("login") login: String,
+        @Query("per_page") perPage: Int = 30,
+        @Query("page") page: Int = 1,
+    ): List<com.pockethub.data.model.FeedEvent>
+
+    /** Repositories owned/owned by a specific user. */
+    @GET("users/{login}/repos")
+    suspend fun getUserRepositories(
+        @Path("login") login: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 30,
+        @Query("sort") sort: String = "updated",
+        @Query("type") type: String? = null, // owner | member | all
+    ): List<Repository>
+
+    // ──────────────────────────────────────────────
     //  Trending (unofficial — scraped or search-based)
     // ──────────────────────────────────────────────
 
     /**
-     * Search repositories sorted by stars (used as Trending fallback).
-     * GitHub has no official Trending API; the search API is the closest equivalent.
+     * Generic repo search — single endpoint backing both the Explore feed
+     * (Trending / Featured / For You sections) and the global Search screen.
+     *
+     * GitHub has no official Trending API; the search API is the closest
+     * equivalent. Callers compose the appropriate `created:>/stars:>…` filter
+     * strings and pick `sort`/`order`.
      */
     @GET("search/repositories")
     suspend fun searchTrending(

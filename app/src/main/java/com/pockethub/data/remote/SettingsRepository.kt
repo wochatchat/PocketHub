@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.pockethub.ui.theme.ThemeMode
@@ -17,7 +18,8 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("p
 
 /**
  * User-level app settings, persisted in DataStore.
- * Theme mode, custom OAuth client, etc.
+ *
+ * Theme mode, custom OAuth client, notification cadence, etc.
  */
 @Singleton
 class SettingsRepository @Inject constructor(
@@ -28,6 +30,8 @@ class SettingsRepository @Inject constructor(
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val CUSTOM_CLIENT_ID = stringPreferencesKey("custom_client_id")
         val CUSTOM_CLIENT_SECRET = stringPreferencesKey("custom_client_secret")
+        val NOTIF_POLL_MINUTES = intPreferencesKey("notif_poll_minutes")
+        val STORE_LAST_REFRESH = intPreferencesKey("store_last_refresh_epoch_min")
     }
 
     // ── Theme ─────────────────────────────────────────────
@@ -58,6 +62,19 @@ class SettingsRepository @Inject constructor(
         context.dataStore.edit { prefs ->
             prefs[Keys.CUSTOM_CLIENT_ID] = id
             prefs[Keys.CUSTOM_CLIENT_SECRET] = secret
+        }
+    }
+
+    // ── Notification polling ──────────────────────────────
+    /**
+     * Polling interval (minutes) for unread notifications refresh.
+     * 0 = disabled (Manual only), otherwise minimum 15m enforced by Android WorkManager constraints.
+     */
+    val notifPollMinutes: Flow<Int> = context.dataStore.data.map { it[Keys.NOTIF_POLL_MINUTES] ?: 0 }
+
+    suspend fun setNotifPollMinutes(minutes: Int) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.NOTIF_POLL_MINUTES] = minutes.coerceAtLeast(0)
         }
     }
 }

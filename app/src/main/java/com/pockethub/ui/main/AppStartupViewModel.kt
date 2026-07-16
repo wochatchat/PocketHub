@@ -30,6 +30,10 @@ class AppStartupViewModel @Inject constructor(
     private val _startRoute = MutableStateFlow<String?>(null)
     val startRoute: StateFlow<String?> = _startRoute.asStateFlow()
 
+    /** The currently active account (avatar/login shown in Home's top-left avatar). */
+    val activeAccount: StateFlow<com.pockethub.data.local.AccountEntity?> =
+        accounts.activeAccount.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
     /** Signalled when the user signs out — AppNavigation observes and resets the nav stack. */
     private val _signedOut = MutableStateFlow(false)
     val signedOut: StateFlow<Boolean> = _signedOut.asStateFlow()
