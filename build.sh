@@ -38,15 +38,29 @@ echo "✦ Building release APK..."
 ./gradlew clean :app:assembleRelease --no-daemon
 
 # ── Archive ──────────────────────────────────────────────
+# Keep only the two most recent versioned APKs; no "release" named APK.
 mkdir -p "$APK_ARCHIVE"
-cp "$APK_DIR/app-release.apk" "$APK_ARCHIVE/$APK_NAME"
-cp "$APK_DIR/app-release.apk" "$APK_ARCHIVE/pockethub-$(grep '^versionName=' "$VERSION_FILE" | cut -d= -f2).apk"
-echo "✦ APK archived to $APK_ARCHIVE/$APK_NAME"
+NEW_APK="$APK_ARCHIVE/pockethub-$(grep '^versionName=' "$VERSION_FILE" | cut -d= -f2).apk"
+cp "$APK_DIR/app-release.apk" "$NEW_APK"
+echo "✦ APK archived to $NEW_APK"
+
+# Remove any legacy "release"-named APK
+rm -f "$APK_ARCHIVE/$APK_NAME"
+
+# Prune old versioned APKs, keeping only the newest two
+# (files matching pockethub-<version>.apk, sorted by version descending)
+mapfile -t OLD_APKS < <(ls -1 "$APK_ARCHIVE"/pockethub-*.apk 2>/dev/null | sort -rV)
+if [ "${#OLD_APKS[@]}" -gt 2 ]; then
+    for apk in "${OLD_APKS[@]:2}"; do
+        rm -f "$apk"
+        echo "✦ Pruned old APK: $apk"
+    done
+fi
 
 # ── Show version ──────────────────────────────────────────
 CODE=$(grep '^versionCode=' "$VERSION_FILE" | cut -d= -f2)
 NAME=$(grep '^versionName=' "$VERSION_FILE" | cut -d= -f2)
 echo ""
 echo "✓ Build complete: v$NAME (code $CODE)"
-echo "  → $APK_ARCHIVE/$APK_NAME"
-ls -lh "$APK_ARCHIVE/$APK_NAME"
+echo "  Kept APKs in $APK_ARCHIVE/:"
+ls -lh "$APK_ARCHIVE"/pockethub-*.apk 2>/dev/null | awk '{print "  → "$NF}'
