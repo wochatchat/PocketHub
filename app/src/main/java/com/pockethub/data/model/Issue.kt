@@ -25,7 +25,7 @@ data class Issue(
 
     // Counts
     @SerialName("comments") val comments: Int = 0,
-    @SerialName("reactions") val reactions: Int = 0,
+    @SerialName("reactions") val reactions: Reactions? = null,
 
     // Timestamps
     @SerialName("created_at") val createdAt: String? = null,

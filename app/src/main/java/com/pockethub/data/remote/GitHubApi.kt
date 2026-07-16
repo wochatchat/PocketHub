@@ -187,7 +187,7 @@ interface GitHubApi {
         @kotlinx.serialization.SerialName("created_at") val createdAt: String? = null,
         @kotlinx.serialization.SerialName("updated_at") val updatedAt: String? = null,
         @kotlinx.serialization.SerialName("html_url") val htmlUrl: String? = null,
-        val reactions: Int = 0,
+        val reactions: com.pockethub.data.model.Reactions? = null,
     )
 
     // ── Issue / PR actions ──────────────────────────────
