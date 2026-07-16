@@ -31,7 +31,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.text.pushStringAnnotation
 import androidx.compose.ui.unit.dp
 
 /**
@@ -362,10 +361,9 @@ private fun renderInline(
     val linkStyle = linkStyles.style
     fun emitLink(displayText: String, url: String) {
         val start = length
-        pushStringAnnotation(LINK_TAG, url)
+        addStringAnnotation(LINK_TAG, url, start, start + displayText.length)
         addStyle(linkStyle, start, start + displayText.length)
         append(displayText)
-        pop()
     }
     var i = 0
     while (i < text.length) {
