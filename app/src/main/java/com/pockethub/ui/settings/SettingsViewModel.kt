@@ -19,7 +19,17 @@ class SettingsViewModel @Inject constructor(
     val themeMode: StateFlow<ThemeMode> = settings.themeMode
         .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.Dark)
 
+    val customClientId: StateFlow<String> = settings.customClientId
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
+    val customClientSecret: StateFlow<String> = settings.customClientSecret
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { settings.setThemeMode(mode) }
+    }
+
+    fun setCustomOAuthClient(id: String, secret: String) {
+        viewModelScope.launch { settings.setCustomOAuthClient(id, secret) }
     }
 }

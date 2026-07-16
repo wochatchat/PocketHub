@@ -1,5 +1,6 @@
 package com.pockethub.ui.explore
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,20 +14,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.automirrored.outlined.Article
+import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.ForkRight
 import androidx.compose.material.icons.outlined.Star
-import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -45,8 +50,8 @@ import coil.compose.AsyncImage
 import com.pockethub.data.model.Repository
 
 /** Trending language filter chips. */
-private val LANGUAGES = listOf("All", "Kotlin", "TypeScript", "Python", "Rust", "Go", "Swift", "Java")
-private val TIME_RANGES = listOf("Today", "This week", "This month")
+private val LANGUAGES = listOf("All", "Kotlin", "TypeScript", "Python", "Rust", "Go", "Swift", "Java", "C++")
+private val TIME_RANGES = listOf("Daily", "Weekly", "Monthly")
 
 @Composable
 fun ExploreScreen(
@@ -56,36 +61,31 @@ fun ExploreScreen(
 ) {
     val trending by vm.trending.collectAsState()
     val isLoading by vm.isLoading.collectAsState()
+    val error by vm.error.collectAsState()
     var selectedLang by remember { mutableStateOf("All") }
-    var selectedRange by remember { mutableStateOf("Today") }
+    var selectedRange by remember { mutableStateOf("Daily") }
 
+    // Build the search query and trigger a single load when filters change.
     LaunchedEffect(selectedLang, selectedRange) {
-        val dateRange = when (selectedRange) {
-            "This week" -> "created:>2026-07-09"
-            "This month" -> "created:>2026-06-16"
-            else -> "created:>2026-07-15"
-        }
-        val q = if (selectedLang == "All") "stars:>100 $dateRange"
-               else "language:${selectedLang.lowercase()} stars:>50 $dateRange"
-        vm.loadTrending(q)
+        vm.loadTrending(language = selectedLang, range = selectedRange)
     }
 
     LazyColumn(
-        modifier = modifier.fillMaxSize().padding(horizontal = 16.dp),
+        modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         // Language filter chips
         item {
             Spacer(Modifier.height(8.dp))
-            androidx.compose.foundation.lazy.LazyRow(
+            LazyRow(
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(LANGUAGES.size) { idx ->
+                items(LANGUAGES) { lang ->
                     FilterChip(
-                        selected = selectedLang == LANGUAGES[idx],
-                        onClick = { selectedLang = LANGUAGES[idx] },
-                        label = { Text(LANGUAGES[idx], style = MaterialTheme.typography.labelMedium) },
-                        leadingIcon = if (selectedLang == LANGUAGES[idx]) {{ CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp) }} else null,
+                        selected = selectedLang == lang,
+                        onClick = { selectedLang = lang },
+                        label = { Text(lang, style = MaterialTheme.typography.labelMedium) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -97,41 +97,85 @@ fun ExploreScreen(
 
         // Time range chips
         item {
-            androidx.compose.foundation.lazy.LazyRow(
+            LazyRow(
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(TIME_RANGES.size) { idx ->
+                items(TIME_RANGES) { range ->
                     FilterChip(
-                        selected = selectedRange == TIME_RANGES[idx],
-                        onClick = { selectedRange = TIME_RANGES[idx] },
-                        label = { Text(TIME_RANGES[idx], style = MaterialTheme.typography.labelMedium) },
+                        selected = selectedRange == range,
+                        onClick = { selectedRange = range },
+                        label = { Text(range, style = MaterialTheme.typography.labelMedium) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        ),
+                    )
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+        }
+
+        when {
+            isLoading && trending.isEmpty() -> item {
+                Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+            error != null && trending.isEmpty() -> item {
+                ErrorState(
+                    message = error!!,
+                    onRetry = { vm.loadTrending(language = selectedLang, range = selectedRange) },
+                )
+            }
+            trending.isEmpty() && !isLoading -> item {
+                EmptyState()
+            }
+            else -> {
+                items(trending, key = { it.id }) { repo ->
+                    TrendingRepoCard(
+                        repo = repo,
+                        onClick = { onNavigateToRepo(repo.owner.login, repo.name) },
+                    )
+                }
+                // Footer
+                item {
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        text = "Showing ${trending.size} trending repositories",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     )
                 }
             }
         }
+    }
+}
 
-        if (isLoading) {
-            item {
-                Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            }
-        }
+@Composable
+private fun ErrorState(message: String, onRetry: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(Icons.Outlined.CloudOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(36.dp))
+        Text("Couldn't load trending", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+        Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        TextButton(onClick = onRetry) { Text("Retry") }
+    }
+}
 
-        items(trending, key = { it.id }) { repo ->
-            TrendingRepoCard(repo = repo, onClick = { onNavigateToRepo(repo.owner.login, repo.name) })
-        }
-
-        // Footer
-        item {
-            Spacer(Modifier.height(16.dp))
-            Text(
-                text = "Showing ${trending.size} trending repositories",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-        }
+@Composable
+private fun EmptyState() {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(Icons.AutoMirrored.Outlined.Article, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(36.dp))
+        Text("No trending repositories found", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -141,7 +185,11 @@ private fun TrendingRepoCard(
     onClick: () -> Unit,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
@@ -179,30 +227,66 @@ private fun TrendingRepoCard(
 
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Language dot
                 if (repo.language != null) {
-                    Box(Modifier.size(10.dp).clip(CircleShape).then(
-                        Modifier.padding(0.dp) // color set in actual impl
-                    ))
+                    LangDot(repo.language)
+                    Spacer(Modifier.width(4.dp))
                     Text(repo.language, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(12.dp))
                 }
-                // Stars
-                Icon(androidx.compose.material.icons.Icons.Outlined.Star, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Outlined.Star, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.width(4.dp))
-                Text("${repo.stars}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(formatCount(repo.stars), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.width(12.dp))
-                // Forks
-                Icon(Icons.Outlined.StarOutline, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("${repo.forks}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.width(12.dp))
-                // License
+                Icon(Icons.Outlined.ForkRight, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(4.dp))
+                Text(formatCount(repo.forks), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 repo.license?.let { lic ->
-                    Icon(Icons.Filled.Language, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.width(4.dp))
-                    Text(lic.spdxId ?: lic.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(12.dp))
+                    val licName = lic.spdxId?.takeIf { it.isNotBlank() && it != "NOASSERTION" } ?: lic.name
+                    if (licName.isNotBlank()) Text(licName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
     }
+}
+
+/** Tiny colored dot used as the language indicator. Looks up a known color table. */
+@Composable
+private fun LangDot(language: String) {
+    val color = remember(language) { languageColorHex(language)?.let { parseColor(it) } ?: MaterialTheme.colorScheme.outline }
+    Box(Modifier.size(10.dp).clip(CircleShape).background(color))
+}
+
+private fun formatCount(n: Int): String = when {
+    n >= 1_000_000 -> "%.1fM".format(n / 1_000_000.0)
+    n >= 1_000 -> "%.1fk".format(n / 1_000.0)
+    else -> n.toString()
+}
+
+private fun parseColor(hex: String): androidx.compose.ui.graphics.Color {
+    val cleaned = hex.removePrefix("#")
+    val v = cleaned.toLong(16)
+    return androidx.compose.ui.graphics.Color(v or 0xFF000000.toInt())
+}
+
+/** GitHub's official language colors (octicons.lang-colors). Subset for the filter chips we offer. */
+private fun languageColorHex(language: String): String? = when (language.lowercase()) {
+    "kotlin" -> "#A97BFF"
+    "typescript" -> "#3178C6"
+    "python" -> "#3572A5"
+    "rust" -> "#DEA584"
+    "go" -> "#00ADD8"
+    "swift" -> "#F05138"
+    "java" -> "#B07219"
+    "c++" -> "#F34B7D"
+    "c" -> "#555555"
+    "c#" -> "#178600"
+    "javascript" -> "#F1E05A"
+    "html" -> "#E34C26"
+    "css" -> "#563D7C"
+    "php" -> "#4F5D95"
+    "ruby" -> "#701516"
+    "dart" -> "#00B4AB"
+    "shell" -> "#89E051"
+    else -> null
 }

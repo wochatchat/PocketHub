@@ -17,6 +17,7 @@ import com.pockethub.data.remote.AccountRepository
 import com.pockethub.data.remote.AuthInterceptor
 import com.pockethub.data.remote.SettingsRepository
 import com.pockethub.ui.auth.LoginViewModel
+import com.pockethub.ui.main.AppStartupViewModel
 import com.pockethub.ui.main.PocketHubApp
 import com.pockethub.ui.settings.SettingsViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -49,12 +50,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // Sync auth interceptor with the active account token on startup
-            LaunchedEffect(Unit) {
-                val token = accounts.getActiveToken()
-                if (token.isNotBlank()) authInterceptor.token = token
-            }
-
             PocketHubApp(themeMode = themeMode)
         }
     }
@@ -67,7 +62,6 @@ class MainActivity : ComponentActivity() {
     /** Inspect intent data for ?code=xxx from the pockethub://oauth/callback URI. */
     private fun handleOAuthCallback(intent: Intent?, onCode: (String) -> Unit) {
         val data: Uri = intent?.data ?: return
-        // Only accept pockethub://oauth/callback?code=xxx
         if (data.scheme != "pockethub") return
         if (data.host != "oauth") return
         val code = data.getQueryParameter("code") ?: return

@@ -1,5 +1,6 @@
 package com.pockethub.ui.repos
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -140,7 +141,8 @@ private fun RepoCard(repo: Repository, onClick: () -> Unit) {
         Spacer(Modifier.height(6.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (repo.language != null) {
-                Box(Modifier.size(8.dp).clip(CircleShape).padding(0.dp)) // TODO: fill with actual language color
+                val langColor = remember(repo.language) { languageColorHex(repo.language)?.let { parseColor(it) } ?: MaterialTheme.colorScheme.outline }
+                Box(Modifier.size(8.dp).clip(CircleShape).background(langColor))
                 Text(" ${repo.language} ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Icon(Icons.Outlined.Star, null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -154,3 +156,18 @@ private fun RepoCard(repo: Repository, onClick: () -> Unit) {
         }
     }
 }
+
+private fun languageColorHex(language: String): String? = when (language.lowercase()) {
+    "kotlin" -> "#A97BFF"; "typescript" -> "#3178C6"; "python" -> "#3572A5"
+    "rust" -> "#DEA584"; "go" -> "#00ADD8"; "swift" -> "#F05138"
+    "java" -> "#B07219"; "c++" -> "#F34B7D"; "c" -> "#555555"
+    "c#" -> "#178600"; "javascript" -> "#F1E05A"; "html" -> "#E34C26"
+    "css" -> "#563D7C"; "php" -> "#4F5D95"; "ruby" -> "#701516"
+    "dart" -> "#00B4AB"; "shell" -> "#89E051"; else -> null
+}
+
+private fun parseColor(hex: String): androidx.compose.ui.graphics.Color {
+    val v = hex.removePrefix("#").toLong(16)
+    return androidx.compose.ui.graphics.Color(v or 0xFF000000.toInt())
+}
+

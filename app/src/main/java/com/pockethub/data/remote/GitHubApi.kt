@@ -67,16 +67,34 @@ interface GitHubApi {
         @Path("repo") repo: String,
     ): Repository
 
-    /** README rendered as HTML (or markdown body via Accept header). */
+    /** README — returns base64 content + download_url. Parsed into [ReadmeResponse]. */
     @GET("repos/{owner}/{repo}/readme")
     suspend fun getReadme(
         @Path("owner") owner: String,
         @Path("repo") repo: String,
-    ): Map<String, Any> // contains "content" (base64) or "download_url"
+    ): ReadmeResponse
 
-    /** Toggle star. */
+    @kotlinx.serialization.Serializable
+    data class ReadmeResponse(
+        val name: String = "",
+        val path: String = "",
+        val content: String = "",          // base64 encoded markdown body
+        val encoding: String = "base64",
+        @kotlinx.serialization.SerialName("download_url") val downloadUrl: String? = null,
+        @kotlinx.serialization.SerialName("html_url") val htmlUrl: String? = null,
+        val size: Long = 0,
+    )
+
+    /** Toggle star — PUT with no body stars the repo. */
     @PUT("user/starred/{owner}/{repo}")
-    suspend fun toggleStar(
+    suspend fun star(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+    ): Response<Unit>
+
+    /** Check if the current user has starred the repo — 204 starred, 404 not. */
+    @GET("user/starred/{owner}/{repo}")
+    suspend fun checkStarred(
         @Path("owner") owner: String,
         @Path("repo") repo: String,
     ): Response<Unit>
@@ -92,15 +110,40 @@ interface GitHubApi {
     // ──────────────────────────────────────────────
 
     /**
-     * List contents of a directory. Returns [List] of file/dir entries
-     * for the given path on the default branch.
+     * List contents of a directory or fetch a single file.
+     *
+     * The API returns either a [ContentEntry] (when `path` points to a file) or
+     * a JSON array of [ContentEntry] (when it points to a directory). We declare the
+     * return as [kotlinx.serialization.json.JsonElement] and decode in the caller via
+     * [kotlinx.serialization.json.Json], so one method covers both cases.
      */
     @GET("repos/{owner}/{repo}/contents/{path}")
     suspend fun getContents(
         @Path("owner") owner: String,
         @Path("repo") repo: String,
         @Path("path", encoded = true) path: String = "",
-    ): Any // single object or list — model as raw JSON and parse in repo
+        @Query("ref") ref: String? = null,
+    ): kotlinx.serialization.json.JsonElement
+
+    /** Contents of the root of the repo's default branch (no path). */
+    @GET("repos/{owner}/{repo}/contents")
+    suspend fun getRootContents(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Query("ref") ref: String? = null,
+    ): kotlinx.serialization.json.JsonElement
+
+    @kotlinx.serialization.Serializable
+    data class ContentEntry(
+        val name: String = "",
+        val path: String = "",
+        val sha: String = "",
+        @kotlinx.serialization.SerialName("download_url") val downloadUrl: String? = null,
+        val type: String = "file", // "file" | "dir" | "symlink" | "submodule"
+        val size: Long = 0,
+        val content: String = "",   // base64 (only present for single-file fetches)
+        val encoding: String = "none",
+    )
 
     // ──────────────────────────────────────────────
     //  Issues & Pull Requests
@@ -125,6 +168,60 @@ interface GitHubApi {
         @Path("repo") repo: String,
         @Path("number") number: Int,
     ): Issue
+
+    /** Comments on an issue or PR. */
+    @GET("repos/{owner}/{repo}/issues/{number}/comments")
+    suspend fun getIssueComments(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("number") number: Int,
+        @Query("per_page") perPage: Int = 50,
+        @Query("page") page: Int = 1,
+    ): List<IssueComment>
+
+    @kotlinx.serialization.Serializable
+    data class IssueComment(
+        val id: Long = 0,
+        val body: String = "",
+        val user: User? = null,
+        @kotlinx.serialization.SerialName("created_at") val createdAt: String? = null,
+        @kotlinx.serialization.SerialName("updated_at") val updatedAt: String? = null,
+        @kotlinx.serialization.SerialName("html_url") val htmlUrl: String? = null,
+        val reactions: Int = 0,
+    )
+
+    /** Releases for a repo. */
+    @GET("repos/{owner}/{repo}/releases")
+    suspend fun getReleases(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Query("per_page") perPage: Int = 20,
+        @Query("page") page: Int = 1,
+    ): List<Release>
+
+    @kotlinx.serialization.Serializable
+    data class Release(
+        val id: Long = 0,
+        @kotlinx.serialization.SerialName("tag_name") val tagName: String = "",
+        @kotlinx.serialization.SerialName("name") val name: String? = null,
+        val body: String? = null,
+        val draft: Boolean = false,
+        val prerelease: Boolean = false,
+        @kotlinx.serialization.SerialName("created_at") val createdAt: String? = null,
+        @kotlinx.serialization.SerialName("published_at") val publishedAt: String? = null,
+        @kotlinx.serialization.SerialName("html_url") val htmlUrl: String? = null,
+        val author: User? = null,
+        @kotlinx.serialization.SerialName("assets") val assets: List<ReleaseAsset> = emptyList(),
+    ) {
+        @kotlinx.serialization.Serializable
+        data class ReleaseAsset(
+            val id: Long = 0,
+            val name: String = "",
+            @kotlinx.serialization.SerialName("download_count") val downloadCount: Int = 0,
+            val size: Long = 0,
+            @kotlinx.serialization.SerialName("browser_download_url") val browserDownloadUrl: String = "",
+        )
+    }
 
     // ──────────────────────────────────────────────
     //  Notifications
