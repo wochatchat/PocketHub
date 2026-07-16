@@ -361,8 +361,9 @@ private fun renderInline(
     val linkStyle = linkStyles.style
     fun emitLink(displayText: String, url: String) {
         val start = length
-        pushStringAnnotation(LINK_TAG, url)
-        addStyle(linkStyle, start, start + displayText.length)
+        val end = start + displayText.length
+        pushStringAnnotation(tag = LINK_TAG, annotation = url, start = start, end = end)
+        addStyle(linkStyle, start, end)
         append(displayText)
         pop()
     }
@@ -394,8 +395,8 @@ private fun renderInline(
             }
         }
         // Bare URL
-        if (text.regionMatches(i, "https://", 0, ignoreCase = false) ||
-            text.regionMatches(i, "http://", 0, ignoreCase = false)) {
+        if (text.regionMatches(i, "https://", 0, 8, ignoreCase = false) ||
+            text.regionMatches(i, "http://", 0, 7, ignoreCase = false)) {
             val end = findUrlEnd(text, i)
             if (end > i) {
                 val url = text.substring(i, end)
