@@ -179,7 +179,7 @@ class DownloadManager @Inject constructor(
                 val dlClient = client.newBuilder().followRedirects(true).build()
                 val response = withContext(ioDispatcher) { dlClient.newCall(request).execute() }
                 if (!response.isSuccessful) {
-                    dao.markFailed(currentUrl, "HTTP ${response.code}")
+                    dao.markFailed(currentUrl, "HTTP ${response.code}", System.currentTimeMillis())
                     _events.tryEmit(DownloadEvent.Failed(currentUrl, "HTTP ${response.code}"))
                     return@launch
                 }
@@ -205,7 +205,7 @@ class DownloadManager @Inject constructor(
                                 // Throttle progress reports to 1 update per 100KB to save DB writes.
                                 if (totalRead - lastReport >= 100 * 1024 || totalRead == totalBytes) {
                                     val pct = if (totalBytes > 0) ((totalRead * 100) / totalBytes).toInt() else 0
-                                    dao.reportProgress(currentUrl, totalRead, pct.coerceIn(0, 100))
+                                    dao.reportProgress(currentUrl, totalRead, pct.coerceIn(0, 100), System.currentTimeMillis())
                                     lastReport = totalRead
                                 }
                             }
@@ -221,17 +221,16 @@ class DownloadManager @Inject constructor(
                     destFile.delete()
                 }
 
-                dao.markDone(currentUrl, totalBytes)
+                dao.markDone(currentUrl, totalBytes, System.currentTimeMillis())
                 _events.tryEmit(DownloadEvent.Done(currentUrl, targetFile.absolutePath))
             } catch (e: kotlinx.coroutines.CancellationException) {
                 destFile.delete()
-                // Mark as failed; user can retry from UI.
-                dao.markFailed(currentUrl, "Cancelled")
+                dao.markFailed(currentUrl, "Cancelled", System.currentTimeMillis())
                 throw e
             } catch (e: Throwable) {
                 destFile.delete()
                 val msg = e.localizedMessage ?: e.javaClass.simpleName
-                dao.markFailed(currentUrl, msg)
+                dao.markFailed(currentUrl, msg, System.currentTimeMillis())
                 _events.tryEmit(DownloadEvent.Failed(currentUrl, msg))
             }
         }
