@@ -30,6 +30,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -46,10 +47,18 @@ import com.pockethub.data.model.User
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
+    initialQuery: String = "",
     onNavigateToRepo: (String, String) -> Unit,
     onBack: () -> Unit,
     vm: SearchViewModel = hiltViewModel(),
 ) {
+    // Seed the query from the route argument on first composition.
+    LaunchedEffect(Unit) {
+        if (initialQuery.isNotBlank() && vm.query.value.isBlank()) {
+            vm.query.value = initialQuery
+            vm.search()
+        }
+    }
     val query by vm.query.collectAsState()
     val tab by vm.currentTab.collectAsState()
     val repos by vm.repos.collectAsState()

@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockethub.data.remote.AccountRepository
 import com.pockethub.data.remote.AuthInterceptor
+import com.pockethub.data.remote.NotifScheduler
+import com.pockethub.data.remote.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -25,6 +27,8 @@ import javax.inject.Inject
 class AppStartupViewModel @Inject constructor(
     private val accounts: AccountRepository,
     private val authInterceptor: AuthInterceptor,
+    private val notifScheduler: NotifScheduler,
+    private val settings: SettingsRepository,
 ) : ViewModel() {
 
     private val _startRoute = MutableStateFlow<String?>(null)
@@ -40,6 +44,7 @@ class AppStartupViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            // Re-seed auth interceptor from the persisted active account
             val token = accounts.getActiveToken()
             if (token.isNotBlank()) {
                 authInterceptor.token = token
@@ -47,6 +52,10 @@ class AppStartupViewModel @Inject constructor(
             } else {
                 _startRoute.value = Routes.LOGIN
             }
+
+            // Schedule notification polling in sync with the user's saved setting
+            val minutes = settings.notifPollMinutes.first()
+            notifScheduler.schedule(minutes)
         }
     }
 

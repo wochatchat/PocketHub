@@ -3,6 +3,7 @@ package com.pockethub.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockethub.data.local.AccountDao
+import com.pockethub.data.remote.NotifScheduler
 import com.pockethub.data.remote.SettingsRepository
 import com.pockethub.ui.theme.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,6 +19,7 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val accountDao: AccountDao,
+    private val notifScheduler: NotifScheduler,
 ) : ViewModel() {
 
     val themeMode: StateFlow<ThemeMode> = settings.themeMode
@@ -49,7 +51,10 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setNotifPollMinutes(minutes: Int) {
-        viewModelScope.launch { settings.setNotifPollMinutes(minutes) }
+        viewModelScope.launch {
+            settings.setNotifPollMinutes(minutes)
+            notifScheduler.schedule(minutes)
+        }
     }
 
     fun refreshAccountCount() {

@@ -62,6 +62,7 @@ fun RepoDetailScreen(
     owner: String,
     repo: String,
     onNavigateToIssue: (Int) -> Unit,
+    onNavigateToSearch: (String) -> Unit = {},
     onBack: () -> Unit,
     vm: RepoDetailViewModel = hiltViewModel(),
 ) {
@@ -140,7 +141,7 @@ fun RepoDetailScreen(
             }
 
             when (tab) {
-                RepoTab.OVERVIEW -> OverviewTab(owner, repo, repoData, readme, isLoading)
+                RepoTab.OVERVIEW -> OverviewTab(owner, repo, repoData, readme, isLoading, onTopicClick = { topic -> onNavigateToSearch(topic) })
                 RepoTab.CODE -> CodeTab(owner, repo)
                 RepoTab.ISSUES -> IssuesTab(issues, onClick = onNavigateToIssue)
                 RepoTab.PRS -> PullsTab(pulls, onClick = onNavigateToIssue)
@@ -196,7 +197,7 @@ private fun StatChip(star: Boolean, count: Int, label: String = "") {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun OverviewTab(owner: String, repo: String, repoData: Repository?, readme: String?, isLoading: Boolean) {
+private fun OverviewTab(owner: String, repo: String, repoData: Repository?, readme: String?, isLoading: Boolean, onTopicClick: (String) -> Unit = {}) {
     if (isLoading && repoData == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         return
@@ -220,7 +221,7 @@ private fun OverviewTab(owner: String, repo: String, repoData: Repository?, read
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     data.topics.forEach {
                         AssistChip(
-                            onClick = {},
+                            onClick = { onTopicClick(it) },
                             label = { Text(it, style = MaterialTheme.typography.labelSmall) },
                             colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
                         )

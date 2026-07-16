@@ -119,6 +119,11 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.hilt.compiler)  // hilt-compiler also handles @HiltWorker
+
+    // WorkManager
+    implementation(libs.androidx.work.runtime.ktx)
 
     // Serialization
     implementation(libs.kotlinx.serialization.json)

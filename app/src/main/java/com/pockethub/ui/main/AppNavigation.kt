@@ -46,13 +46,14 @@ object Routes {
     const val NOTIFICATIONS = "notifications"
 
     // Detail destinations
-    const val SEARCH = "search"
+    const val SEARCH = "search?query={query}"
     const val SETTINGS = "settings"
     const val REPO_DETAIL = "repo/{owner}/{repo}"
     const val ISSUE_DETAIL = "repo/{owner}/{repo}/issues/{number}"
 
     fun repoDetail(owner: String, repo: String) = "repo/$owner/$repo"
     fun issueDetail(owner: String, repo: String, number: Int) = "repo/$owner/$repo/issues/$number"
+    fun search(query: String = "") = "search?query=${java.net.URLEncoder.encode(query.ifBlank { " " }, "UTF-8")}"
 }
 
 /**
@@ -119,7 +120,7 @@ fun PocketHubApp(
                     val activeAccount by appVm.activeAccount.collectAsState()
                     HomeScreen(
                         activeAvatarUrl = activeAccount?.avatarUrl,
-                        onNavigateToSearch = { navController.navigate(Routes.SEARCH) },
+                        onNavigateToSearch = { navController.navigate(Routes.search()) },
                         onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                         onNavigateToRepo = { owner, repo -> navController.navigate(Routes.repoDetail(owner, repo)) },
                         onNavigateToNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
@@ -144,8 +145,15 @@ fun PocketHubApp(
                     )
                 }
 
-                composable(Routes.SEARCH) {
+                composable(
+                    Routes.SEARCH,
+                    arguments = listOf(
+                        navArgument("query") { type = NavType.StringType; defaultValue = "" },
+                    ),
+                ) { backStackEntry ->
+                    val initialQuery = backStackEntry.arguments?.getString("query").orEmpty().trim()
                     com.pockethub.ui.search.SearchScreen(
+                        initialQuery = initialQuery,
                         onNavigateToRepo = { owner, repo -> navController.navigate(Routes.repoDetail(owner, repo)) },
                         onBack = { navController.popBackStack() },
                     )
@@ -165,6 +173,7 @@ fun PocketHubApp(
                         owner = owner,
                         repo = repo,
                         onNavigateToIssue = { n -> navController.navigate(Routes.issueDetail(owner, repo, n)) },
+                        onNavigateToSearch = { query -> navController.navigate(Routes.search(query)) },
                         onBack = { navController.popBackStack() },
                     )
                 }

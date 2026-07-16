@@ -1,7 +1,22 @@
 package com.pockethub
 
 import android.app.Application
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 
+/**
+ * Application entry point. Provides WorkManager configuration using [HiltWorkerFactory]
+ * so that [com.pockethub.data.remote.NotifPollWorker] can receive injected dependencies.
+ */
 @HiltAndroidApp
-class PocketHubApp : Application()
+class PocketHubApp : Application(), Configuration.Provider {
+
+    @Inject lateinit var workerFactory: HiltWorkerFactory
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
+}
