@@ -37,10 +37,3 @@ jobs:
           git add version.properties apk/
           git commit -m "chore: release v$(grep '^versionName=' version.properties | cut -d= -f2) [skip ci]" || true
           git push
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: pockethub-release
-          path: apk/*.apk
-          retention-days: 30
