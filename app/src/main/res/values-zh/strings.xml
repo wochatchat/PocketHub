@@ -10,6 +10,12 @@
     <string name="login_token_hint">Personal Access Token</string>
     <string name="login_oauth_hint">Client ID（可选）</string>
     <string name="login_description_scopes">需要拥有 repo、read:user、user:email、read:org、read:notifications 权限的 Token。</string>
+    <string name="login_get_token_prompt">在 GitHub 上创建 Personal Access Token</string>
+    <string name="login_get_token_link">https://github.com/settings/tokens/new</string>
+    <string name="login_get_token_link_text">创建新 Token →</string>
+    <string name="login_oauth_description">通过 OAuth App 授权 PocketHub 登录，无需手动创建 Token。</string>
+    <string name="login_get_oauth_link">https://github.com/settings/applications/new</string>
+    <string name="login_get_oauth_link_text">创建 OAuth App →</string>
 
     <!-- Common actions -->
     <string name="action_search">搜索</string>

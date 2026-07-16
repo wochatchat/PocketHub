@@ -10,6 +10,12 @@
     <string name="login_token_hint">Personal Access Token</string>
     <string name="login_oauth_hint">Client ID (optional)</string>
     <string name="login_description_scopes">A token with repo, read:user, user:email, read:org, read:notifications scopes is required.</string>
+    <string name="login_get_token_prompt">Create a Personal Access Token on GitHub</string>
+    <string name="login_get_token_link">https://github.com/settings/tokens/new</string>
+    <string name="login_get_token_link_text">Create a new token →</string>
+    <string name="login_oauth_description">Authorize PocketHub as an OAuth App to sign in without creating a token.</string>
+    <string name="login_get_oauth_link">https://github.com/settings/applications/new</string>
+    <string name="login_get_oauth_link_text">Create an OAuth App →</string>
 
     <!-- Common actions -->
     <string name="action_search">Search</string>

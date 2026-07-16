@@ -13,6 +13,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -43,6 +47,41 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+
+/**
+ * Small clickable hyperlink built from a single line of text. Opens [url] in a
+ * Custom Tab. The link text is rendered in the primary color with an underline,
+ * matching GitHub mobile's login helper style.
+ */
+@Composable
+private fun HyperlinkLabel(
+    url: String,
+    linkText: String,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val primary = MaterialTheme.colorScheme.primary
+    val style = MaterialTheme.typography.labelMedium
+    val annotated = buildAnnotatedString {
+        pushStringAnnotation(tag = "URL", annotation = url)
+        addStyle(
+            SpanStyle(color = primary, textDecoration = TextDecoration.Underline),
+            start = 0,
+            end = linkText.length,
+        )
+        append(linkText)
+        pop()
+    }
+    ClickableText(
+        text = annotated,
+        style = style,
+        modifier = modifier,
+        onClick = { _ ->
+            val intent = CustomTabsIntent.Builder().build()
+            intent.launchUrl(context, Uri.parse(url))
+        },
+    )
+}
 
 @Composable
 fun LoginScreen(
@@ -107,6 +146,12 @@ fun LoginScreen(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.height(4.dp))
+            HyperlinkLabel(
+                url = stringResource(R.string.login_get_token_link),
+                linkText = stringResource(R.string.login_get_token_link_text),
+                modifier = Modifier.fillMaxWidth(),
+            )
             Spacer(Modifier.height(12.dp))
 
             // Sign in with token
@@ -137,6 +182,19 @@ fun LoginScreen(
             ) {
                 Text(stringResource(R.string.login_with_oauth))
             }
+
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.login_oauth_description),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(4.dp))
+            HyperlinkLabel(
+                url = stringResource(R.string.login_get_oauth_link),
+                linkText = stringResource(R.string.login_get_oauth_link_text),
+                modifier = Modifier.fillMaxWidth(),
+            )
 
             // Error message
             if (ui.error != null) {
