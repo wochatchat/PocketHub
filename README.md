@@ -47,3 +47,11 @@ Tabs: Overview (README) · Code (file tree) · Issues · PRs · Releases · Acti
 
 ## License
 Apache 2.0 (see [LICENSE](LICENSE)).
+
+## Contributing
+- 发现 bug 或有想法？直接 [提 issue](https://github.com/wochatchat/PocketHub/issues/new/choose)，已内置如下模板帮你把话讲清楚：
+  - 🐛 **Bug 报告** — 仓库详情/下载/通知等任何模块炸了或显示乱码，选这个
+  - ✨ **功能建议** — 想加的能力或改进，选这个
+  - 📱 **兼容性 / 设备问题** — 在你的机型/ROM 上的诡异表现，选这个
+- 想直接贡献代码？先 fork → branch → PR，PR 模板里也列了自查清单。
+- 详细约定见 [CONTRIBUTING.md](CONTRIBUTING.md)。

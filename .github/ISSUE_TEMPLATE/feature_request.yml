@@ -1,0 +1,79 @@
+name: ✨ 功能建议
+description: 提一个新功能想法或改进建议
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你的想法！请先去 [已有 issues](https://github.com/wochatchat/PocketHub/issues?q=label%3Aenhancement) 里翻一下，避免重复建议。
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 想解决什么问题
+      description: 描述当前遇到的痛点 / 不便之处，而不是急着说"做什么功能"。
+      placeholder: "例：每次想下载 release 资产都要切到系统浏览器，再回去用浏览器下载，体验割裂。"
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: 你的方案 / 期望效果
+      description: 你觉得怎么实现最顺手？也可以画个示意图、贴个参考 app 截图。
+      placeholder: "GitHub web 里的感觉就挺好——点 asset 直接进下载队列，下拉刷新能看到进度条。"
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 考虑过的其他方案
+      description: 简述你为啥没选其它方案，或者其它方案的缺点。
+      placeholder: "也想过用系统 DownloadManager，但那样无法在 app 内看到列表，且会跟 Browser 下载冲突。"
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 影响区域
+      multiple: true
+      options:
+        - 启动 / 登录
+        - 探索 / 首页 Feed
+        - 搜索
+        - 我的仓库 / Starred
+        - 仓库详情（概览 / 代码 / Issues 等）
+        - Releases / 下载管理
+        - 通知
+        - 个人 / 账号
+        - 设置 / 主题
+        - 全局导航
+        - 其它
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 对你有多重要
+      options:
+        - 是我每天都会遇到的痛点
+        - 偶尔遇到，有点降低效率
+        - 锦上添花（nice-to-have）
+    validations:
+      required: true
+
+  - type: textarea
+    id: reference
+    attributes:
+      label: 参考资料
+      description: 相关 issue、PR、或其它 app 截图 / 链接都行。
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: 提交须知
+      options:
+        - label: 我已搜索过相关 issue，确认这是新建议
+          required: true

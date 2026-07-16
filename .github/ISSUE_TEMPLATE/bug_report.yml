@@ -1,0 +1,138 @@
+name: 🐛 Bug 报告
+description: 报告一个 bug 帮助我们改进 PocketHub
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你花时间反馈问题！请尽量填写完整，信息越全，定位越快。
+        
+        > 💡 提示：在提交前可以先搜一下 [已有 issues](https://github.com/wochatchat/PocketHub/issues?q=is%3Aissue)，避免重复。
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 一句话说清楚你遇到什么问题、期望的行为是什么。
+      placeholder: "例：进入仓库详情页时 README 区域显示一片乱码，期望像网页 GitHub 一样渲染图片和链接。"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 请按你实际操作顺序逐步列出，精确到点击了哪个按钮。
+      placeholder: |
+        1. 打开 app 并登录 GitHub PAT
+        2. 进入「探索」搜索 `tailwindlabs/heroicons`
+        3. 点击结果进入仓库详情
+        4. 选中「概览」tab
+        5. 滚动到 README 区域
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望表现
+      placeholder: "README 中的徽章图片应横向并排展示，链接应可点击跳转到对应目标。"
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际表现
+      placeholder: "一段 `[![alt](img)](link)` 的原始 markdown 文本堆在一起，无法触发点击。"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: tab
+    attributes:
+      label: 出现位置
+      multiple: true
+      options:
+        - 启动 / 登录页
+        - 首页 / 探索
+        - 搜索
+        - 我的仓库 / Starred
+        - 仓库详情 · 概览
+        - 仓库详情 · 代码浏览器
+        - 仓库详情 · Issues
+        - 仓库详情 · PRs
+        - 仓库详情 · Releases
+        - 仓库详情 · Commits
+        - 仓库详情 · Workflows
+        - 下载管理（下载中 / 已完成）
+        - 通知
+        - 个人 / 设置
+        - 其它
+    validations:
+      required: true
+
+  - type: input
+    id: repo
+    attributes:
+      label: 涉及仓库（如适用）
+      placeholder: "owner/repo，例 tailwindlabs/heroicons"
+
+  - type: input
+    id: app_version
+    attributes:
+      label: App 版本
+      description: 在 设置 → 关于 里查看，或填写标签上的版本号。
+      placeholder: "0.1.21"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: login_method
+    attributes:
+      label: 登录方式
+      options:
+        - Personal Access Token (PAT)
+        - OAuth App 浏览器登录
+        - 未登录 / 启动页就崩溃
+        - 其它
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os_version
+    attributes:
+      label: 安卓版本
+      options:
+        - Android 13 / 14 (API 33-34)
+        - Android 12 (API 31)
+        - Android 11 (API 30)
+        - Android 10 或更低
+        - 不清楚
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 / 截图
+      description: |
+        截图直接拖进来；如果可以 adb 抓到崩溃栈，请贴在代码块里。
+        
+        ```sh
+        adb logcat -d | grep -iE 'AndroidRuntime|PocketHub' | tail -100
+        ```
+      placeholder: |
+        ```
+        04-01 12:34:56.789 E/AndroidRuntime: ...
+        ```
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: 提交须知
+      options:
+        - label: 我已搜索过相关 issue，确认这是新问题
+          required: true
+        - label: 我已尝试更新到最新版本（下载 `apk/` 下的最新 APK）后仍然复现
+          required: true

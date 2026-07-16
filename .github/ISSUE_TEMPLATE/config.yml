@@ -1,0 +1,8 @@
+blank_name: 💬 自由讨论
+blank_title: ""
+blank_labels: []
+about: 不确定归哪类？先来个开放讨论吧
+contact_links:
+  - name: 📖 PocketHub 文档 / README
+    url: https://github.com/wochatchat/PocketHub#readme
+    about: 看一下官方说明再决定要不要提 issue

@@ -1,0 +1,101 @@
+name: 📱 兼容性 / 设备问题
+description: 在你的机型上跑不起来、卡顿、UI 错位等
+title: "[Device] "
+labels: ["device"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        PocketHub 目前主要在小米 / 一加 / Pixel 系列做过自测，其它设备可能出现没覆盖到的兼容性问题。请尽量把你设备的详细信息填全，方便我们复现。
+
+  - type: input
+    id: device_model
+    attributes:
+      label: 设备型号
+      description: 设置 → 关于手机 → 型号。
+      placeholder: "例：MI 14 / OnePlus Ace Pro / Pixel 8"
+    validations:
+      required: true
+
+  - type: input
+    id: os_version
+    attributes:
+      label: 安卓版本 / ROM
+      description: 注意写 ROM（MIUI/HyperOS/ColorOS/原生…），有的厂商魔改会引入特殊行为。
+      placeholder: "Android 14 / HyperOS 1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: lang
+    attributes:
+      label: 系统语言
+      placeholder: "中文 / English / ..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: darkmode
+    attributes:
+      label: 系统暗黑模式
+      options:
+        - 暗黑
+        - 浅色
+        - 跟随系统
+        - 不清楚
+    validations:
+      required: true
+
+  - type: input
+    id: app_version
+    attributes:
+      label: App 版本
+      placeholder: "0.1.21"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 现象描述
+      description: 是崩溃？卡顿？UI 错位？文字截断？描述越具体越好。
+      placeholder: "例：在暗黑模式下，通知列表底部的空闲文字颜色几乎和背景一样，看不清。"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: 出现频率
+      options:
+        - 每次必现
+        - 大概率发生
+        - 偶尔发生
+        - 只发生一次
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 崩溃日志 / 截图
+      description: |
+        截图直接拖进来；崩溃栈可以从 adb logcat 抓：
+        
+        ```sh
+        adb logcat -d | grep -iE 'AndroidRuntime|PocketHub'
+        ```
+      placeholder: |
+        ```
+        04-01 12:34:56.789 E/AndroidRuntime: ...
+        ```
