@@ -53,6 +53,9 @@ object Routes {
     const val ISSUE_DETAIL = "repo/{owner}/{repo}/issues/{number}"
     const val USER_DETAIL = "user/{login}"
     const val HISTORY = "history"
+    const val DOWNLOADS = "downloads?tab={tab}"
+
+    fun downloads(tab: String = "active") = "downloads?tab=$tab"
 
     fun repoDetail(owner: String, repo: String) = "repo/$owner/$repo"
     fun createIssue(owner: String, repo: String) = "create_issue/$owner/$repo"
@@ -132,6 +135,7 @@ fun PocketHubApp(
                         onNavigateToNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                         onNavigateToProfile = { navController.navigate(Routes.PROFILE) },
                         onNavigateToHistory = { navController.navigate(Routes.HISTORY) },
+                        onNavigateToDownloads = { navController.navigate(Routes.downloads("done")) },
                     )
                 }
 
@@ -188,6 +192,7 @@ fun PocketHubApp(
                         onNavigateToRepo = { o, r -> navController.navigate(Routes.repoDetail(o, r)) },
                         onNavigateToUser = { login -> navController.navigate(Routes.userDetail(login)) },
                         onNavigateToSearch = { query -> navController.navigate(Routes.search(query)) },
+                        onNavigateToDownloads = { tab -> navController.navigate(Routes.downloads(tab)) },
                         onBack = { navController.popBackStack() },
                     )
                 }
@@ -233,6 +238,22 @@ fun PocketHubApp(
                 composable(Routes.HISTORY) {
                     com.pockethub.ui.history.HistoryScreen(
                         onNavigateToRepo = { o, r -> navController.navigate(Routes.repoDetail(o, r)) },
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+
+                composable(
+                    Routes.DOWNLOADS,
+                    arguments = listOf(
+                        navArgument("tab") { type = NavType.StringType; defaultValue = "active" },
+                    ),
+                ) { backStackEntry ->
+                    val tabArg = backStackEntry.arguments?.getString("tab") ?: "active"
+                    val initialTab = if (tabArg == "done")
+                        com.pockethub.ui.download.DownloadTab.DONE
+                    else com.pockethub.ui.download.DownloadTab.ACTIVE
+                    com.pockethub.ui.download.DownloadScreen(
+                        initialTab = initialTab,
                         onBack = { navController.popBackStack() },
                     )
                 }

@@ -1,12 +1,17 @@
 package com.pockethub.ui.main
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Search
@@ -61,6 +66,7 @@ fun HomeScreen(
     onNavigateToNotifications: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToHistory: () -> Unit,
+    onNavigateToDownloads: () -> Unit,
     activeAvatarUrl: String?,
 ) {
     val items = listOf(
@@ -147,8 +153,14 @@ fun HomeScreen(
             }
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onNavigateToHistory) {
-                Icon(Icons.Outlined.History, contentDescription = stringResource(R.string.browse_history))
+            Column(horizontalAlignment = Alignment.End) {
+                FloatingActionButton(onClick = onNavigateToDownloads) {
+                    Icon(Icons.Outlined.Download, contentDescription = stringResource(R.string.cd_open_download))
+                }
+                Spacer(Modifier.height(12.dp))
+                FloatingActionButton(onClick = onNavigateToHistory) {
+                    Icon(Icons.Outlined.History, contentDescription = stringResource(R.string.browse_history))
+                }
             }
         },
     ) { innerPadding ->

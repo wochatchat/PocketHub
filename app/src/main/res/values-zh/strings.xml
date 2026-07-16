@@ -43,6 +43,19 @@
     <string name="browse_history">浏览历史</string>
     <string name="history_empty">还没有浏览过仓库</string>
 
+    <!-- Downloads -->
+    <string name="download_screen_title">下载</string>
+    <string name="download_tab_active">下载中</string>
+    <string name="download_tab_done">已完成</string>
+    <string name="download_action_open">打开</string>
+    <string name="download_action_delete">删除</string>
+    <string name="download_action_retry">重试</string>
+    <string name="download_action_cancel">取消</string>
+    <string name="download_empty_active">没有下载任务</string>
+    <string name="download_empty_done">暂无已下载文件</string>
+    <string name="download_failed_generic">下载失败</string>
+    <string name="cd_open_download">打开下载页</string>
+
     <!-- Bottom nav / tabs -->
     <string name="tab_explore">发现</string>
     <string name="tab_repos">仓库</string>

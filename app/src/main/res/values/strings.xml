@@ -43,6 +43,19 @@
     <string name="browse_history">Browse history</string>
     <string name="history_empty">No repositories visited yet</string>
 
+    <!-- Downloads -->
+    <string name="download_screen_title">Downloads</string>
+    <string name="download_tab_active">In progress</string>
+    <string name="download_tab_done">Completed</string>
+    <string name="download_action_open">Open</string>
+    <string name="download_action_delete">Delete</string>
+    <string name="download_action_retry">Retry</string>
+    <string name="download_action_cancel">Cancel</string>
+    <string name="download_empty_active">No active downloads</string>
+    <string name="download_empty_done">No completed downloads yet</string>
+    <string name="download_failed_generic">Download failed</string>
+    <string name="cd_open_download">Open downloads</string>
+
     <!-- Bottom nav / tabs -->
     <string name="tab_explore">Explore</string>
     <string name="tab_repos">Repos</string>

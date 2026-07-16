@@ -28,4 +28,7 @@ object DatabaseModule {
 
     @Provides
     fun provideCacheDao(db: AppDatabase): CacheDao = db.cacheDao()
+
+    @Provides
+    fun provideDownloadDao(db: AppDatabase): DownloadDao = db.downloadDao()
 }

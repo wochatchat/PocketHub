@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Campaign
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.ForkRight
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Star
@@ -84,8 +85,10 @@ fun RepoDetailScreen(
     onNavigateToRepo: (String, String) -> Unit = { _, _ -> },
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToSearch: (String) -> Unit = {},
+    onNavigateToDownloads: (tab: String) -> Unit = { _ -> },
     onBack: () -> Unit,
     vm: RepoDetailViewModel = hiltViewModel(),
+    downloadVm: com.pockethub.ui.download.DownloadViewModel = hiltViewModel(),
 ) {
     val repoData by vm.repo.collectAsState()
     val issues by vm.issues.collectAsState()
@@ -170,6 +173,11 @@ fun RepoDetailScreen(
                 ) {
                     Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.action_new_issue))
                 }
+                RepoTab.RELEASES -> FloatingActionButton(
+                    onClick = { onNavigateToDownloads("done") },
+                ) {
+                    Icon(Icons.Outlined.Download, contentDescription = stringResource(R.string.cd_open_download))
+                }
                 else -> {}
             }
         },
@@ -226,6 +234,19 @@ fun RepoDetailScreen(
                     repoContext = "$owner/$repo",
                     onLinkClick = rememberMarkdownLinkHandler(owner, repo, onNavigateToRepo, onNavigateToUser, onNavigateToIssue),
                     onNavigateToUser = onNavigateToUser,
+                    onDownloadAsset = { asset ->
+                        downloadVm.enqueue(
+                            com.pockethub.data.download.DownloadManager.EnqueueRequest(
+                                url = asset.browserDownloadUrl,
+                                fileName = asset.name,
+                                contentType = guessAssetMime(asset.name),
+                                sizeBytes = asset.size,
+                                repoKey = "$owner/$repo",
+                                releaseTag = "",
+                            )
+                        )
+                        onNavigateToDownloads("active")
+                    },
                 )
                 RepoTab.COMMITS -> CommitsTab(owner, repo, onNavigateToUser = onNavigateToUser)
                 RepoTab.WORKFLOWS -> WorkflowsTab(
@@ -526,6 +547,7 @@ private fun ReleasesTab(
     repoContext: String,
     onLinkClick: (String) -> Unit,
     onNavigateToUser: (String) -> Unit = {},
+    onDownloadAsset: (GitHubApi.ReleaseAsset) -> Unit = {},
 ) {
     if (releases.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -595,11 +617,25 @@ private fun ReleasesTab(
                 if (release.assets.isNotEmpty()) {
                     Spacer(Modifier.height(6.dp))
                     release.assets.forEach { asset ->
-                        Text(
-                            stringResource(R.string.asset_download, asset.name, humanReadableSize(asset.size), asset.downloadCount),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                                .clickable { onDownloadAsset(asset) }
+                                .padding(vertical = 6.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Outlined.Download,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                stringResource(R.string.asset_download, asset.name, humanReadableSize(asset.size), asset.downloadCount),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                     }
                 }
             }
@@ -723,4 +759,23 @@ private fun humanReadableSize(bytes: Long): String = when {
     bytes >= 1_048_576 -> "%.1f MB".format(bytes / 1_048_576.0)
     bytes >= 1024 -> "%.1f KB".format(bytes / 1024.0)
     else -> "$bytes B"
+}
+
+private fun guessAssetMime(name: String): String {
+    val ext = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
+    return when (ext) {
+        "zip" -> "application/zip"
+        "gz", "tgz" -> "application/gzip"
+        "tar" -> "application/x-tar"
+        "apk" -> "application/vnd.android.package-archive"
+        "txt" -> "text/plain"
+        "pdf" -> "application/pdf"
+        "json" -> "application/json"
+        "png" -> "image/png"
+        "jpg", "jpeg" -> "image/jpeg"
+        "gif" -> "image/gif"
+        "webp" -> "image/webp"
+        "md" -> "text/markdown"
+        else -> "application/octet-stream"
+    }
 }
