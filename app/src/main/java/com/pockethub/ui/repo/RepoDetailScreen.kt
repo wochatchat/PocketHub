@@ -85,6 +85,7 @@ fun RepoDetailScreen(
     owner: String,
     repo: String,
     onNavigateToIssue: (Int) -> Unit,
+    onNavigateToPR: (Int) -> Unit = { _ -> },
     onNavigateToCreateIssue: (String, String) -> Unit = { _, _ -> },
     onNavigateToRepo: (String, String) -> Unit = { _, _ -> },
     onNavigateToUser: (String) -> Unit = {},
@@ -272,7 +273,7 @@ fun RepoDetailScreen(
                 )
                 RepoTab.CODE -> CodeTab(owner, repo)
                 RepoTab.ISSUES -> IssuesTab(issues, onClick = onNavigateToIssue, onNavigateToUser = onNavigateToUser)
-                RepoTab.PRS -> PullsTab(pulls, onClick = onNavigateToIssue, onNavigateToUser = onNavigateToUser)
+                RepoTab.PRS -> PullsTab(pulls, onClick = onNavigateToPR, onNavigateToUser = onNavigateToUser)
                 RepoTab.RELEASES -> ReleasesTab(
                     releases,
                     repoContext = "$owner/$repo",

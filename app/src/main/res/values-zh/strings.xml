@@ -170,6 +170,13 @@
     <string name="comment_placeholder">写下评论…</string>
     <string name="cd_open_in_browser">在浏览器中打开</string>
     <string name="cd_send_comment">发送评论</string>
+    <string name="action_edit_issue">编辑 Issue</string>
+    <string name="issue_edit_title">编辑 Issue</string>
+    <string name="issue_labels">标签</string>
+    <string name="issue_assignees_hint">负责人</string>
+    <string name="issue_assignees_help">输入 GitHub 用户名，多个以英文逗号分隔</string>
+    <string name="issue_milestone">里程碑</string>
+    <string name="issue_no_milestone">不设置里程碑</string>
 
     <!-- Commits -->
     <string name="tab_commits">提交</string>
@@ -282,4 +289,28 @@
     <string name="time_ago_minutes">%1$d 分钟前</string>
     <string name="time_ago_hours">%1$d 小时前</string>
     <string name="time_ago_days">%1$d 天前</string>
+
+    <!-- Pull Request detail -->
+    <string name="pr_state_merged">已合并</string>
+    <string name="pr_opened_at">%1$s 创建</string>
+    <string name="pr_files_summary">%1$d 个文件 · +%2$d / -%3$d</string>
+    <string name="pr_files_changed">文件变更 (%1$d)</string>
+    <string name="pr_reviews">Review (%1$d)</string>
+    <string name="pr_no_reviews">暂无 Review</string>
+    <string name="pr_reviewers">审阅者：</string>
+    <string name="pr_approve">批准</string>
+    <string name="pr_request_changes">请求修改</string>
+    <string name="action_merge">合并</string>
+    <string name="pr_merge_title">合并 Pull Request</string>
+    <string name="pr_merge_confirm">将 #%1$d 合并到目标分支？</string>
+    <string name="pr_merge_method_merge">创建合并提交</string>
+    <string name="pr_merge_method_squash">压缩合并</string>
+    <string name="pr_merge_method_rebase">变基合并</string>
+    <string name="pr_review_approve_title">批准更改</string>
+    <string name="pr_review_request_changes_title">请求修改</string>
+    <string name="pr_review_comment_hint">留下 Review 评论…</string>
+
+    <!-- Code viewer -->
+    <string name="code_lines">%1$d 行</string>
+    <string name="code_file_size">%1$s · %2$d 行</string>
 </resources>

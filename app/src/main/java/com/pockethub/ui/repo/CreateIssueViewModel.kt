@@ -31,7 +31,10 @@ class CreateIssueViewModel @Inject constructor(
             _isSending.value = true
             _actionError.value = null
             try {
-                val issue = api.createIssue(owner, repo, title, body)
+                val issue = api.createIssue(
+                    owner, repo,
+                    GitHubApi.IssueCreateRequest(title = title, body = body?.takeIf { it.isNotBlank() }),
+                )
                 _result.value = Result.success(issue)
             } catch (e: Exception) {
                 _actionError.value = e.localizedMessage ?: "创建失败"

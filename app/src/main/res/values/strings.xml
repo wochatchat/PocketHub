@@ -170,6 +170,13 @@
     <string name="comment_placeholder">Write a comment…</string>
     <string name="cd_open_in_browser">Open in browser</string>
     <string name="cd_send_comment">Send comment</string>
+    <string name="action_edit_issue">Edit issue</string>
+    <string name="issue_edit_title">Edit issue</string>
+    <string name="issue_labels">Labels</string>
+    <string name="issue_assignees_hint">Assignees</string>
+    <string name="issue_assignees_help">GitHub usernames, separated by commas</string>
+    <string name="issue_milestone">Milestone</string>
+    <string name="issue_no_milestone">No milestone</string>
 
     <!-- Commits -->
     <string name="tab_commits">Commits</string>
@@ -283,4 +290,28 @@
     <string name="time_ago_minutes">%1$dm ago</string>
     <string name="time_ago_hours">%1$dh ago</string>
     <string name="time_ago_days">%1$dd ago</string>
+
+    <!-- Pull Request detail -->
+    <string name="pr_state_merged">Merged</string>
+    <string name="pr_opened_at">opened %1$s</string>
+    <string name="pr_files_summary">%1$d files · +%2$d / -%3$d</string>
+    <string name="pr_files_changed">Files changed (%1$d)</string>
+    <string name="pr_reviews">Reviews (%1$d)</string>
+    <string name="pr_no_reviews">No reviews yet</string>
+    <string name="pr_reviewers">Reviewers:</string>
+    <string name="pr_approve">Approve</string>
+    <string name="pr_request_changes">Request changes</string>
+    <string name="action_merge">Merge</string>
+    <string name="pr_merge_title">Merge Pull Request</string>
+    <string name="pr_merge_confirm">Merge #%1$d into the base branch?</string>
+    <string name="pr_merge_method_merge">Merge commit</string>
+    <string name="pr_merge_method_squash">Squash and merge</string>
+    <string name="pr_merge_method_rebase">Rebase and merge</string>
+    <string name="pr_review_approve_title">Approve changes</string>
+    <string name="pr_review_request_changes_title">Request changes</string>
+    <string name="pr_review_comment_hint">Leave a review comment…</string>
+
+    <!-- Code viewer -->
+    <string name="code_lines">%1$d lines</string>
+    <string name="code_file_size">%1$s · %2$d lines</string>
 </resources>

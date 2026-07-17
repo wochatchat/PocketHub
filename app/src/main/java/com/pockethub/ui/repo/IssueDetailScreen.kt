@@ -27,6 +27,9 @@ import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Label
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -85,7 +88,10 @@ fun IssueDetailScreen(
     val error by vm.error.collectAsState()
     val isSendingComment by vm.isSendingComment.collectAsState()
     val isTogglingState by vm.isTogglingState.collectAsState()
-    val actionError by vm.actionError.collectAsState()
+    val isSaving by vm.isSaving.collectAsState()
+    val repositoryLabels by vm.repositoryLabels.collectAsState()
+    val milestones by vm.milestones.collectAsState()
+    val actionMessage by vm.actionMessage.collectAsState()
     val dateFmt = remember { DateFormat.getDateInstance(DateFormat.MEDIUM) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -115,15 +121,20 @@ fun IssueDetailScreen(
         runCatching { uriHandler.openUri(url) }
     }
 
-    // Show action errors as snackbar
-    LaunchedEffect(actionError) {
-        actionError?.let { msg ->
+    var showEditDialog by remember { mutableStateOf(false) }
+
+    // Show action results as snackbar
+    LaunchedEffect(actionMessage) {
+        actionMessage?.let { msg ->
             snackbarHostState.showSnackbar(msg)
-            vm.clearActionError()
+            vm.clearActionMessage()
         }
     }
 
-    LaunchedEffect(owner, repo, issueNumber) { vm.loadIssue(owner, repo, issueNumber) }
+    LaunchedEffect(owner, repo, issueNumber) {
+        vm.loadIssue(owner, repo, issueNumber)
+        vm.loadMetadata(owner, repo)
+    }
 
     Scaffold(
         topBar = {
@@ -135,6 +146,9 @@ fun IssueDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showEditDialog = true }, enabled = issue != null && !isSaving) {
+                        Icon(Icons.Outlined.Edit, contentDescription = stringResource(R.string.action_edit_issue))
+                    }
                     // Open in browser
                     IconButton(onClick = {
                         issue?.htmlUrl?.let { url ->
@@ -239,6 +253,22 @@ fun IssueDetailScreen(
                     }
                 }
 
+                if (data.milestone != null || data.assignees.isNotEmpty()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        data.milestone?.let { milestone ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.Label, null, Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(Modifier.width(4.dp))
+                                Text(milestone.title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        data.assignees.take(4).forEach { assignee ->
+                            AsyncImage(model = assignee.avatarUrl, contentDescription = assignee.login,
+                                modifier = Modifier.size(20.dp).clip(CircleShape).clickable { onNavigateToUser(assignee.login) })
+                        }
+                    }
+                }
+
                 Spacer(Modifier.height(4.dp))
 
                 // State toggle button
@@ -326,6 +356,66 @@ fun IssueDetailScreen(
             }
         }
     }
+    if (showEditDialog && issue != null) {
+        IssueEditDialog(
+            issue = issue!!,
+            availableLabels = repositoryLabels,
+            milestones = milestones,
+            isSaving = isSaving,
+            onDismiss = { if (!isSaving) showEditDialog = false },
+            onSave = { title, body, labels, assignees, milestone ->
+                showEditDialog = false
+                vm.saveIssue(title, body, labels, assignees, milestone)
+            },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun IssueEditDialog(
+    issue: com.pockethub.data.model.Issue,
+    availableLabels: List<com.pockethub.data.model.Issue.Label>,
+    milestones: List<com.pockethub.data.model.Issue.Milestone>,
+    isSaving: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (String, String, List<String>, List<String>, Int?) -> Unit,
+) {
+    var title by remember(issue.id) { mutableStateOf(issue.title) }
+    var body by remember(issue.id) { mutableStateOf(issue.body.orEmpty()) }
+    var labels by remember(issue.id) { mutableStateOf(issue.labels.map { it.name }.toSet()) }
+    var assigneesText by remember(issue.id) { mutableStateOf(issue.assignees.joinToString(",") { it.login }) }
+    var milestone by remember(issue.id) { mutableStateOf(issue.milestone?.number) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.issue_edit_title)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(title, { title = it }, label = { Text(stringResource(R.string.hint_issue_title)) }, enabled = !isSaving, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(body, { body = it }, label = { Text(stringResource(R.string.hint_issue_body)) }, enabled = !isSaving, modifier = Modifier.fillMaxWidth(), minLines = 4)
+                if (availableLabels.isNotEmpty()) {
+                    Text(stringResource(R.string.issue_labels), style = MaterialTheme.typography.labelLarge)
+                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        availableLabels.forEach { label ->
+                            androidx.compose.material3.FilterChip(selected = label.name in labels, onClick = {
+                                labels = if (label.name in labels) labels - label.name else labels + label.name
+                            }, label = { Text(label.name) }, enabled = !isSaving)
+                        }
+                    }
+                }
+                OutlinedTextField(assigneesText, { assigneesText = it }, label = { Text(stringResource(R.string.issue_assignees_hint)) }, supportingText = { Text(stringResource(R.string.issue_assignees_help)) }, enabled = !isSaving, modifier = Modifier.fillMaxWidth())
+                if (milestones.isNotEmpty()) {
+                    Text(stringResource(R.string.issue_milestone), style = MaterialTheme.typography.labelLarge)
+                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        androidx.compose.material3.FilterChip(selected = milestone == null, onClick = { milestone = null }, label = { Text(stringResource(R.string.issue_no_milestone)) }, enabled = !isSaving)
+                        milestones.forEach { item -> androidx.compose.material3.FilterChip(selected = milestone == item.number, onClick = { milestone = item.number }, label = { Text(item.title) }, enabled = !isSaving) }
+                    }
+                }
+            }
+        },
+        confirmButton = { Button(onClick = { onSave(title.trim(), body, labels.toList(), assigneesText.split(',').map { it.trim().removePrefix("@") }.filter { it.isNotBlank() }, milestone) }, enabled = title.isNotBlank() && !isSaving) { if (isSaving) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.action_save)) } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !isSaving) { Text(stringResource(R.string.action_cancel)) } },
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

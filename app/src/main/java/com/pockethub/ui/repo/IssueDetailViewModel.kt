@@ -16,27 +16,26 @@ import javax.inject.Inject
 class IssueDetailViewModel @Inject constructor(
     private val api: GitHubApi,
 ) : ViewModel() {
-
     private val _issue = MutableStateFlow<Issue?>(null)
     val issue: StateFlow<Issue?> = _issue
-
     private val _comments = MutableStateFlow<List<GitHubApi.IssueComment>>(emptyList())
     val comments: StateFlow<List<GitHubApi.IssueComment>> = _comments
-
+    private val _repositoryLabels = MutableStateFlow<List<Issue.Label>>(emptyList())
+    val repositoryLabels: StateFlow<List<Issue.Label>> = _repositoryLabels
+    private val _milestones = MutableStateFlow<List<Issue.Milestone>>(emptyList())
+    val milestones: StateFlow<List<Issue.Milestone>> = _milestones
     private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
-
+    val isLoading = _isLoading.asStateFlow()
     private val _isSendingComment = MutableStateFlow(false)
-    val isSendingComment: StateFlow<Boolean> = _isSendingComment.asStateFlow()
-
+    val isSendingComment = _isSendingComment.asStateFlow()
     private val _isTogglingState = MutableStateFlow(false)
-    val isTogglingState: StateFlow<Boolean> = _isTogglingState.asStateFlow()
-
+    val isTogglingState = _isTogglingState.asStateFlow()
+    private val _isSaving = MutableStateFlow(false)
+    val isSaving = _isSaving.asStateFlow()
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
-
-    private val _actionError = MutableStateFlow<String?>(null)
-    val actionError: StateFlow<String?> = _actionError
+    private val _actionMessage = MutableStateFlow<String?>(null)
+    val actionMessage: StateFlow<String?> = _actionMessage
 
     private var loadedOwner: String? = null
     private var loadedRepo: String? = null
@@ -46,79 +45,57 @@ class IssueDetailViewModel @Inject constructor(
         if (loadedNumber == number && _issue.value != null) return
         loadedOwner = owner; loadedRepo = repo; loadedNumber = number
         viewModelScope.launch {
-            _isLoading.update { true }
-            _error.update { null }
-            try {
-                _issue.update { api.getIssue(owner, repo, number) }
-            } catch (e: Exception) {
-                _error.update { e.localizedMessage ?: "加载 Issue 失败" }
-            } finally {
-                _isLoading.update { false }
-            }
-            // Load comments independently so a comment fetch failure doesn't mask the issue body.
-            viewModelScope.launch {
-                try {
-                    _comments.update { api.getIssueComments(owner, repo, number) }
-                } catch (e: Exception) {
-                    // Comments are optional — only log via error flow if the issue itself also failed.
-                }
-            }
+            _isLoading.value = true; _error.value = null
+            try { _issue.value = api.getIssue(owner, repo, number) }
+            catch (e: Exception) { _error.value = e.localizedMessage ?: "加载 Issue 失败" }
+            finally { _isLoading.value = false }
         }
+        viewModelScope.launch { runCatching { api.getIssueComments(owner, repo, number) }.onSuccess { _comments.value = it } }
     }
 
-    /** Post a new comment on the issue / PR. */
+    fun loadMetadata(owner: String, repo: String) {
+        if (_repositoryLabels.value.isNotEmpty() || _milestones.value.isNotEmpty()) return
+        viewModelScope.launch { runCatching { api.getRepositoryLabels(owner, repo) }.onSuccess { _repositoryLabels.value = it } }
+        viewModelScope.launch { runCatching { api.getRepositoryMilestones(owner, repo) }.onSuccess { _milestones.value = it } }
+    }
+
     fun postComment(body: String, onSuccess: () -> Unit = {}) {
-        val owner = loadedOwner ?: return
-        val repo = loadedRepo ?: return
-        val number = loadedNumber ?: return
-        if (body.isBlank()) return
-
+        val owner = loadedOwner ?: return; val repo = loadedRepo ?: return; val number = loadedNumber ?: return
+        if (body.isBlank() || _isSendingComment.value) return
         viewModelScope.launch {
-            _isSendingComment.update { true }
-            _actionError.update { null }
+            _isSendingComment.value = true; _actionMessage.value = null
             try {
-                val newComment = api.createIssueComment(owner, repo, number, body)
-                _comments.update { it + newComment }
-                // Update comment count locally
-                _issue.update { issue -> issue?.copy(comments = issue.comments + 1) }
-                onSuccess()
-            } catch (e: Exception) {
-                _actionError.update { e.localizedMessage ?: "评论发送失败" }
-            } finally {
-                _isSendingComment.update { false }
-            }
+                val comment = api.createIssueComment(owner, repo, number, GitHubApi.CommentRequest(body))
+                _comments.update { it + comment }; _issue.update { it?.copy(comments = it.comments + 1) }; onSuccess()
+            } catch (e: Exception) { _actionMessage.value = e.localizedMessage ?: "评论发送失败" }
+            finally { _isSendingComment.value = false }
         }
     }
 
-    /** Toggle issue state: open → closed, closed → open. */
     fun toggleIssueState() {
-        val owner = loadedOwner ?: return
-        val repo = loadedRepo ?: return
-        val number = loadedNumber ?: return
-        val currentState = _issue.value?.state ?: return
-        val newState = if (currentState == "open") "closed" else "open"
+        val state = _issue.value?.state ?: return
+        save(IssueUpdate(state = if (state == "open") "closed" else "open"), if (state == "open") "Issue 已关闭" else "Issue 已重新打开")
+    }
 
+    fun saveIssue(title: String, body: String, labels: List<String>, assignees: List<String>, milestone: Int?) {
+        save(IssueUpdate(title, body, labels, assignees, milestone = milestone), "Issue 已更新")
+    }
+
+    private data class IssueUpdate(val title: String? = null, val body: String? = null, val labels: List<String>? = null, val assignees: List<String>? = null, val milestone: Int? = null, val state: String? = null)
+    private fun save(change: IssueUpdate, success: String) {
+        val owner = loadedOwner ?: return; val repo = loadedRepo ?: return; val number = loadedNumber ?: return
+        if (_isSaving.value || _isTogglingState.value) return
         viewModelScope.launch {
-            _isTogglingState.update { true }
-            _actionError.update { null }
+            if (change.state != null) _isTogglingState.value = true else _isSaving.value = true
+            _actionMessage.value = null
             try {
-                val updated = api.updateIssueState(owner, repo, number, newState)
-                _issue.update { updated }
-            } catch (e: Exception) {
-                _actionError.update { e.localizedMessage ?: "状态更新失败" }
-            } finally {
-                _isTogglingState.update { false }
-            }
+                _issue.value = api.updateIssue(owner, repo, number, GitHubApi.IssueUpdateRequest(change.title, change.body, change.state, change.labels, change.assignees, change.milestone))
+                _actionMessage.value = success
+            } catch (e: Exception) { _actionMessage.value = e.localizedMessage ?: "Issue 更新失败" }
+            finally { _isSaving.value = false; _isTogglingState.value = false }
         }
     }
 
-    fun retry(owner: String, repo: String, number: Int) {
-        loadedNumber = null
-        loadIssue(owner, repo, number)
-    }
-
-    /** Clear the action error so it doesn't persist across recompositions. */
-    fun clearActionError() {
-        _actionError.update { null }
-    }
+    fun retry(owner: String, repo: String, number: Int) { loadedNumber = null; loadIssue(owner, repo, number) }
+    fun clearActionMessage() { _actionMessage.value = null }
 }

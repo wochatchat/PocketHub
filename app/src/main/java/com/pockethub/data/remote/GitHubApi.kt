@@ -170,14 +170,21 @@ interface GitHubApi {
     ): List<Issue>
 
     /** Create a new issue. */
-    @FormUrlEncoded
     @POST("repos/{owner}/{repo}/issues")
     suspend fun createIssue(
         @Path("owner") owner: String,
         @Path("repo") repo: String,
-        @Field("title") title: String,
-        @Field("body") body: String? = null,
+        @Body body: IssueCreateRequest,
     ): Issue
+
+    @kotlinx.serialization.Serializable
+    data class IssueCreateRequest(
+        val title: String,
+        val body: String? = null,
+        val labels: List<String> = emptyList(),
+        val assignees: List<String> = emptyList(),
+        val milestone: Int? = null,
+    )
 
     /** Single issue detail. */
     @GET("repos/{owner}/{repo}/issues/{number}")
@@ -208,36 +215,211 @@ interface GitHubApi {
         val reactions: com.pockethub.data.model.Reactions? = null,
     )
 
+    // ── Pull Requests (dedicated PR endpoints) ──────────
+
+    /** Get a single pull request (includes merge info, diff stats, reviewers). */
+    @GET("repos/{owner}/{repo}/pulls/{pull_number}")
+    suspend fun getPullRequest(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("pull_number") pullNumber: Int,
+    ): PullRequest
+
+    /** List files changed in a pull request. */
+    @GET("repos/{owner}/{repo}/pulls/{pull_number}/files")
+    suspend fun getPullRequestFiles(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("pull_number") pullNumber: Int,
+        @Query("per_page") perPage: Int = 30,
+        @Query("page") page: Int = 1,
+    ): List<PullRequestFile>
+
+    /** List reviews on a pull request. */
+    @GET("repos/{owner}/{repo}/pulls/{pull_number}/reviews")
+    suspend fun getPullRequestReviews(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("pull_number") pullNumber: Int,
+        @Query("per_page") perPage: Int = 30,
+        @Query("page") page: Int = 1,
+    ): List<PullRequestReview>
+
+    /** Merge a pull request. */
+    @PUT("repos/{owner}/{repo}/pulls/{pull_number}/merge")
+    suspend fun mergePullRequest(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("pull_number") pullNumber: Int,
+        @Body body: MergeRequest = MergeRequest(),
+    ): Response<MergeResult>
+
+    /** Submit a pull request review. */
+    @POST("repos/{owner}/{repo}/pulls/{pull_number}/reviews")
+    suspend fun createPullRequestReview(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("pull_number") pullNumber: Int,
+        @Body body: ReviewRequest,
+    ): PullRequestReview
+
+    @kotlinx.serialization.Serializable
+    data class PullRequest(
+        val id: Long = 0,
+        val number: Int = 0,
+        @kotlinx.serialization.SerialName("html_url") val htmlUrl: String? = null,
+        val state: String = "open", // "open" | "closed"
+        @kotlinx.serialization.SerialName("state_reason") val stateReason: String? = null,
+        val title: String = "",
+        val body: String? = null,
+        val user: User? = null,
+        val labels: List<Issue.Label> = emptyList(),
+        @kotlinx.serialization.SerialName("created_at") val createdAt: String? = null,
+        @kotlinx.serialization.SerialName("updated_at") val updatedAt: String? = null,
+        @kotlinx.serialization.SerialName("closed_at") val closedAt: String? = null,
+        @kotlinx.serialization.SerialName("merged_at") val mergedAt: String? = null,
+        @kotlinx.serialization.SerialName("merged") val merged: Boolean = false,
+        @kotlinx.serialization.SerialName("mergeable") val mergeable: Boolean? = null,
+        @kotlinx.serialization.SerialName("merge_state") val mergeState: String? = null,
+        @kotlinx.serialization.SerialName("merge_commit_sha") val mergeCommitSha: String? = null,
+        @kotlinx.serialization.SerialName("draft") val draft: Boolean = false,
+        val head: RefInfo? = null,
+        val base: RefInfo? = null,
+        @kotlinx.serialization.SerialName("changed_files") val changedFiles: Int = 0,
+        @kotlinx.serialization.SerialName("additions") val additions: Int = 0,
+        @kotlinx.serialization.SerialName("deletions") val deletions: Int = 0,
+        @kotlinx.serialization.SerialName("commits") val commits: Int = 0,
+        @kotlinx.serialization.SerialName("review_comments") val reviewComments: Int = 0,
+        val comments: Int = 0,
+        @kotlinx.serialization.SerialName("requested_reviewers") val requestedReviewers: List<User> = emptyList(),
+        @kotlinx.serialization.SerialName("requested_teams") val requestedTeams: List<Team> = emptyList(),
+        @kotlinx.serialization.SerialName("merged_by") val mergedBy: User? = null,
+    ) {
+        @kotlinx.serialization.Serializable
+        data class RefInfo(
+            val label: String = "",
+            val ref: String = "",
+            val sha: String = "",
+            val repo: Repository? = null,
+        )
+
+        @kotlinx.serialization.Serializable
+        data class Team(
+            val id: Long = 0,
+            val name: String = "",
+            val slug: String = "",
+        )
+    }
+
+    @kotlinx.serialization.Serializable
+    data class PullRequestFile(
+        val sha: String = "",
+        val filename: String = "",
+        val status: String = "", // "added" | "modified" | "removed" | "renamed"
+        val additions: Int = 0,
+        val deletions: Int = 0,
+        val changes: Int = 0,
+        val patch: String? = null,
+        @kotlinx.serialization.SerialName("previous_filename") val previousFilename: String? = null,
+        @kotlinx.serialization.SerialName("raw_url") val rawUrl: String? = null,
+    )
+
+    @kotlinx.serialization.Serializable
+    data class PullRequestReview(
+        val id: Long = 0,
+        @kotlinx.serialization.SerialName("node_id") val nodeId: String? = null,
+        val user: User? = null,
+        val state: String = "", // "APPROVED" | "CHANGES_REQUESTED" | "COMMENTED" | "DISMISSED" | "PENDING"
+        val body: String? = null,
+        @kotlinx.serialization.SerialName("submitted_at") val submittedAt: String? = null,
+        @kotlinx.serialization.SerialName("html_url") val htmlUrl: String? = null,
+        @kotlinx.serialization.SerialName("pull_request_url") val pullRequestUrl: String? = null,
+        @kotlinx.serialization.SerialName("author_association") val authorAssociation: String? = null,
+    )
+
+    @kotlinx.serialization.Serializable
+    data class MergeRequest(
+        val commit_title: String? = null,
+        val commit_message: String? = null,
+        val merge_method: String = "merge", // "merge" | "squash" | "rebase"
+    )
+
+    @kotlinx.serialization.Serializable
+    data class MergeResult(
+        val sha: String? = null,
+        val merged: Boolean = false,
+        val message: String? = null,
+    )
+
+    @kotlinx.serialization.Serializable
+    data class ReviewRequest(
+        val body: String? = null,
+        val event: String, // "APPROVE" | "REQUEST_CHANGES" | "COMMENT"
+        @kotlinx.serialization.SerialName("comments") val comments: List<ReviewComment> = emptyList(),
+    )
+
+    @kotlinx.serialization.Serializable
+    data class ReviewComment(
+        val path: String? = null,
+        val position: Int? = null,
+        val body: String = "",
+    )
+
     // ── Issue / PR actions ──────────────────────────────
 
-    /** Create a comment on an issue or PR. */
-    @FormUrlEncoded
     @POST("repos/{owner}/{repo}/issues/{number}/comments")
     suspend fun createIssueComment(
         @Path("owner") owner: String,
         @Path("repo") repo: String,
         @Path("number") number: Int,
-        @Field("body") body: String,
+        @Body body: CommentRequest,
     ): IssueComment
 
-    /** Close or reopen an issue (state = "open" or "closed"). */
-    @FormUrlEncoded
+    @kotlinx.serialization.Serializable
+    data class CommentRequest(val body: String)
+
+    /** Update an issue's editable fields. Null fields are left unchanged by GitHub. */
     @PATCH("repos/{owner}/{repo}/issues/{number}")
-    suspend fun updateIssueState(
+    suspend fun updateIssue(
         @Path("owner") owner: String,
         @Path("repo") repo: String,
         @Path("number") number: Int,
-        @Field("state") state: String, // "open" or "closed"
+        @Body body: IssueUpdateRequest,
     ): Issue
 
-    /** Edit an existing comment. */
-    @FormUrlEncoded
+    @kotlinx.serialization.Serializable
+    data class IssueUpdateRequest(
+        val title: String? = null,
+        val body: String? = null,
+        val state: String? = null,
+        val labels: List<String>? = null,
+        val assignees: List<String>? = null,
+        val milestone: Int? = null,
+    )
+
+    /** Labels configured for a repository. */
+    @GET("repos/{owner}/{repo}/labels")
+    suspend fun getRepositoryLabels(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Query("per_page") perPage: Int = 100,
+    ): List<Issue.Label>
+
+    /** Open milestones configured for a repository. */
+    @GET("repos/{owner}/{repo}/milestones")
+    suspend fun getRepositoryMilestones(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Query("state") state: String = "open",
+        @Query("per_page") perPage: Int = 100,
+    ): List<Issue.Milestone>
+
     @PATCH("repos/{owner}/{repo}/issues/comments/{comment_id}")
     suspend fun editIssueComment(
         @Path("owner") owner: String,
         @Path("repo") repo: String,
         @Path("comment_id") commentId: Long,
-        @Field("body") body: String,
+        @Body body: CommentRequest,
     ): IssueComment
 
     /** Delete a comment. */
