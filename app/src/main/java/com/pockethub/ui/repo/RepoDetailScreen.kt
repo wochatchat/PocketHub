@@ -29,10 +29,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Campaign
-import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.ForkRight
 import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.SnackbarHost
@@ -271,7 +270,14 @@ fun RepoDetailScreen(
                     onTopicClick = { topic -> onNavigateToSearch(topic) },
                     onLinkClick = rememberMarkdownLinkHandler(owner, repo, onNavigateToRepo, onNavigateToUser, onNavigateToIssue, downloadVm = downloadVm, onNavigateToDownloads = onNavigateToDownloads),
                 )
-                RepoTab.CODE -> CodeTab(owner, repo)
+                RepoTab.CODE -> CodeTab(
+                    owner = owner,
+                    repo = repo,
+                    onOpenInBrowser = {
+                        val url = "https://github.com/$owner/$repo/tree/${repoData?.defaultBranch ?: "main"}"
+                        runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
+                    },
+                )
                 RepoTab.ISSUES -> IssuesTab(issues, onClick = onNavigateToIssue, onNavigateToUser = onNavigateToUser)
                 RepoTab.PRS -> PullsTab(pulls, onClick = onNavigateToPR, onNavigateToUser = onNavigateToUser)
                 RepoTab.RELEASES -> ReleasesTab(
