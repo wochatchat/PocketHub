@@ -32,6 +32,7 @@ class SettingsRepository @Inject constructor(
         val CUSTOM_CLIENT_ID = stringPreferencesKey("custom_client_id")
         val CUSTOM_CLIENT_SECRET = stringPreferencesKey("custom_client_secret")
         val NOTIF_POLL_MINUTES = intPreferencesKey("notif_poll_minutes")
+        val TRANSLATE_TARGET = stringPreferencesKey("translate_target")
         val STORE_LAST_REFRESH = intPreferencesKey("store_last_refresh_epoch_min")
     }
 
@@ -74,6 +75,19 @@ class SettingsRepository @Inject constructor(
         context.dataStore.edit { prefs ->
             prefs[Keys.CUSTOM_CLIENT_ID] = id
             prefs[Keys.CUSTOM_CLIENT_SECRET] = secret
+        }
+    }
+
+    // ── Translation ───────────────────────────────────────
+    /** Target language for README translation: "zh", "en", or null (disabled). */
+    val translateTarget: Flow<String?> = context.dataStore.data.map { prefs ->
+        prefs[Keys.TRANSLATE_TARGET]
+    }
+
+    suspend fun setTranslateTarget(target: String?) {
+        context.dataStore.edit { prefs ->
+            if (target != null) prefs[Keys.TRANSLATE_TARGET] = target
+            else prefs.remove(Keys.TRANSLATE_TARGET)
         }
     }
 

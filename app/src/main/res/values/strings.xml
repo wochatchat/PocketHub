@@ -269,6 +269,15 @@
     <string name="notification_cadence_1d">Once a day</string>
     <string name="notification_cadence_min">Every %1$d minutes</string>
 
+    <!-- Translation -->
+    <string name="section_translation">Translation</string>
+    <string name="translate_readme">README translation</string>
+    <string name="translate_off">Off</string>
+    <string name="translate_to_chinese">Translate to 简体中文</string>
+    <string name="translate_to_english">Translate to English</string>
+    <string name="translate_original">原文</string>
+    <string name="translate_translated">译文</string>
+
     <!-- Time ago -->
     <string name="time_ago_just_now">just now</string>
     <string name="time_ago_minutes">%1$dm ago</string>

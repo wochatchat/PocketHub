@@ -110,6 +110,10 @@ fun RepoDetailScreen(
     val isLoadingWorkflows by vm.isLoadingWorkflows.collectAsState()
     val isDispatching by vm.isDispatching.collectAsState()
     val dispatchMessage by vm.dispatchMessage.collectAsState()
+    val translatedReadme by vm.translatedReadme.collectAsState()
+    val showTranslated by vm.showTranslated.collectAsState()
+    val isTranslating by vm.isTranslating.collectAsState()
+    val translateTarget by vm.translateTarget.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     var showForkDialog by remember { mutableStateOf(false) }
@@ -258,6 +262,11 @@ fun RepoDetailScreen(
                     repoData,
                     readme,
                     isLoading,
+                    translatedReadme = translatedReadme,
+                    showTranslated = showTranslated,
+                    isTranslating = isTranslating,
+                    translateTarget = translateTarget,
+                    onToggleTranslation = { vm.toggleTranslation() },
                     onTopicClick = { topic -> onNavigateToSearch(topic) },
                     onLinkClick = rememberMarkdownLinkHandler(owner, repo, onNavigateToRepo, onNavigateToUser, onNavigateToIssue, downloadVm = downloadVm, onNavigateToDownloads = onNavigateToDownloads),
                 )
@@ -384,6 +393,11 @@ private fun OverviewTab(
     repoData: Repository?,
     readme: String?,
     isLoading: Boolean,
+    translatedReadme: String? = null,
+    showTranslated: Boolean = false,
+    isTranslating: Boolean = false,
+    translateTarget: String? = null,
+    onToggleTranslation: () -> Unit = {},
     onTopicClick: (String) -> Unit = {},
     onLinkClick: (String, com.pockethub.ui.markdown.LinkKind) -> Unit,
 ) {
@@ -418,11 +432,69 @@ private fun OverviewTab(
                 }
             }
             HorizontalDivider()
-            // README
-            Text(stringResource(R.string.readme_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            if (readme != null) {
+            // README header with optional translation toggle
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(stringResource(R.string.readme_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                if (readme != null && translateTarget != null) {
+                    // Capsule toggle: 原文 / 译文
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (isTranslating) {
+                            CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(4.dp))
+                        }
+                        // 原文 button
+                        Box(
+                            modifier = Modifier
+                                .clip(MaterialTheme.shapes.small)
+                                .background(
+                                    if (!showTranslated) MaterialTheme.colorScheme.primaryContainer
+                                    else MaterialTheme.colorScheme.surfaceVariant
+                                )
+                                .clickable(enabled = !isTranslating) { if (showTranslated) onToggleTranslation() }
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                stringResource(R.string.translate_original),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (!showTranslated) MaterialTheme.colorScheme.onPrimaryContainer
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        // 译文 button
+                        Box(
+                            modifier = Modifier
+                                .clip(MaterialTheme.shapes.small)
+                                .background(
+                                    if (showTranslated) MaterialTheme.colorScheme.primaryContainer
+                                    else MaterialTheme.colorScheme.surfaceVariant
+                                )
+                                .clickable(enabled = !isTranslating) { if (!showTranslated) onToggleTranslation() }
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                stringResource(R.string.translate_translated),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (showTranslated) MaterialTheme.colorScheme.onPrimaryContainer
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+            // README content — show translated or original
+            val displayReadme = if (showTranslated && translatedReadme != null) translatedReadme else readme
+            if (displayReadme != null) {
                 MarkdownText(
-                    markdown = readme,
+                    markdown = displayReadme,
                     modifier = Modifier.fillMaxWidth(),
                     repoContext = "$owner/$repo",
                     onLinkClick = onLinkClick,

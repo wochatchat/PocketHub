@@ -95,8 +95,10 @@ fun SettingsScreen(
     val notifPollMinutes by vm.notifPollMinutes.collectAsState()
     val accountCount by vm.accountCount.collectAsState()
     val cacheSizeBytes by vm.cacheSizeBytes.collectAsState()
+    val translateTarget by vm.translateTarget.collectAsState()
     var showThemeSheet by remember { mutableStateOf(false) }
     var showLanguageSheet by remember { mutableStateOf(false) }
+    var showTranslateSheet by remember { mutableStateOf(false) }
     var showOAuthSheet by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     var showSignOutDialog by remember { mutableStateOf(false) }
@@ -137,6 +139,21 @@ fun SettingsScreen(
                 headlineContent = { Text(stringResource(R.string.language)) },
                 supportingContent = { Text(localeLabel(appLocale)) },
                 modifier = Modifier.clickable { showLanguageSheet = true },
+            )
+            HorizontalDivider()
+
+            SectionHeader(stringResource(R.string.section_translation))
+            ListItem(
+                leadingContent = { Icon(Icons.Outlined.Translate, contentDescription = null) },
+                headlineContent = { Text(stringResource(R.string.translate_readme)) },
+                supportingContent = {
+                    Text(when (translateTarget) {
+                        "zh" -> stringResource(R.string.translate_to_chinese)
+                        "en" -> stringResource(R.string.translate_to_english)
+                        else -> stringResource(R.string.translate_off)
+                    })
+                },
+                modifier = Modifier.clickable { showTranslateSheet = true },
             )
             HorizontalDivider()
 
@@ -245,6 +262,17 @@ fun SettingsScreen(
                         onClick = { vm.setAppLocale(locale); showLanguageSheet = false },
                     )
                 }
+            }
+        }
+    }
+
+    if (showTranslateSheet) {
+        ModalBottomSheet(onDismissRequest = { showTranslateSheet = false }, sheetState = rememberModalBottomSheetState()) {
+            Column(Modifier.padding(bottom = 24.dp)) {
+                Text(stringResource(R.string.translate_readme), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(16.dp))
+                TranslateOption(stringResource(R.string.translate_off), translateTarget == null) { vm.setTranslateTarget(null); showTranslateSheet = false }
+                TranslateOption(stringResource(R.string.translate_to_chinese), translateTarget == "zh") { vm.setTranslateTarget("zh"); showTranslateSheet = false }
+                TranslateOption(stringResource(R.string.translate_to_english), translateTarget == "en") { vm.setTranslateTarget("en"); showTranslateSheet = false }
             }
         }
     }
@@ -364,6 +392,15 @@ private fun ThemeOption(label: String, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun LanguageOption(label: String, selected: Boolean, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        RadioButton(selected = selected, onClick = onClick)
+        Spacer(Modifier.height(0.dp))
+        Text(label, modifier = Modifier.padding(start = 12.dp))
+    }
+}
+
+@Composable
+private fun TranslateOption(label: String, selected: Boolean, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
         RadioButton(selected = selected, onClick = onClick)
         Spacer(Modifier.height(0.dp))

@@ -42,6 +42,9 @@ class SettingsViewModel @Inject constructor(
     val notifPollMinutes: StateFlow<Int> = settings.notifPollMinutes
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
 
+    val translateTarget: StateFlow<String?> = settings.translateTarget
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     private val _accountCount = MutableStateFlow(0)
     val accountCount: StateFlow<Int> = _accountCount
 
@@ -72,6 +75,10 @@ class SettingsViewModel @Inject constructor(
             settings.setNotifPollMinutes(minutes)
             notifScheduler.schedule(minutes)
         }
+    }
+
+    fun setTranslateTarget(target: String?) {
+        viewModelScope.launch { settings.setTranslateTarget(target) }
     }
 
     fun refreshAccountCount() {

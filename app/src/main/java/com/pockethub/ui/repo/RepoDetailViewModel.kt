@@ -7,11 +7,15 @@ import com.pockethub.data.model.Issue
 import com.pockethub.data.model.Repository
 import com.pockethub.data.remote.CachedRepository
 import com.pockethub.data.remote.GitHubApi
+import com.pockethub.data.remote.GoogleTranslate
+import com.pockethub.data.remote.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -23,6 +27,7 @@ class RepoDetailViewModel @Inject constructor(
     private val api: GitHubApi,
     private val cache: CachedRepository,
     private val history: com.pockethub.data.remote.HistoryRepository,
+    private val settings: SettingsRepository,
 ) : ViewModel() {
 
     private val _repo = MutableStateFlow<Repository?>(null)
@@ -57,6 +62,19 @@ class RepoDetailViewModel @Inject constructor(
 
     private val _readme = MutableStateFlow<String?>(null)
     val readme: StateFlow<String?> = _readme
+
+    // ── Translation state ─────────────────────────────────────
+    private val _translatedReadme = MutableStateFlow<String?>(null)
+    val translatedReadme: StateFlow<String?> = _translatedReadme
+
+    private val _showTranslated = MutableStateFlow(false)
+    val showTranslated: StateFlow<Boolean> = _showTranslated
+
+    private val _isTranslating = MutableStateFlow(false)
+    val isTranslating: StateFlow<Boolean> = _isTranslating.asStateFlow()
+
+    val translateTarget: StateFlow<String?> = settings.translateTarget
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -248,6 +266,38 @@ class RepoDetailViewModel @Inject constructor(
 
     fun clearForkMessage() {
         _forkMessage.update { null }
+    }
+
+    // ── Translation ──────────────────────────────────────────
+
+    /** Toggle between original and translated README. Triggers translation if needed. */
+    fun toggleTranslation() {
+        val target = translateTarget.value ?: return
+        if (_showTranslated.value) {
+            // Switch back to original
+            _showTranslated.update { false }
+            return
+        }
+        // If already translated, just switch
+        if (_translatedReadme.value != null) {
+            _showTranslated.update { true }
+            return
+        }
+        // Need to translate first
+        val original = _readme.value ?: return
+        viewModelScope.launch {
+            _isTranslating.update { true }
+            try {
+                val lang = if (target == "zh") "zh-CN" else "en"
+                val translated = GoogleTranslate.translate(original, lang)
+                _translatedReadme.update { translated }
+                _showTranslated.update { true }
+            } catch (_: Exception) {
+                // On failure, stay on original
+            } finally {
+                _isTranslating.update { false }
+            }
+        }
     }
 
     fun decodeBase64(b64: String): String {
