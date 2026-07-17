@@ -24,7 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -49,6 +49,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 fun CodeTab(
     owner: String,
     repo: String,
+    onOpenInBrowser: () -> Unit = {},
     vm: CodeBrowserViewModel = hiltViewModel(),
 ) {
     val state by vm.state.collectAsState()
@@ -67,6 +68,7 @@ fun CodeTab(
                 canGoUp = state.currentPath.isNotBlank(),
                 onUp = { vm.popDir() },
                 onJump = { vm.listDir(it) },
+                onOpenInBrowser = onOpenInBrowser,
             )
         }
 
@@ -115,6 +117,7 @@ private fun BreadcrumbBar(
     canGoUp: Boolean,
     onUp: () -> Unit,
     onJump: (String) -> Unit,
+    onOpenInBrowser: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -127,7 +130,6 @@ private fun BreadcrumbBar(
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_up))
             }
         }
-        // Render each segment as a tappable label.
         pathStack.forEachIndexed { idx, path ->
             val label = if (idx == 0) stringResource(R.string.breadcrumb_root) else path.substringAfterLast('/')
             if (idx > 0) Text(" / ", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -141,6 +143,10 @@ private fun BreadcrumbBar(
                     .clickable { onJump(path) }
                     .padding(vertical = 4.dp, horizontal = 2.dp),
             )
+        }
+        Spacer(Modifier.weight(1f))
+        IconButton(onClick = onOpenInBrowser) {
+            Icon(Icons.Outlined.Share, contentDescription = stringResource(R.string.cd_open_in_browser))
         }
     }
 }
