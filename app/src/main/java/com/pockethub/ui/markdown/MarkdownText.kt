@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 
 /**
@@ -175,7 +176,14 @@ fun MarkdownText(
                     if (block.level <= 2) Spacer(Modifier.height(if (block.level == 1) 10.dp else 6.dp))
                     Text(
                         text = block.text,
-                        style = style.copy(fontWeight = FontWeight.SemiBold),
+                        style = style.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            lineHeight = when (block.level) {
+                                1 -> 32.sp
+                                2 -> 28.sp
+                                else -> 24.sp
+                            },
+                        ),
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     if (block.level <= 2) Spacer(Modifier.height(2.dp))
@@ -183,7 +191,7 @@ fun MarkdownText(
 
                 is MdBlock.Paragraph -> {
                     val parts = renderRichInline(block.text, linkResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
-                    RichParagraph(parts, onTap)
+                    RichParagraph(parts, onTap, paragraphSpacing = 4.dp)
                 }
 
                 is MdBlock.CodeBlock -> {
@@ -248,12 +256,12 @@ private sealed class InlineToken {
 }
 
 @Composable
-private fun RichParagraph(parts: List<InlineToken>, onTap: (String, LinkKind) -> Unit) {
+private fun RichParagraph(parts: List<InlineToken>, onTap: (String, LinkKind) -> Unit, paragraphSpacing: androidx.compose.ui.unit.Dp = 3.dp) {
     // Inline-aligned images: collect adjacent images into a horizontal row
     // so README "badge walls" stack side-by-side instead of vertically. Text tokens
     // get rendered as standalone ClickableText below.
     var i = 0
-    Column(Modifier.padding(top = 3.dp, bottom = 3.dp)) {
+    Column(Modifier.padding(top = paragraphSpacing, bottom = paragraphSpacing)) {
         while (i < parts.size) {
             val run = mutableListOf<InlineToken.Image>()
             while (i < parts.size && parts[i] is InlineToken.Image) {
