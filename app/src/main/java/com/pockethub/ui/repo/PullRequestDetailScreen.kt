@@ -108,7 +108,7 @@ fun PullRequestDetailScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-
+    val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
     var showMergeDialog by remember { mutableStateOf(false) }
     var showReviewDialog by remember { mutableStateOf(false) }
     var reviewEvent by remember { mutableStateOf("APPROVE") }
@@ -118,7 +118,7 @@ fun PullRequestDetailScreen(
             kind == com.pockethub.ui.markdown.LinkKind.IMAGE_URL ||
             kind == com.pockethub.ui.markdown.LinkKind.IMAGE
         ) {
-            runCatching { androidx.compose.ui.platform.LocalUriHandler.current.openUri(url) }
+            runCatching { uriHandler.openUri(url) }
             return@link
         }
         Regex("^https://github\\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/?.*$").matchEntire(url)?.let {
@@ -129,7 +129,7 @@ fun PullRequestDetailScreen(
             onNavigateToUser(it.groupValues[1])
             return@link
         }
-        runCatching { androidx.compose.ui.platform.LocalUriHandler.current.openUri(url) }
+        runCatching { uriHandler.openUri(url) }
     }
 
     // Snackbar for results
