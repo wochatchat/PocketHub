@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.ForkRight
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
@@ -46,6 +48,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
@@ -102,9 +106,14 @@ fun RepoDetailScreen(
     val forkMessage by vm.forkMessage.collectAsState()
     val error by vm.error.collectAsState()
     val tab by vm.currentTab.collectAsState()
+    val workflows by vm.workflows.collectAsState()
+    val isLoadingWorkflows by vm.isLoadingWorkflows.collectAsState()
+    val isDispatching by vm.isDispatching.collectAsState()
+    val dispatchMessage by vm.dispatchMessage.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     var showForkDialog by remember { mutableStateOf(false) }
+    var showDispatchDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(owner, repo) { vm.loadRepo(owner, repo) }
     LaunchedEffect(owner, repo, tab) {
@@ -117,6 +126,27 @@ fun RepoDetailScreen(
         forkMessage?.let {
             snackbarHostState.showSnackbar(it)
             vm.clearForkMessage()
+        }
+    }
+
+    // Load workflow list when the dispatch dialog opens (lazy load).
+    LaunchedEffect(showDispatchDialog, owner, repo) {
+        if (showDispatchDialog) vm.loadWorkflows(owner, repo)
+    }
+
+    // Surface dispatch results via Snackbar. On success, close the dialog and refresh runs.
+    LaunchedEffect(dispatchMessage, isDispatching) {
+        if (!isDispatching) {
+            dispatchMessage?.let {
+                snackbarHostState.showSnackbar(it)
+                vm.clearDispatchMessage()
+                if (it.startsWith("已触发")) {
+                    showDispatchDialog = false
+                    // Refresh run list after a short delay so the newly dispatched run appears.
+                    kotlinx.coroutines.delay(2000)
+                    if (tab == RepoTab.WORKFLOWS) vm.loadWorkflowRuns(owner, repo)
+                }
+            }
         }
     }
 
@@ -177,6 +207,11 @@ fun RepoDetailScreen(
                     onClick = { onNavigateToDownloads("done") },
                 ) {
                     Icon(Icons.Outlined.Download, contentDescription = stringResource(R.string.cd_open_download))
+                }
+                RepoTab.WORKFLOWS -> FloatingActionButton(
+                    onClick = { showDispatchDialog = true },
+                ) {
+                    Icon(Icons.Outlined.PlayArrow, contentDescription = stringResource(R.string.action_dispatch_workflow))
                 }
                 else -> {}
             }
@@ -274,6 +309,19 @@ fun RepoDetailScreen(
                 TextButton(onClick = { showForkDialog = false }) {
                     Text(stringResource(R.string.action_cancel))
                 }
+            },
+        )
+    }
+
+    if (showDispatchDialog) {
+        WorkflowDispatchDialog(
+            workflows = workflows,
+            defaultBranch = repoData?.defaultBranch,
+            isLoading = isLoadingWorkflows,
+            isDispatching = isDispatching,
+            onDismiss = { if (!isDispatching) showDispatchDialog = false },
+            onDispatch = { workflowId, ref ->
+                vm.dispatchWorkflow(owner, repo, workflowId, ref)
             },
         )
     }
@@ -720,6 +768,122 @@ private fun WorkflowsTab(
             HorizontalDivider()
         }
     }
+}
+
+/**
+ * Dialog for manually running a workflow (`workflow_dispatch`).
+ *
+ * Lists all active workflows in the repo and lets the user pick one + enter the
+ * branch/tag ref to run on. GitHub doesn't expose which workflows declare
+ * `on: workflow_dispatch` in the list endpoint, so on failure (HTTP 422) we
+ * surface a helpful message instead.
+ */
+@Composable
+private fun WorkflowDispatchDialog(
+    workflows: List<GitHubApi.Workflow>,
+    defaultBranch: String?,
+    isLoading: Boolean,
+    isDispatching: Boolean,
+    onDismiss: () -> Unit,
+    onDispatch: (workflowId: Long, ref: String) -> Unit,
+) {
+    var selectedId by remember(workflows.size) {
+        mutableStateOf(workflows.firstOrNull()?.id)
+    }
+    var ref by remember(defaultBranch) {
+        mutableStateOf(defaultBranch ?: "main")
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.workflow_dispatch_title)) },
+        text = {
+            Column(Modifier.fillMaxWidth()) {
+                if (isLoading) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else if (workflows.isEmpty()) {
+                    Text(
+                        stringResource(R.string.workflow_dispatch_empty),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    Text(
+                        stringResource(R.string.workflow_dispatch_select),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    val scrollState = rememberScrollState()
+                    Column(Modifier.heightIn(max = 240.dp).verticalScroll(scrollState)) {
+                        workflows.forEach { wf ->
+                            Row(
+                                Modifier.fillMaxWidth()
+                                    .clickable(enabled = !isDispatching) { selectedId = wf.id }
+                                    .padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = selectedId == wf.id,
+                                    onClick = { selectedId = wf.id },
+                                    enabled = !isDispatching,
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        wf.name,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        wf.path,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = ref,
+                        onValueChange = { ref = it },
+                        label = { Text(stringResource(R.string.workflow_dispatch_ref_label)) },
+                        singleLine = true,
+                        enabled = !isDispatching,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text(
+                        stringResource(R.string.workflow_dispatch_ref_hint),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !isDispatching && selectedId != null && ref.isNotBlank(),
+                onClick = { selectedId?.let { onDispatch(it, ref.trim()) } },
+            ) {
+                if (isDispatching) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Text(stringResource(R.string.action_dispatch_workflow))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isDispatching) {
+                Text(stringResource(R.string.action_cancel))
+            }
+        },
+    )
 }
 
 @Composable

@@ -5,6 +5,7 @@ import com.pockethub.data.model.Issue
 import com.pockethub.data.model.Repository
 import com.pockethub.data.model.User
 import retrofit2.Response
+import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.Field
 import retrofit2.http.FormUrlEncoded
@@ -367,6 +368,48 @@ interface GitHubApi {
         @Query("page") page: Int = 1,
         @Query("branch") branch: String? = null,
     ): WorkflowRunsResponse
+
+    /** List workflows (definitions) for a repo. */
+    @GET("repos/{owner}/{repo}/actions/workflows")
+    suspend fun getWorkflows(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+    ): WorkflowsResponse
+
+    /** Trigger a `workflow_dispatch` event for a single workflow. */
+    @POST("repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches")
+    suspend fun dispatchWorkflow(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("workflow_id") workflowId: Long,
+        @Body body: WorkflowDispatchRequest,
+    ): retrofit2.Response<Unit>
+
+    @kotlinx.serialization.Serializable
+    data class WorkflowDispatchRequest(
+        /** Branch or tag name the workflow should run on. */
+        val ref: String,
+    )
+
+    @kotlinx.serialization.Serializable
+    data class WorkflowsResponse(
+        @kotlinx.serialization.SerialName("total_count") val totalCount: Int = 0,
+        @kotlinx.serialization.SerialName("workflows") val workflows: List<Workflow> = emptyList(),
+    )
+
+    @kotlinx.serialization.Serializable
+    data class Workflow(
+        val id: Long = 0,
+        @kotlinx.serialization.SerialName("node_id") val nodeId: String? = null,
+        val name: String = "",
+        val path: String = "",
+        val state: String = "",
+        @kotlinx.serialization.SerialName("created_at") val createdAt: String? = null,
+        @kotlinx.serialization.SerialName("updated_at") val updatedAt: String? = null,
+        @kotlinx.serialization.SerialName("html_url") val htmlUrl: String? = null,
+        @kotlinx.serialization.SerialName("badge_url") val badgeUrl: String? = null,
+        @kotlinx.serialization.SerialName("deleted_at") val deletedAt: String? = null,
+    )
 
     @kotlinx.serialization.Serializable
     data class WorkflowRunsResponse(

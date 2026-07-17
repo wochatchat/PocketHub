@@ -43,6 +43,18 @@ class RepoDetailViewModel @Inject constructor(
     private val _workflowRuns = MutableStateFlow<List<GitHubApi.WorkflowRun>>(emptyList())
     val workflowRuns: StateFlow<List<GitHubApi.WorkflowRun>> = _workflowRuns
 
+    private val _workflows = MutableStateFlow<List<GitHubApi.Workflow>>(emptyList())
+    val workflows: StateFlow<List<GitHubApi.Workflow>> = _workflows
+
+    private val _isLoadingWorkflows = MutableStateFlow(false)
+    val isLoadingWorkflows: StateFlow<Boolean> = _isLoadingWorkflows.asStateFlow()
+
+    private val _isDispatching = MutableStateFlow(false)
+    val isDispatching: StateFlow<Boolean> = _isDispatching.asStateFlow()
+
+    private val _dispatchMessage = MutableStateFlow<String?>(null)
+    val dispatchMessage: StateFlow<String?> = _dispatchMessage.asStateFlow()
+
     private val _readme = MutableStateFlow<String?>(null)
     val readme: StateFlow<String?> = _readme
 
@@ -164,6 +176,55 @@ class RepoDetailViewModel @Inject constructor(
                 _error.update { e.localizedMessage ?: "加载 Workflows 失败" }
             }
         }
+    }
+
+    /** Load workflow definitions so the user can pick one to dispatch manually. */
+    fun loadWorkflows(owner: String, repo: String) {
+        viewModelScope.launch {
+            if (_isLoadingWorkflows.value) return@launch
+            _isLoadingWorkflows.update { true }
+            try {
+                val resp = api.getWorkflows(owner, repo)
+                _workflows.update { resp.workflows.filter { it.state == "active" && it.deletedAt == null } }
+            } catch (e: Exception) {
+                _workflows.update { emptyList() }
+                _dispatchMessage.update { e.localizedMessage ?: "加载工作流失败" }
+            } finally {
+                _isLoadingWorkflows.update { false }
+            }
+        }
+    }
+
+    /** Trigger a `workflow_dispatch` event for the given workflow on the given ref. */
+    fun dispatchWorkflow(owner: String, repo: String, workflowId: Long, ref: String) {
+        viewModelScope.launch {
+            if (_isDispatching.value) return@launch
+            _isDispatching.update { true }
+            _dispatchMessage.update { null }
+            try {
+                val resp = api.dispatchWorkflow(owner, repo, workflowId, GitHubApi.WorkflowDispatchRequest(ref = ref))
+                if (resp.isSuccessful) {
+                    _dispatchMessage.update { "已触发：将在几秒后出现新一次运行" }
+                } else {
+                    val err = resp.errorBody()?.string()
+                    val reason = when (resp.code()) {
+                        403 -> "无权限：需要对此仓库有 write 权限"
+                        404 -> "工作流或仓库不存在或无 Actions 权限"
+                        422 -> "触发失败：该 workflow 可能没有声明 `on: workflow_dispatch`，或 ref 不存在"
+                        else -> "触发失败 (${resp.code()}): ${err?.take(200)}"
+                    }
+                    _dispatchMessage.update { reason }
+                }
+            } catch (e: Exception) {
+                _dispatchMessage.update { e.localizedMessage ?: "触发工作流失败" }
+            } finally {
+                _isDispatching.update { false }
+            }
+        }
+    }
+
+    fun clearDispatchMessage() {
+        _dispatchMessage.update { null }
     }
 
     fun fork(owner: String, repo: String) {

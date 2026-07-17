@@ -140,6 +140,12 @@
     <string name="no_releases_yet">还没有 releases</string>
     <string name="no_workflow_runs">没有工作流运行记录</string>
     <string name="workflow_run_status">#%1$d · %2$s · %3$s</string>
+    <string name="action_dispatch_workflow">运行工作流</string>
+    <string name="workflow_dispatch_title">手动运行工作流</string>
+    <string name="workflow_dispatch_select">选择要触发的工作流</string>
+    <string name="workflow_dispatch_empty">此仓库没有可用的工作流。</string>
+    <string name="workflow_dispatch_ref_label">分支 / 标签</string>
+    <string name="workflow_dispatch_ref_hint">在该分支或标签上运行。工作流 YAML 中需声明 `on: workflow_dispatch`。</string>
     <string name="pre_release">预发布</string>
     <string name="released_at">发布于 %1$s</string>
     <string name="by_author">@%1$s</string>
