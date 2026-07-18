@@ -380,6 +380,20 @@ private fun ContentImage(img: InlineToken.Image, onTap: (String, LinkKind) -> Un
             .clickable { onTap(clickTarget, kind) },
         contentAlignment = Alignment.Center,
     ) {
+        // Always lay the image out with a BOUNDED height. If the Image were unbounded (only
+        // fillMaxWidth inside a verticalScroll), Coil would decode at Size.ORIGINAL and OOM on
+        // large README screenshots — that was the overview-page crash. heightIn(min) also keeps
+        // a non-zero size so the request fires before the drawable's intrinsic size is known;
+        // aspectRatio (once known) makes it fill the width at the correct ratio.
+        Image(
+            painter = painter,
+            contentDescription = img.alt.takeIf { it.isNotBlank() },
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 96.dp, max = 360.dp)
+                .then(if (ratio != null) Modifier.aspectRatio(ratio) else Modifier),
+        )
         when (state) {
             is AsyncImagePainter.State.Loading -> {
                 CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
@@ -402,16 +416,7 @@ private fun ContentImage(img: InlineToken.Image, onTap: (String, LinkKind) -> Un
                     }
                 }
             }
-            else -> {
-                Image(
-                    painter = painter,
-                    contentDescription = img.alt.takeIf { it.isNotBlank() },
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .then(if (ratio != null) Modifier.aspectRatio(ratio) else Modifier),
-                )
-            }
+            else -> {}
         }
     }
 }
