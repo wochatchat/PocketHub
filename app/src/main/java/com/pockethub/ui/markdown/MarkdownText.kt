@@ -48,8 +48,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.compose.SubcomposeAsyncImage
+import com.pockethub.ui.LocalAppImageLoader
 
 /**
  * A lightweight, dependency-free Markdown renderer (enhanced).
@@ -385,6 +387,7 @@ private fun ContentImage(img: InlineToken.Image, onTap: (String, LinkKind) -> Un
     val kind = if (img.wrapUrl != null) classifyLink(img.wrapUrl) else LinkKind.IMAGE_URL
     SubcomposeAsyncImage(
         model = img.src,
+        imageLoader = LocalAppImageLoader.current,
         contentDescription = img.alt.takeIf { it.isNotBlank() },
         contentScale = ContentScale.Fit,
         modifier = Modifier
@@ -444,6 +447,7 @@ private fun BadgesRow(images: List<InlineToken.Image>, onTap: (String, LinkKind)
             Box(modifier = clickableModifier) {
                 AsyncImage(
                     model = img.src,
+                    imageLoader = LocalAppImageLoader.current,
                     contentDescription = img.alt.takeIf { it.isNotBlank() },
                     modifier = Modifier
                         .heightIn(min = 16.dp, max = 40.dp)
