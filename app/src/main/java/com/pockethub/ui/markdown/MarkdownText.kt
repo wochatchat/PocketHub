@@ -1,5 +1,6 @@
 package com.pockethub.ui.markdown
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,6 +12,8 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -20,7 +23,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.BrokenImage
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,6 +37,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -38,28 +47,33 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 
 /**
  * A lightweight, dependency-free Markdown renderer (enhanced).
  *
- * Supports: H1-H6, bold (**), italic (*), inline code, fenced code blocks,
- * ordered / unordered lists (with nesting), blockquotes, horizontal rules,
- * paragraphs, images `![alt](src)`, wrapped badge links `[![alt](src)](href)`,
- * autolinks (`<url>` and bare URLs), GitHub-relative references
- * (#123 issue, @user, owner/repo, bare commit SHA).
+ * Supports: H1-H6, bold (**), italic (*), strikethrough (~~), inline code, fenced code blocks,
+ * ordered / unordered lists (with nesting), GitHub task lists (- [ ] / - [x]), blockquotes,
+ * horizontal rules, paragraphs, GitHub-style pipe tables, images `![alt](src)`, wrapped badge
+ * links `[![alt](src)](href)`, autolinks (`<url>` and bare URLs), GitHub-relative references
+ * (#123 issue, @user, owner/repo, bare commit SHA), and common raw-HTML inline tags
+ * (<strong>/<b>, <em>/<i>, <code>/<kbd>, <del>, <br>, <hr>, <img>).
  *
- * Images are loaded with Coil's [AsyncImage] so README badges / banners / screenshots
- * render properly inside the Overview tab.
+ * Images are loaded with Coil so README badges / banners / screenshots render properly inside
+ * the Overview tab. Content images fill the column width at their natural aspect ratio (capped
+ * for readability), while badge walls stay compact and inline. Relative image paths are resolved
+ * to raw.githubusercontent.com using [repoContext] + [defaultBranch].
  *
  * Links are classified into kinds (see [LinkKind]) and rendered with distinct
- * color/icon/decoration so users can tell apart in-app GitHub destinations,
- * downloadable assets, image links, and external links at a glance.
- *
- * Does NOT support: tables, footnotes, math, task lists (rendered as plain text).
+ * color/icon/decoration so users can tell apart in-app GitHub destinations, downloadable assets,
+ * image links, and external links at a glance.
  */
 
 private const val LINK_TAG = "url"
@@ -136,8 +150,10 @@ private val IMAGE_EXTS = setOf(
 fun MarkdownText(
     markdown: String,
     modifier: Modifier = Modifier,
-    /** Current repo context — "owner/repo" — for resolving relative links. Null OK in non-repo contexts. */
+    /** Current repo context — "owner/repo" — for resolving relative links/images. Null OK in non-repo contexts. */
     repoContext: String? = null,
+    /** Default branch of the repo, used to resolve relative image paths to raw.githubusercontent.com. */
+    defaultBranch: String? = null,
     /** Override link navigation. Default uses LocalUriHandler (system browser). Receives both
      *  the (already-resolved) URL and its [LinkKind], so the caller can route downloads, in-app
      *  navigation, and external opens differently. */
@@ -153,6 +169,7 @@ fun MarkdownText(
     val mutedColor = MaterialTheme.colorScheme.onSurfaceVariant
     val blockShape = RoundedCornerShape(8.dp)
     val linkResolver = rememberLinkResolver(repoContext)
+    val imageResolver = rememberImageResolver(repoContext, defaultBranch)
     val uriHandler = LocalUriHandler.current
 
     val onTap: (String, LinkKind) -> Unit = { url, kind ->
@@ -190,7 +207,7 @@ fun MarkdownText(
                 }
 
                 is MdBlock.Paragraph -> {
-                    val parts = renderRichInline(block.text, linkResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
+                    val parts = renderRichInline(block.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
                     RichParagraph(parts, onTap, paragraphSpacing = 4.dp)
                 }
 
@@ -214,15 +231,34 @@ fun MarkdownText(
                 }
 
                 is MdBlock.Blockquote -> {
-                    val parts = renderRichInline(block.text, linkResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
+                    val parts = renderRichInline(block.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
                     RichBlockquote(parts, accentColor, mutedColor, onTap)
                 }
 
                 is MdBlock.ListItem -> {
-                    val bullet = if (block.ordered) "${block.index}. " else "• "
+                    val bullet = when {
+                        block.ordered -> "${block.index}. "
+                        block.task == 'x' -> "☑ "
+                        block.task == ' ' -> "☐ "
+                        else -> "• "
+                    }
                     val indent = (block.level - 1) * 14
-                    val parts = renderRichInline(block.text, linkResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
+                    val parts = renderRichInline(block.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
                     RichListItem(bullet, parts, indent, mutedColor, onTap)
+                }
+
+                is MdBlock.Table -> {
+                    TableBlock(
+                        block,
+                        linkResolver,
+                        imageResolver,
+                        codeBackgroundColor,
+                        linkColor,
+                        downloadColor,
+                        imageLinkColor,
+                        externalColor,
+                        onTap,
+                    )
                 }
 
                 is MdBlock.HorizontalRule -> {
@@ -242,7 +278,9 @@ private sealed class MdBlock {
     data class Paragraph(val text: String) : MdBlock()
     data class CodeBlock(val code: String, val lang: String?) : MdBlock()
     data class Blockquote(val text: String) : MdBlock()
-    data class ListItem(val text: String, val ordered: Boolean, val index: Int, val level: Int) : MdBlock()
+    /** `task`: null = not a task item; ' ' = unchecked; 'x' = checked. */
+    data class ListItem(val text: String, val ordered: Boolean, val index: Int, val level: Int, val task: Char? = null) : MdBlock()
+    data class Table(val headers: List<String>, val rows: List<List<String>>) : MdBlock()
     object HorizontalRule : MdBlock()
 }
 
@@ -257,9 +295,9 @@ private sealed class InlineToken {
 
 @Composable
 private fun RichParagraph(parts: List<InlineToken>, onTap: (String, LinkKind) -> Unit, paragraphSpacing: androidx.compose.ui.unit.Dp = 3.dp) {
-    // Inline-aligned images: collect adjacent images into a horizontal row
-    // so README "badge walls" stack side-by-side instead of vertically. Text tokens
-    // get rendered as standalone ClickableText below.
+    // Inline-aligned images: collect adjacent images into a run, then split the run into
+    // badge walls (compact, inline) and content images (full-width). Text tokens get rendered
+    // as standalone ClickableText below.
     var i = 0
     Column(Modifier.padding(top = paragraphSpacing, bottom = paragraphSpacing)) {
         while (i < parts.size) {
@@ -269,7 +307,7 @@ private fun RichParagraph(parts: List<InlineToken>, onTap: (String, LinkKind) ->
                 i++
             }
             if (run.isNotEmpty()) {
-                BadgesRow(run, onTap)
+                RenderImageRun(run, onTap)
                 continue
             }
             val txt = parts[i] as InlineToken.Text
@@ -291,6 +329,93 @@ private fun RichParagraph(parts: List<InlineToken>, onTap: (String, LinkKind) ->
     }
 }
 
+/**
+ * Render a run of adjacent images. Badge-style images (shields.io, CI status, etc.) are grouped
+ * into a compact [BadgesRow]; everything else is shown as a full-width [ContentImage] so README
+ * screenshots and banners are legible on a phone instead of squished to a strip.
+ */
+@Composable
+private fun RenderImageRun(images: List<InlineToken.Image>, onTap: (String, LinkKind) -> Unit) {
+    var j = 0
+    while (j < images.size) {
+        if (isBadgeUrl(images[j].src)) {
+            val badges = mutableListOf<InlineToken.Image>()
+            while (j < images.size && isBadgeUrl(images[j].src)) {
+                badges.add(images[j])
+                j++
+            }
+            BadgesRow(badges, onTap)
+        } else {
+            ContentImage(images[j], onTap)
+            j++
+        }
+    }
+}
+
+/** A full-width content image at its natural aspect ratio, capped for readability, with
+ *  loading / error states and tap-to-open. This is what makes README screenshots render
+ *  properly instead of the old 40dp-tall strips. */
+@Composable
+private fun ContentImage(img: InlineToken.Image, onTap: (String, LinkKind) -> Unit) {
+    val context = LocalContext.current
+    val painter = rememberAsyncImagePainter(
+        model = ImageRequest.Builder(context).data(img.src).crossfade(true).build(),
+    )
+    val state = painter.state
+    val intrinsic = painter.intrinsicSize
+    val ratio = if (intrinsic.width > 0 && intrinsic.height > 0) {
+        intrinsic.width.toFloat() / intrinsic.height.toFloat()
+    } else {
+        null
+    }
+    val clickTarget = img.wrapUrl ?: img.src
+    val kind = if (img.wrapUrl != null) classifyLink(img.wrapUrl) else LinkKind.IMAGE_URL
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 96.dp, max = 360.dp)
+            .padding(vertical = 4.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable { onTap(clickTarget, kind) },
+        contentAlignment = Alignment.Center,
+    ) {
+        when (state) {
+            is AsyncImagePainter.State.Loading -> {
+                CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+            }
+            is AsyncImagePainter.State.Error -> {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Icon(Icons.Outlined.BrokenImage, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (img.alt.isNotBlank()) {
+                        Text(
+                            img.alt,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+            else -> {
+                Image(
+                    painter = painter,
+                    contentDescription = img.alt.takeIf { it.isNotBlank() },
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(if (ratio != null) Modifier.aspectRatio(ratio) else Modifier),
+                )
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun BadgesRow(images: List<InlineToken.Image>, onTap: (String, LinkKind) -> Unit) {
@@ -300,13 +425,12 @@ private fun BadgesRow(images: List<InlineToken.Image>, onTap: (String, LinkKind)
         modifier = Modifier.fillMaxWidth(),
     ) {
         images.forEach { img ->
-            val modifier = Modifier.heightIn(min = 0.dp, max = 40.dp)
             val clickableModifier = if (img.wrapUrl != null) {
                 Modifier.clip(RoundedCornerShape(4.dp)).clickable { onTap(img.wrapUrl, classifyLink(img.wrapUrl)) }
             } else {
                 Modifier.clip(RoundedCornerShape(4.dp)).clickable { onTap(img.src, LinkKind.IMAGE_URL) }
             }
-            Box(modifier.then(clickableModifier)) {
+            Box(modifier = clickableModifier) {
                 AsyncImage(
                     model = img.src,
                     contentDescription = img.alt.takeIf { it.isNotBlank() },
@@ -392,6 +516,77 @@ private fun RichListItem(
     }
 }
 
+// ── Tables ───────────────────────────────────────────────────────────
+
+@Composable
+private fun TableBlock(
+    table: MdBlock.Table,
+    resolver: LinkResolver,
+    imageResolver: ImageResolver,
+    codeBackgroundColor: Color,
+    linkColor: Color,
+    downloadColor: Color,
+    imageLinkColor: Color,
+    externalColor: Color,
+    onTap: (String, LinkKind) -> Unit,
+) {
+    val headerBg = MaterialTheme.colorScheme.surfaceVariant
+    val borderColor = MaterialTheme.colorScheme.outlineVariant
+    val colCount = table.headers.size.coerceAtLeast(1)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(8.dp)),
+    ) {
+        Row(Modifier.fillMaxWidth().background(headerBg)) {
+            table.headers.forEach { cell ->
+                val parts = renderRichInline(cell, resolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
+                TableCell(parts, Modifier.width(0.dp).weight(1f), bold = true, onTap = onTap)
+            }
+        }
+        HorizontalDivider(color = borderColor)
+        table.rows.forEach { row ->
+            val padded = (row + List((colCount - row.size).coerceAtLeast(0)) { "" }).take(colCount)
+            Row(Modifier.fillMaxWidth()) {
+                padded.forEach { cell ->
+                    val parts = renderRichInline(cell, resolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
+                    TableCell(parts, Modifier.width(0.dp).weight(1f), bold = false, onTap = onTap)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TableCell(
+    parts: List<InlineToken>,
+    modifier: Modifier,
+    bold: Boolean,
+    onTap: (String, LinkKind) -> Unit,
+) {
+    val span = buildAnnotatedString {
+        parts.forEach { if (it is InlineToken.Text) append(it.span) }
+    }
+    ClickableText(
+        text = span,
+        style = MaterialTheme.typography.bodySmall.copy(
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal,
+        ),
+        modifier = modifier.padding(horizontal = 6.dp, vertical = 5.dp),
+        onClick = { offset ->
+            span.getStringAnnotations(LINK_TAG, offset, offset).firstOrNull()?.let { a ->
+                val kind = span.getStringAnnotations(LINK_KIND_TAG, offset, offset)
+                    .firstOrNull()?.item?.let { runCatching { LinkKind.valueOf(it) }.getOrNull() }
+                    ?: LinkKind.EXTERNAL
+                onTap(a.item, kind)
+            }
+        },
+    )
+}
+
 // ── Markdown cleaning ────────────────────────────────────────────────
 
 @Composable
@@ -421,11 +616,34 @@ private fun rememberCleanedMarkdown(markdown: String): String {
             ) { m ->
                 "[${m.groupValues[2]}](${m.groupValues[1]})"
             }
+            // Convert raw-HTML inline emphasis/code/keystroke/strikethrough into markdown so it
+            // renders styled instead of leaking raw tags. Must run before the generic tag strip.
             .replace(
-                Regex("<\\s*(/?)\\s*(div|span|p|details|summary|center|section|article|figure|figcaption|picture|source|video|audio|sub|sup|small|big|font|table|thead|tbody|tr|td|th|pre)(\\s[^>]*)?>", RegexOption.IGNORE_CASE),
+                Regex("<\\s*(?:strong|b)\\b[^>]*>(.*?)<\\s*/\\s*(?:strong|b)\\s*>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
+            ) { "**${it.groupValues[1]}**" }
+            .replace(
+                Regex("<\\s*(?:em|i)\\b[^>]*>(.*?)<\\s*/\\s*(?:em|i)\\s*>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
+            ) { "*${it.groupValues[1]}*" }
+            .replace(
+                Regex("<\\s*(?:code|kbd)\\b[^>]*>(.*?)<\\s*/\\s*(?:code|kbd)\\s*>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
+            ) { "`${it.groupValues[1]}`" }
+            .replace(
+                Regex("<\\s*(?:del|s|strike)\\b[^>]*>(.*?)<\\s*/\\s*(?:del|s|strike)\\s*>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
+            ) { "~~${it.groupValues[1]}~~" }
+            // Collapsible-section titles → bold heading so <details> blocks stay scannable.
+            .replace(
+                Regex("<\\s*summary\\b[^>]*>(.*?)<\\s*/\\s*summary\\s*>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
+            ) { "\n**${it.groupValues[1].trim()}**\n" }
+            // Inline tags with no markdown equivalent — drop the tag, keep inner text.
+            .replace(Regex("<\\s*/?(?:u|mark|small|big|font|sub|sup)\\b[^>]*>", RegexOption.IGNORE_CASE), "")
+            // Block-level line breaks / rules → markdown forms (before the void-tag strip below).
+            .replace(Regex("<\\s*br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
+            .replace(Regex("<\\s*hr\\s*/?>", RegexOption.IGNORE_CASE), "\n\n---\n\n")
+            .replace(
+                Regex("<\\s*(/?)\\s*(div|span|p|details|summary|center|section|article|figure|figcaption|picture|source|video|audio|table|thead|tbody|tr|td|th|pre)(\\s[^>]*)?>", RegexOption.IGNORE_CASE),
                 "",
             )
-            // Self-closing / void tags (img already converted above; keep others stripped)
+            // Self-closing / void tags (img/br/hr already converted above; keep others stripped)
             .replace(
                 Regex("<\\s*(br|hr|input|meta|link|area|base|col|embed|param|track|wbr)(\\s[^>]*)?/?>", RegexOption.IGNORE_CASE),
                 "",
@@ -448,6 +666,28 @@ private fun rememberCleanedMarkdown(markdown: String): String {
 
 // ── Parsing ─────────────────────────────────────────────────────────
 
+private val TABLE_SEP_REGEX = Regex("^\\|?\\s*:?-+:?\\s*(\\|\\s*:?-+:?\\s*)*\\|?$")
+
+private fun isTableSeparator(line: String): Boolean {
+    val l = line.trim()
+    return l.contains("-") && l.contains("|") && TABLE_SEP_REGEX.matches(l)
+}
+
+private fun looksLikeTableRow(line: String): Boolean {
+    val l = line.trim()
+    return l.isNotBlank() && (l.startsWith("|") || l.count { it == '|' } >= 2)
+}
+
+private fun splitTableRow(line: String): List<String> {
+    val raw = line.trim()
+    val hasLeading = raw.startsWith("|")
+    val hasTrailing = raw.endsWith("|")
+    var cells = raw.split("|").map { it.trim() }
+    if (hasLeading && cells.isNotEmpty()) cells = cells.drop(1)
+    if (hasTrailing && cells.isNotEmpty()) cells = cells.dropLast(1)
+    return cells
+}
+
 private fun parseMarkdown(src: String): List<MdBlock> {
     val blocks = mutableListOf<MdBlock>()
     val lines = src.lines()
@@ -457,6 +697,10 @@ private fun parseMarkdown(src: String): List<MdBlock> {
         val leading = line.takeWhile { it == ' ' }.length
         return (leading / 2) + 1
     }
+
+    /** A table header begins at [idx] when [idx] is a pipe row and [idx]+1 is a separator. */
+    fun isTableHeaderAt(idx: Int): Boolean =
+        idx + 1 < lines.size && looksLikeTableRow(lines[idx]) && isTableSeparator(lines[idx + 1])
 
     val isBlockStart: (String) -> Boolean = { l ->
         l.isBlank() || l.startsWith("#") || l.trim().startsWith("```") ||
@@ -516,19 +760,39 @@ private fun parseMarkdown(src: String): List<MdBlock> {
             continue
         }
 
-        // Unordered list
+        // Unordered list (with optional GitHub task-list checkbox)
         if (line.matches(Regex("^\\s*[-*+]\\s+.+"))) {
             while (i < lines.size && lines[i].matches(Regex("^\\s*[-*+]\\s+.+"))) {
-                val text = lines[i].trim().substringAfter(" ").trim()
-                blocks.add(MdBlock.ListItem(text, ordered = false, index = 0, level = listLevel(lines[i])))
+                val raw = lines[i].trim().substringAfter(" ").trim()
+                val taskMatch = Regex("^\\[([ xX])]\\s+(.*)").matchEntire(raw)
+                val (text, task) = if (taskMatch != null) {
+                    val checked = taskMatch.groupValues[1].equals("x", ignoreCase = true)
+                    taskMatch.groupValues[2] to (if (checked) 'x' else ' ')
+                } else {
+                    raw to null
+                }
+                blocks.add(MdBlock.ListItem(text, ordered = false, index = 0, level = listLevel(lines[i]), task = task))
                 i++
             }
             continue
         }
 
+        // GitHub-style pipe table
+        if (isTableHeaderAt(i)) {
+            val headers = splitTableRow(lines[i])
+            i += 2 // skip header + separator
+            val rows = mutableListOf<List<String>>()
+            while (i < lines.size && looksLikeTableRow(lines[i]) && !isTableSeparator(lines[i]) && !lines[i].isBlank()) {
+                rows.add(splitTableRow(lines[i]))
+                i++
+            }
+            blocks.add(MdBlock.Table(headers, rows))
+            continue
+        }
+
         // Paragraph
         val paraLines = mutableListOf<String>()
-        while (i < lines.size && !isBlockStart(lines[i])) {
+        while (i < lines.size && !isBlockStart(lines[i]) && !isTableHeaderAt(i)) {
             paraLines.add(lines[i])
             i++
         }
@@ -585,6 +849,53 @@ private fun rememberLinkResolver(repoContext: String?): LinkResolver = LinkResol
     null
 }
 
+// ── Image resolver ───────────────────────────────────────────────────
+
+/**
+ * Resolve an image `src` to an absolute, Coil-loadable URL.
+ *  - absolute http(s) / `//` / `data:` → returned (near-)as-is
+ *  - relative path (e.g. `docs/shot.png`, `./a/b.gif`, `/assets/x.png`)
+ *    → `https://raw.githubusercontent.com/<owner>/<repo>/<defaultBranch>/<path>`
+ *    so README screenshots that use repo-relative URLs actually load.
+ */
+fun interface ImageResolver {
+    operator fun invoke(src: String): String
+}
+
+@Composable
+private fun rememberImageResolver(repoContext: String?, defaultBranch: String?): ImageResolver = ImageResolver { src ->
+    val raw = src.trim()
+    if (raw.isEmpty()) return@ImageResolver raw
+    if (raw.startsWith("http://") || raw.startsWith("https://")) return@ImageResolver raw
+    if (raw.startsWith("//")) return@ImageResolver "https:$raw"
+    if (raw.startsWith("data:")) return@ImageResolver raw
+    if (repoContext.isNullOrBlank()) return@ImageResolver raw
+    val parts = repoContext.split("/")
+    val owner = parts.getOrNull(0)
+    val repo = parts.getOrNull(1)
+    if (owner.isNullOrBlank() || repo.isNullOrBlank()) return@ImageResolver raw
+    val branch = defaultBranch?.ifBlank { null } ?: "main"
+    val path = raw.removePrefix("./").removePrefix("/").replace(Regex("(?:\\.\\./)+"), "")
+    "https://raw.githubusercontent.com/$owner/$repo/$branch/$path"
+}
+
+/** Heuristic: does this URL look like a tiny status badge (shields.io, CI, etc.)? */
+private fun isBadgeUrl(url: String): Boolean {
+    val u = url.lowercase()
+    if (u.contains("img.shields.io") || u.contains("shields.io")) return true
+    if (u.contains("badge.fury.io")) return true
+    if (u.contains("travis-ci.org") || u.contains("travis-ci.com")) return true
+    if (u.contains("codecov.io") || u.contains("coveralls.io")) return true
+    if (u.contains("circleci.com") || u.contains("badgen.net")) return true
+    if (u.contains("gitter.im")) return true
+    if (u.contains("/badge/")) return true
+    if (u.contains("/buildstatus") || u.contains("/status-badge")) return true
+    if (u.contains("actions/workflows") && u.contains("badge")) return true
+    if ((u.contains("opencollective.com") || u.contains("snyk.io") || u.contains("app.codacy.com") || u.contains("deepscan.io")) && u.contains("badge")) return true
+    if (u.contains("lgtm.com") || u.contains("lgtm.app")) return true
+    return false
+}
+
 // ── Rich inline rendering ───────────────────────────────────────────
 
 // Patterns pre-compiled once per rendering call. Each uses the *anchor at start*
@@ -596,13 +907,15 @@ private val STANDALONE_IMG_PATTERN = Regex("^!\\[([^\\]]*)\\]\\(([^)]+)\\)")
 /**
  * Render a paragraph/inline text into a mix of [InlineToken]s. Images (`![alt](src)`)
  * and badge-wrapped images (`[![alt](src)](href)`) are extracted as [InlineToken.Image]
- * so they can be composed with Coil's [AsyncImage] instead of turning into junk text.
+ * (with [imageResolver] applied to their src) so they can be composed with Coil instead
+ * of turning into junk text.
  *
  * Pattern starts at the current scan position to avoid jumping past plain text.
  */
 private fun renderRichInline(
     text: String,
     resolver: LinkResolver,
+    imageResolver: ImageResolver,
     codeBackgroundColor: Color,
     linkColor: Color,
     downloadColor: Color,
@@ -637,7 +950,7 @@ private fun renderRichInline(
         if (wrappedMatch != null) {
             flushText()
             val alt = wrappedMatch.groupValues[1]
-            val src = wrappedMatch.groupValues[2].trim()
+            val src = imageResolver(wrappedMatch.groupValues[2].trim())
             val href = wrappedMatch.groupValues[3].trim()
             val resolvedHref = resolver(href) ?: href
             out.add(InlineToken.Image(src = src, alt = alt, wrapUrl = resolvedHref))
@@ -649,7 +962,7 @@ private fun renderRichInline(
         if (imgMatch != null) {
             flushText()
             val alt = imgMatch.groupValues[1]
-            val src = imgMatch.groupValues[2].trim()
+            val src = imageResolver(imgMatch.groupValues[2].trim())
             out.add(InlineToken.Image(src = src, alt = alt, wrapUrl = null))
             i += imgMatch.value.length
             continue
@@ -741,6 +1054,14 @@ private fun stringFromSource(
             if (end != -1) {
                 withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { append(src.substring(i + 1, end)) }
                 i = end + 1; continue
+            }
+        }
+        // Strikethrough ~~text~~
+        if (i + 1 < src.length && src[i] == '~' && src[i + 1] == '~') {
+            val end = src.indexOf("~~", i + 2)
+            if (end != -1) {
+                withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) { append(src.substring(i + 2, end)) }
+                i = end + 2; continue
             }
         }
         // Inline code `text`

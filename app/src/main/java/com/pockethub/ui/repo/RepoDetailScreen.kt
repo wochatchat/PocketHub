@@ -284,6 +284,7 @@ fun RepoDetailScreen(
                 RepoTab.RELEASES -> ReleasesTab(
                     releases,
                     repoContext = "$owner/$repo",
+                    defaultBranch = repoData?.defaultBranch,
                     onLinkClick = rememberMarkdownLinkHandler(owner, repo, onNavigateToRepo, onNavigateToUser, onNavigateToIssue, downloadVm = downloadVm, onNavigateToDownloads = onNavigateToDownloads),
                     onNavigateToUser = onNavigateToUser,
                     onDownloadAsset = { asset ->
@@ -505,6 +506,7 @@ private fun OverviewTab(
                     markdown = displayReadme,
                     modifier = Modifier.fillMaxWidth(),
                     repoContext = "$owner/$repo",
+                    defaultBranch = repoData?.defaultBranch,
                     onLinkClick = onLinkClick,
                 )
             } else if (isLoading) {
@@ -673,6 +675,7 @@ private fun PullsTab(
 private fun ReleasesTab(
     releases: List<GitHubApi.Release>,
     repoContext: String,
+    defaultBranch: String? = null,
     onLinkClick: (String, com.pockethub.ui.markdown.LinkKind) -> Unit,
     onNavigateToUser: (String) -> Unit = {},
     onDownloadAsset: (GitHubApi.Release.ReleaseAsset) -> Unit = {},
@@ -739,6 +742,7 @@ private fun ReleasesTab(
                         markdown = release.body.take(2000),
                         modifier = Modifier.fillMaxWidth(),
                         repoContext = repoContext,
+                        defaultBranch = defaultBranch,
                         onLinkClick = onLinkClick,
                     )
                 }
