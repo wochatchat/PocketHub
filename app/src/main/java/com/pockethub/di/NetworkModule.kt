@@ -2,6 +2,7 @@ package com.pockethub.di
 
 import android.content.Context
 import coil.ImageLoader
+import coil.decode.GifDecoder
 import coil.decode.SvgDecoder
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.pockethub.BuildConfig
@@ -80,6 +81,9 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideImageLoader(@ApplicationContext context: Context): ImageLoader = ImageLoader.Builder(context)
-        .components { add(SvgDecoder.Factory()) }
+        .components {
+            add(SvgDecoder.Factory())
+            add(GifDecoder.Factory())
+        }
         .build()
 }

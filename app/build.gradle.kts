@@ -138,6 +138,7 @@ dependencies {
     // Image
     implementation(libs.coil.compose)
     implementation(libs.coil.svg)
+    implementation(libs.coil.gif)
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
