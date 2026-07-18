@@ -1,6 +1,5 @@
 package com.pockethub.ui.markdown
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -38,7 +36,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -52,9 +49,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import coil.compose.AsyncImagePainter
-import coil.compose.rememberAsyncImagePainter
-import coil.request.ImageRequest
+import coil.compose.SubcomposeAsyncImage
 
 /**
  * A lightweight, dependency-free Markdown renderer (enhanced).
@@ -176,10 +171,12 @@ fun MarkdownText(
         if (onLinkClick != null) onLinkClick(url, kind) else uriHandler.openUri(url)
     }
 
-    val cleaned = rememberCleanedMarkdown(markdown)
+    val parseResult = androidx.compose.runtime.remember(markdown) {
+        runCatching { parseMarkdown(cleanMarkdown(markdown)) }
+    }
     Column(modifier = modifier) {
-        val blocks = parseMarkdown(cleaned)
-        blocks.forEach { block ->
+        parseResult.onFailure { MarkdownErrorBox(it) }
+        parseResult.getOrNull()?.forEach { block ->
             when (block) {
                 is MdBlock.Heading -> {
                     val style = when (block.level) {
@@ -271,6 +268,33 @@ fun MarkdownText(
     }
 }
 
+@Composable
+private fun MarkdownErrorBox(error: Throwable) {
+    val trace = androidx.compose.runtime.remember(error) {
+        error.stackTraceToString().take(1500)
+    }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.errorContainer)
+            .padding(12.dp),
+    ) {
+        Text(
+            "README 解析出错: ${error.javaClass.simpleName}: ${error.message ?: ""}",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onErrorContainer,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            trace,
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+            color = MaterialTheme.colorScheme.onErrorContainer,
+        )
+    }
+}
+
 // ── Block types ──────────────────────────────────────────────────────
 
 private sealed class MdBlock {
@@ -352,25 +376,17 @@ private fun RenderImageRun(images: List<InlineToken.Image>, onTap: (String, Link
     }
 }
 
-/** A full-width content image at its natural aspect ratio, capped for readability, with
- *  loading / error states and tap-to-open. This is what makes README screenshots render
- *  properly instead of the old 40dp-tall strips. */
+/** A content image shown at a readable size with loading / error states and tap-to-open.
+ *  Uses SubcomposeAsyncImage so Coil resolves the request against the component's bounded
+ *  layout size (never Size.ORIGINAL) — large README screenshots decode downsampled, no OOM. */
 @Composable
 private fun ContentImage(img: InlineToken.Image, onTap: (String, LinkKind) -> Unit) {
-    val context = LocalContext.current
-    val painter = rememberAsyncImagePainter(
-        model = ImageRequest.Builder(context).data(img.src).crossfade(true).build(),
-    )
-    val state = painter.state
-    val intrinsic = painter.intrinsicSize
-    val ratio = if (intrinsic.width > 0 && intrinsic.height > 0) {
-        intrinsic.width.toFloat() / intrinsic.height.toFloat()
-    } else {
-        null
-    }
     val clickTarget = img.wrapUrl ?: img.src
     val kind = if (img.wrapUrl != null) classifyLink(img.wrapUrl) else LinkKind.IMAGE_URL
-    Box(
+    SubcomposeAsyncImage(
+        model = img.src,
+        contentDescription = img.alt.takeIf { it.isNotBlank() },
+        contentScale = ContentScale.Fit,
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 96.dp, max = 360.dp)
@@ -378,47 +394,30 @@ private fun ContentImage(img: InlineToken.Image, onTap: (String, LinkKind) -> Un
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .clickable { onTap(clickTarget, kind) },
-        contentAlignment = Alignment.Center,
-    ) {
-        // Always lay the image out with a BOUNDED height. If the Image were unbounded (only
-        // fillMaxWidth inside a verticalScroll), Coil would decode at Size.ORIGINAL and OOM on
-        // large README screenshots — that was the overview-page crash. heightIn(min) also keeps
-        // a non-zero size so the request fires before the drawable's intrinsic size is known;
-        // aspectRatio (once known) makes it fill the width at the correct ratio.
-        Image(
-            painter = painter,
-            contentDescription = img.alt.takeIf { it.isNotBlank() },
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 96.dp, max = 360.dp)
-                .then(if (ratio != null) Modifier.aspectRatio(ratio) else Modifier),
-        )
-        when (state) {
-            is AsyncImagePainter.State.Loading -> {
+        loading = {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
             }
-            is AsyncImagePainter.State.Error -> {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(10.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Icon(Icons.Outlined.BrokenImage, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (img.alt.isNotBlank()) {
-                        Text(
-                            img.alt,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
+        },
+        error = {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Icon(Icons.Outlined.BrokenImage, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (img.alt.isNotBlank()) {
+                    Text(
+                        img.alt,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
-            else -> {}
-        }
-    }
+        },
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -594,10 +593,8 @@ private fun TableCell(
 
 // ── Markdown cleaning ────────────────────────────────────────────────
 
-@Composable
-private fun rememberCleanedMarkdown(markdown: String): String {
-    return androidx.compose.runtime.remember(markdown) {
-        markdown
+private fun cleanMarkdown(markdown: String): String {
+    return markdown
             // Convert common standalone raw-HTML <img src> into markdown ![](...) so our
             // image rendering kicks in. (<img> tags inside <a> won't convert cleanly here, but
             // those are far less common than markdown form below.)
@@ -666,7 +663,6 @@ private fun rememberCleanedMarkdown(markdown: String): String {
             .replace("&nbsp;", " ")
             // Collapse multiple blank lines left by tag removal
             .replace(Regex("\\n\\s*\\n\\s*\\n"), "\n\n")
-    }
 }
 
 // ── Parsing ─────────────────────────────────────────────────────────
