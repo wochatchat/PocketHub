@@ -170,6 +170,9 @@
     <string name="action_reopen_issue">重新打开 Issue</string>
     <string name="comment_placeholder">写下评论…</string>
     <string name="cd_open_in_browser">在浏览器中打开</string>
+    <string name="cd_download_zip">下载仓库 ZIP</string>
+    <string name="cd_download_file">下载文件</string>
+    <string name="action_download">下载</string>
     <string name="cd_send_comment">发送评论</string>
     <string name="action_edit_issue">编辑 Issue</string>
     <string name="issue_edit_title">编辑 Issue</string>
@@ -314,4 +317,11 @@
     <!-- Code viewer -->
     <string name="code_lines">%1$d 行</string>
     <string name="code_file_size">%1$s · %2$d 行</string>
+
+    <!-- Repo delete -->
+    <string name="delete_repo_action">删除仓库</string>
+    <string name="delete_repo_title">删除 %1$s</string>
+    <string name="delete_repo_warning">这将永久删除仓库 %1$s，包括所有 Issue、PR、Wiki、Star 和 Watcher，且无法恢复。\n\n输入仓库全名以确认：</string>
+    <string name="delete_repo_confirm_label">输入 %1$s 以确认</string>
+    <string name="delete_repo_confirm">删除</string>
 </resources>

@@ -170,6 +170,9 @@
     <string name="action_reopen_issue">Reopen issue</string>
     <string name="comment_placeholder">Write a comment…</string>
     <string name="cd_open_in_browser">Open in browser</string>
+    <string name="cd_download_zip">Download repository ZIP</string>
+    <string name="cd_download_file">Download file</string>
+    <string name="action_download">Download</string>
     <string name="cd_send_comment">Send comment</string>
     <string name="action_edit_issue">Edit issue</string>
     <string name="issue_edit_title">Edit issue</string>
@@ -315,4 +318,11 @@
     <!-- Code viewer -->
     <string name="code_lines">%1$d lines</string>
     <string name="code_file_size">%1$s · %2$d lines</string>
+
+    <!-- Repo delete -->
+    <string name="delete_repo_action">Delete repository</string>
+    <string name="delete_repo_title">Delete %1$s</string>
+    <string name="delete_repo_warning">This will permanently delete the repository %1$s, including all issues, PRs, wikis, stars, and watchers. This action cannot be undone.\n\nType the repository name to confirm:</string>
+    <string name="delete_repo_confirm_label">Type %1$s to confirm</string>
+    <string name="delete_repo_confirm">DELETE</string>
 </resources>
