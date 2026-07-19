@@ -320,10 +320,13 @@ fun RepoDetailScreen(
                 RepoTab.CODE -> CodeTab(
                     owner = owner,
                     repo = repo,
+                    defaultBranch = repoData?.defaultBranch,
                     onOpenInBrowser = {
                         val url = "https://github.com/$owner/$repo/tree/${repoData?.defaultBranch ?: "main"}"
                         runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
                     },
+                    downloadVm = downloadVm,
+                    onNavigateToDownloads = onNavigateToDownloads,
                 )
                 RepoTab.ISSUES -> IssuesTab(issues, onClick = onNavigateToIssue, onNavigateToUser = onNavigateToUser)
                 RepoTab.PRS -> PullsTab(pulls, onClick = onNavigateToPR, onNavigateToUser = onNavigateToUser)
@@ -1124,7 +1127,7 @@ private fun humanReadableSize(bytes: Long): String = when {
     else -> "$bytes B"
 }
 
-private fun guessAssetMime(name: String): String {
+internal fun guessAssetMime(name: String): String {
     val ext = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
     return when (ext) {
         "zip" -> "application/zip"

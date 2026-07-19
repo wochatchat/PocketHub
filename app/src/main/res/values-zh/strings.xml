@@ -206,6 +206,9 @@
     <string name="error_load_files">文件加载失败</string>
     <string name="directory_empty">目录为空</string>
     <string name="binary_preview_unavailable">无法预览二进制文件</string>
+    <string name="action_download">下载</string>
+    <string name="cd_download_file">下载文件</string>
+    <string name="cd_download_zip">下载仓库为 ZIP</string>
     <string name="breadcrumb_root">根目录</string>
 
     <!-- My repos -->

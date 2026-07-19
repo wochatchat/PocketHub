@@ -206,6 +206,9 @@
     <string name="error_load_files">Couldn\'t load files</string>
     <string name="directory_empty">This directory is empty</string>
     <string name="binary_preview_unavailable">Binary file preview not available</string>
+    <string name="action_download">Download</string>
+    <string name="cd_download_file">Download file</string>
+    <string name="cd_download_zip">Download repository as ZIP</string>
     <string name="breadcrumb_root">root</string>
 
     <!-- My repos -->

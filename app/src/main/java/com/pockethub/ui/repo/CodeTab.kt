@@ -1,6 +1,8 @@
 package com.pockethub.ui.repo
 
 import com.pockethub.R
+import com.pockethub.data.download.DownloadManager
+import com.pockethub.ui.download.DownloadViewModel
 
 import androidx.compose.ui.res.stringResource
 
@@ -24,8 +26,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.FolderZip
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,7 +55,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 fun CodeTab(
     owner: String,
     repo: String,
+    defaultBranch: String? = null,
     onOpenInBrowser: () -> Unit = {},
+    downloadVm: DownloadViewModel = hiltViewModel(),
+    onNavigateToDownloads: (String) -> Unit = {},
     vm: CodeBrowserViewModel = hiltViewModel(),
 ) {
     val state by vm.state.collectAsState()
@@ -58,6 +66,39 @@ fun CodeTab(
     // Lazy initialise for this owner/repo pair on first composition.
     androidx.compose.runtime.LaunchedEffect(owner, repo) {
         vm.init(owner, repo)
+    }
+
+    // Download a single file (raw download_url) — used for archives / binaries
+    // that can't be previewed inline, but available for any file.
+    fun downloadFile(entry: com.pockethub.data.remote.GitHubApi.ContentEntry) {
+        val url = entry.downloadUrl ?: return
+        downloadVm.enqueue(
+            DownloadManager.EnqueueRequest(
+                url = url,
+                fileName = entry.name,
+                contentType = guessAssetMime(entry.name),
+                sizeBytes = entry.size,
+                repoKey = "$owner/$repo",
+                releaseTag = "",
+            )
+        )
+        onNavigateToDownloads("active")
+    }
+
+    // Download the whole repository at the current ref as a ZIP (GitHub zipball).
+    val ref = state.ref ?: defaultBranch ?: "HEAD"
+    val onDownloadZip: () -> Unit = {
+        downloadVm.enqueue(
+            DownloadManager.EnqueueRequest(
+                url = "https://api.github.com/repos/$owner/$repo/zipball/$ref",
+                fileName = "$repo-$ref.zip",
+                contentType = "application/zip",
+                sizeBytes = 0,
+                repoKey = "$owner/$repo",
+                releaseTag = ref,
+            )
+        )
+        onNavigateToDownloads("active")
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -70,6 +111,7 @@ fun CodeTab(
                 onUp = { vm.popDir() },
                 onJump = { vm.listDir(it) },
                 onOpenInBrowser = onOpenInBrowser,
+                onDownloadZip = onDownloadZip,
             )
         }
 
@@ -83,6 +125,7 @@ fun CodeTab(
                 content = state.fileContent,
                 isLoading = state.isLoading,
                 onClose = { vm.closeFile() },
+                onDownload = { state.viewingFile?.let { downloadFile(it) } },
             )
 
             state.error != null && state.entries.isEmpty() -> Column(
@@ -97,9 +140,15 @@ fun CodeTab(
 
             else -> LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
                 items(state.entries, key = { it.path + it.sha + it.type }) { entry ->
-                    ContentRow(entry = entry, onClick = {
-                        if (entry.type == "dir") vm.openDir(entry.name) else vm.openFile(entry)
-                    })
+                    ContentRow(
+                        entry = entry,
+                        onClick = {
+                            if (entry.type == "dir") vm.openDir(entry.name) else vm.openFile(entry)
+                        },
+                        onDownload = if (entry.type == "file") {
+                            { downloadFile(entry) }
+                        } else null,
+                    )
                 }
                 if (state.entries.isEmpty()) {
                     item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
@@ -119,6 +168,7 @@ private fun BreadcrumbBar(
     onUp: () -> Unit,
     onJump: (String) -> Unit,
     onOpenInBrowser: () -> Unit,
+    onDownloadZip: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -146,6 +196,9 @@ private fun BreadcrumbBar(
             )
         }
         Spacer(Modifier.weight(1f))
+        IconButton(onClick = onDownloadZip) {
+            Icon(Icons.Outlined.FolderZip, contentDescription = stringResource(R.string.cd_download_zip))
+        }
         IconButton(onClick = onOpenInBrowser) {
             Icon(Icons.Outlined.Share, contentDescription = stringResource(R.string.cd_open_in_browser))
         }
@@ -153,7 +206,11 @@ private fun BreadcrumbBar(
 }
 
 @Composable
-private fun ContentRow(entry: com.pockethub.data.remote.GitHubApi.ContentEntry, onClick: () -> Unit) {
+private fun ContentRow(
+    entry: com.pockethub.data.remote.GitHubApi.ContentEntry,
+    onClick: () -> Unit,
+    onDownload: (() -> Unit)? = null,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -170,6 +227,16 @@ private fun ContentRow(entry: com.pockethub.data.remote.GitHubApi.ContentEntry, 
                 Text(humanReadableSize(entry.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        if (onDownload != null) {
+            IconButton(onClick = onDownload) {
+                Icon(
+                    Icons.Outlined.Download,
+                    contentDescription = stringResource(R.string.cd_download_file),
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
     }
 }
 
@@ -179,6 +246,7 @@ private fun FileViewerContent(
     content: String?,
     isLoading: Boolean,
     onClose: () -> Unit,
+    onDownload: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -207,9 +275,11 @@ private fun FileViewerContent(
                 Icon(Icons.AutoMirrored.Outlined.Article, null, modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
                 Text(stringResource(R.string.binary_preview_unavailable), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                entry.downloadUrl?.let { url ->
-                    Spacer(Modifier.height(8.dp))
-                    Text(url, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(12.dp))
+                Button(onClick = onDownload) {
+                    Icon(Icons.Outlined.Download, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.action_download))
                 }
             }
         }
