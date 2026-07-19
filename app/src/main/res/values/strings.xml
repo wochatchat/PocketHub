@@ -40,13 +40,6 @@
     <string name="hint_issue_body">Body (optional)</string>
     <string name="fork_dialog_title">Fork this repository?</string>
     <string name="fork_dialog_message">Fork %1$s to your account.</string>
-
-    <!-- Delete repository -->
-    <string name="delete_repo_action">Delete repository</string>
-    <string name="delete_repo_title">Are you absolutely sure?</string>
-    <string name="delete_repo_warning">This action CANNOT be undone. %1$s, its wiki, issues and comments will be permanently removed.</string>
-    <string name="delete_repo_confirm_label">Type %1$s to confirm (already filled in)</string>
-    <string name="delete_repo_confirm">DELETE</string>
     <string name="browse_history">Browse history</string>
     <string name="history_empty">No repositories visited yet</string>
 
@@ -61,6 +54,7 @@
     <string name="download_empty_active">No active downloads</string>
     <string name="download_empty_done">No completed downloads yet</string>
     <string name="download_failed_generic">Download failed</string>
+    <string name="download_open_failed">No app available to open this file</string>
     <string name="cd_open_download">Open downloads</string>
 
     <!-- Bottom nav / tabs -->
@@ -206,9 +200,6 @@
     <string name="error_load_files">Couldn\'t load files</string>
     <string name="directory_empty">This directory is empty</string>
     <string name="binary_preview_unavailable">Binary file preview not available</string>
-    <string name="action_download">Download</string>
-    <string name="cd_download_file">Download file</string>
-    <string name="cd_download_zip">Download repository as ZIP</string>
     <string name="breadcrumb_root">root</string>
 
     <!-- My repos -->

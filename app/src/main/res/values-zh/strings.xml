@@ -40,13 +40,6 @@
     <string name="hint_issue_body">正文（可选）</string>
     <string name="fork_dialog_title">Fork 这个仓库？</string>
     <string name="fork_dialog_message">将 %1$s Fork 到你的账号。</string>
-
-    <!-- 删除仓库 -->
-    <string name="delete_repo_action">删除仓库</string>
-    <string name="delete_repo_title">确定要删除吗？</string>
-    <string name="delete_repo_warning">此操作无法撤销。%1$s 及其 Wiki、Issue 与评论将被永久删除。</string>
-    <string name="delete_repo_confirm_label">输入 %1$s 以确认（已自动填好）</string>
-    <string name="delete_repo_confirm">删除</string>
     <string name="browse_history">浏览历史</string>
     <string name="history_empty">还没有浏览过仓库</string>
 
@@ -61,6 +54,7 @@
     <string name="download_empty_active">没有下载任务</string>
     <string name="download_empty_done">暂无已下载文件</string>
     <string name="download_failed_generic">下载失败</string>
+    <string name="download_open_failed">没有可打开此文件的应用</string>
     <string name="cd_open_download">打开下载页</string>
 
     <!-- Bottom nav / tabs -->
@@ -206,9 +200,6 @@
     <string name="error_load_files">文件加载失败</string>
     <string name="directory_empty">目录为空</string>
     <string name="binary_preview_unavailable">无法预览二进制文件</string>
-    <string name="action_download">下载</string>
-    <string name="cd_download_file">下载文件</string>
-    <string name="cd_download_zip">下载仓库为 ZIP</string>
     <string name="breadcrumb_root">根目录</string>
 
     <!-- My repos -->

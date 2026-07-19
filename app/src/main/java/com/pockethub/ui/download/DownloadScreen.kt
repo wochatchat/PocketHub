@@ -359,7 +359,14 @@ private fun openDownloadedFile(
         )
     }
 
-    runCatching { context.startActivity(intent) }
+    val started = runCatching { context.startActivity(intent) }.isSuccess
+    if (!started) {
+        android.widget.Toast.makeText(
+            context,
+            context.getString(com.pockethub.R.string.download_open_failed),
+            android.widget.Toast.LENGTH_SHORT,
+        ).show()
+    }
 }
 
 private fun guessMime(fileName: String): String {
