@@ -121,6 +121,7 @@ fun RepoDetailScreen(
     val showTranslated by vm.showTranslated.collectAsState()
     val isTranslating by vm.isTranslating.collectAsState()
     val translateTarget by vm.translateTarget.collectAsState()
+    val translateMessage by vm.translateMessage.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     var showForkDialog by remember { mutableStateOf(false) }
@@ -154,6 +155,13 @@ fun RepoDetailScreen(
             Toast.makeText(context, "仓库已删除", Toast.LENGTH_SHORT).show()
             vm.consumeDeleteSuccess()
             onBack()
+        }
+    }
+
+    LaunchedEffect(translateMessage) {
+        translateMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            vm.clearTranslateMessage()
         }
     }
 

@@ -76,6 +76,10 @@ class RepoDetailViewModel @Inject constructor(
     private val _isTranslating = MutableStateFlow(false)
     val isTranslating: StateFlow<Boolean> = _isTranslating.asStateFlow()
 
+    /** One-shot translate failure message, surfaced as a Snackbar. */
+    private val _translateMessage = MutableStateFlow<String?>(null)
+    val translateMessage: StateFlow<String?> = _translateMessage.asStateFlow()
+
     val translateTarget: StateFlow<String?> = settings.translateTarget
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
@@ -359,12 +363,18 @@ class RepoDetailViewModel @Inject constructor(
                 val translated = GoogleTranslate.translate(original, lang)
                 _translatedReadme.update { translated }
                 _showTranslated.update { true }
-            } catch (_: Exception) {
-                // On failure, stay on original
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e // don't swallow real coroutine cancellation
+            } catch (e: Exception) {
+                _translateMessage.update { e.message ?: "翻译失败，请检查网络或稍后重试" }
             } finally {
                 _isTranslating.update { false }
             }
         }
+    }
+
+    fun clearTranslateMessage() {
+        _translateMessage.update { null }
     }
 
     fun decodeBase64(b64: String): String {

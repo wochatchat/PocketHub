@@ -1,8 +1,16 @@
 package com.pockethub.data.remote
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -19,19 +27,42 @@ object GoogleTranslate {
     private const val BASE_URL = "https://translate.googleapis.com/translate_a/single"
     private const val CHUNK_SIZE = 4500 // safe limit per request
 
+    private const val CONNECT_TIMEOUT_MS = 8_000
+    private const val READ_TIMEOUT_MS = 12_000
+    /** Hard ceiling for the whole translation so the UI can never spin forever. */
+    private const val OVERALL_TIMEOUT_MS = 30_000L
+    /** Max concurrent chunk requests (keeps us friendly to the free endpoint). */
+    private const val MAX_CONCURRENT = 6
+
     /**
      * Translate [text] into [targetLang] (e.g. "zh-CN", "en").
-     * Returns the translated text, or the original text on failure.
+     *
+     * Chunks are translated **concurrently** (capped at [MAX_CONCURRENT]) and the
+     * whole operation is bounded by [OVERALL_TIMEOUT_MS]. Throws [IOException] on
+     * any failure (network, timeout, bad response) so the caller can surface it
+     * instead of silently showing the original text.
      */
     suspend fun translate(text: String, targetLang: String): String {
         if (text.isBlank()) return text
         return withContext(Dispatchers.IO) {
             try {
-                val chunks = splitIntoChunks(text)
-                val results = chunks.map { chunk -> translateChunk(chunk, targetLang) }
-                results.joinToString("")
-            } catch (_: Exception) {
-                text // fallback to original on any error
+                withTimeout(OVERALL_TIMEOUT_MS) {
+                    val chunks = splitIntoChunks(text)
+                    if (chunks.size == 1) {
+                        translateChunk(chunks[0], targetLang)
+                    } else {
+                        val semaphore = Semaphore(MAX_CONCURRENT)
+                        coroutineScope {
+                            chunks.map { chunk ->
+                                async {
+                                    semaphore.withPermit { translateChunk(chunk, targetLang) }
+                                }
+                            }.awaitAll()
+                        }.joinToString("")
+                    }
+                }
+            } catch (e: TimeoutCancellationException) {
+                throw IOException("翻译超时，请检查网络后重试")
             }
         }
     }
@@ -67,15 +98,17 @@ object GoogleTranslate {
         val conn = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             setRequestProperty("User-Agent", "Mozilla/5.0")
-            connectTimeout = 15_000
-            readTimeout = 15_000
+            connectTimeout = CONNECT_TIMEOUT_MS
+            readTimeout = READ_TIMEOUT_MS
+            instanceFollowRedirects = true
         }
         return try {
-            if (conn.responseCode == 200) {
+            val code = conn.responseCode
+            if (code == 200) {
                 val body = conn.inputStream.bufferedReader().use { it.readText() }
                 parseTranslationResponse(body)
             } else {
-                text
+                throw IOException("翻译服务返回 HTTP $code")
             }
         } finally {
             conn.disconnect()
