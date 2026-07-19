@@ -1,5 +1,6 @@
 package com.pockethub.ui.repo
 
+import android.widget.Toast
 import com.pockethub.R
 
 import androidx.compose.ui.res.stringResource
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Campaign
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.ForkRight
@@ -105,6 +107,10 @@ fun RepoDetailScreen(
     val isStarred by vm.isStarred.collectAsState()
     val isForking by vm.isForking.collectAsState()
     val forkMessage by vm.forkMessage.collectAsState()
+    val canDelete by vm.canDelete.collectAsState()
+    val isDeleting by vm.isDeleting.collectAsState()
+    val deleteMessage by vm.deleteMessage.collectAsState()
+    val deleteSuccess by vm.deleteSuccess.collectAsState()
     val error by vm.error.collectAsState()
     val tab by vm.currentTab.collectAsState()
     val workflows by vm.workflows.collectAsState()
@@ -119,6 +125,8 @@ fun RepoDetailScreen(
     val context = LocalContext.current
     var showForkDialog by remember { mutableStateOf(false) }
     var showDispatchDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var deleteInput by remember { mutableStateOf("") }
 
     LaunchedEffect(owner, repo) { vm.loadRepo(owner, repo) }
     LaunchedEffect(owner, repo, tab) {
@@ -131,6 +139,21 @@ fun RepoDetailScreen(
         forkMessage?.let {
             snackbarHostState.showSnackbar(it)
             vm.clearForkMessage()
+        }
+    }
+
+    LaunchedEffect(deleteMessage) {
+        deleteMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            vm.clearDeleteMessage()
+        }
+    }
+
+    LaunchedEffect(deleteSuccess) {
+        if (deleteSuccess) {
+            Toast.makeText(context, "仓库已删除", Toast.LENGTH_SHORT).show()
+            vm.consumeDeleteSuccess()
+            onBack()
         }
     }
 
@@ -182,6 +205,21 @@ fun RepoDetailScreen(
                             contentDescription = if (isStarred) stringResource(R.string.cd_unstar) else stringResource(R.string.cd_star),
                             tint = if (isStarred) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                    if (canDelete) {
+                        IconButton(
+                            onClick = {
+                                deleteInput = "$owner/$repo"
+                                showDeleteDialog = true
+                            },
+                            enabled = !isDeleting,
+                        ) {
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription = stringResource(R.string.delete_repo_action),
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                        }
                     }
                 },
             )
@@ -325,6 +363,47 @@ fun RepoDetailScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showForkDialog = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+        )
+    }
+
+    if (showDeleteDialog) {
+        val expected = "$owner/$repo"
+        AlertDialog(
+            onDismissRequest = { if (!isDeleting) showDeleteDialog = false },
+            title = { Text(stringResource(R.string.delete_repo_title)) },
+            text = {
+                Column {
+                    Text(
+                        stringResource(R.string.delete_repo_warning, expected),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    // Verification field — pre-filled with the repo full name so the
+                    // user only needs to tap DELETE (no typing required).
+                    OutlinedTextField(
+                        value = deleteInput,
+                        onValueChange = { deleteInput = it },
+                        label = { Text(stringResource(R.string.delete_repo_confirm_label, expected)) },
+                        singleLine = true,
+                        enabled = !isDeleting,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        vm.deleteRepository(owner, repo)
+                    },
+                    enabled = deleteInput.trim() == expected && !isDeleting,
+                ) { Text(stringResource(R.string.delete_repo_confirm), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }, enabled = !isDeleting) {
                     Text(stringResource(R.string.action_cancel))
                 }
             },

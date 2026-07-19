@@ -113,6 +113,17 @@ interface GitHubApi {
         @Path("repo") repo: String,
     ): Response<Repository>
 
+    /**
+     * Delete a repository. Requires the authenticated user to be the owner (or an
+     * org admin) AND the token to carry the `delete_repo` scope.
+     * Returns 204 on success; 403 when missing rights/scope; 404 if not found.
+     */
+    @DELETE("repos/{owner}/{repo}")
+    suspend fun deleteRepository(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+    ): Response<Unit>
+
     // ──────────────────────────────────────────────
     //  File browsing (content API)
     // ──────────────────────────────────────────────

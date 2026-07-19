@@ -40,6 +40,13 @@
     <string name="hint_issue_body">Body (optional)</string>
     <string name="fork_dialog_title">Fork this repository?</string>
     <string name="fork_dialog_message">Fork %1$s to your account.</string>
+
+    <!-- Delete repository -->
+    <string name="delete_repo_action">Delete repository</string>
+    <string name="delete_repo_title">Are you absolutely sure?</string>
+    <string name="delete_repo_warning">This action CANNOT be undone. %1$s, its wiki, issues and comments will be permanently removed.</string>
+    <string name="delete_repo_confirm_label">Type %1$s to confirm (already filled in)</string>
+    <string name="delete_repo_confirm">DELETE</string>
     <string name="browse_history">Browse history</string>
     <string name="history_empty">No repositories visited yet</string>
 

@@ -43,11 +43,23 @@ data class Repository(
     @SerialName("has_wiki") val hasWiki: Boolean = false,
     @SerialName("has_pages") val hasPages: Boolean = false,
     @SerialName("has_downloads") val hasDownloads: Boolean = true,
+
+    // Collaborator permissions for the authenticated user (only present when the
+    // API returns them, e.g. on GET /repos/{owner}/{repo}). Used to decide whether
+    // the user is allowed to delete the repository.
+    val permissions: Permissions? = null,
 ) {
     @Serializable
     data class License(
         val key: String,
         val name: String,
         val spdxId: String? = null,
+    )
+
+    @Serializable
+    data class Permissions(
+        val admin: Boolean = false,
+        val push: Boolean = false,
+        val pull: Boolean = false,
     )
 }

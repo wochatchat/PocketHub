@@ -40,6 +40,13 @@
     <string name="hint_issue_body">正文（可选）</string>
     <string name="fork_dialog_title">Fork 这个仓库？</string>
     <string name="fork_dialog_message">将 %1$s Fork 到你的账号。</string>
+
+    <!-- 删除仓库 -->
+    <string name="delete_repo_action">删除仓库</string>
+    <string name="delete_repo_title">确定要删除吗？</string>
+    <string name="delete_repo_warning">此操作无法撤销。%1$s 及其 Wiki、Issue 与评论将被永久删除。</string>
+    <string name="delete_repo_confirm_label">输入 %1$s 以确认（已自动填好）</string>
+    <string name="delete_repo_confirm">删除</string>
     <string name="browse_history">浏览历史</string>
     <string name="history_empty">还没有浏览过仓库</string>
 

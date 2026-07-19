@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockethub.data.model.Issue
 import com.pockethub.data.model.Repository
+import com.pockethub.data.remote.AccountRepository
 import com.pockethub.data.remote.CachedRepository
 import com.pockethub.data.remote.GitHubApi
 import com.pockethub.data.remote.GoogleTranslate
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -28,6 +30,7 @@ class RepoDetailViewModel @Inject constructor(
     private val cache: CachedRepository,
     private val history: com.pockethub.data.remote.HistoryRepository,
     private val settings: SettingsRepository,
+    private val accountRepository: AccountRepository,
 ) : ViewModel() {
 
     private val _repo = MutableStateFlow<Repository?>(null)
@@ -87,6 +90,31 @@ class RepoDetailViewModel @Inject constructor(
 
     private val _forkMessage = MutableStateFlow<String?>(null)
     val forkMessage: StateFlow<String?> = _forkMessage.asStateFlow()
+
+    // ── Delete state ──────────────────────────────────────────
+    private val _isDeleting = MutableStateFlow(false)
+    val isDeleting: StateFlow<Boolean> = _isDeleting.asStateFlow()
+
+    private val _deleteMessage = MutableStateFlow<String?>(null)
+    val deleteMessage: StateFlow<String?> = _deleteMessage.asStateFlow()
+
+    /** One-shot signal: the repository was deleted successfully (navigate back). */
+    private val _deleteSuccess = MutableStateFlow(false)
+    val deleteSuccess: StateFlow<Boolean> = _deleteSuccess.asStateFlow()
+
+    /**
+     * Whether the signed-in user is allowed to delete the current repository.
+     * GitHub grants deletion rights to the repository owner and to collaborators
+     * with admin permission.
+     */
+    val canDelete: StateFlow<Boolean> =
+        combine(_repo, accountRepository.activeAccount) { r, account ->
+            if (r == null || account == null) {
+                false
+            } else {
+                r.owner.login == account.login || r.permissions?.admin == true
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     var currentTab = MutableStateFlow(RepoTab.OVERVIEW)
     private var loadedOwner: String? = null
@@ -266,6 +294,45 @@ class RepoDetailViewModel @Inject constructor(
 
     fun clearForkMessage() {
         _forkMessage.update { null }
+    }
+
+    /**
+     * Delete the repository. Requires owner/admin rights and a token carrying the
+     * `delete_repo` scope; the API returns 204 on success.
+     */
+    fun deleteRepository(owner: String, repo: String) {
+        viewModelScope.launch {
+            if (_isDeleting.value) return@launch
+            _isDeleting.update { true }
+            _deleteMessage.update { null }
+            try {
+                val resp = api.deleteRepository(owner, repo)
+                if (resp.isSuccessful) {
+                    cache.invalidateRepo(owner, repo)
+                    _deleteSuccess.update { true }
+                } else {
+                    val err = resp.errorBody()?.string()
+                    val reason = when (resp.code()) {
+                        403 -> "无权限：仅仓库所有者或管理员可删除，且令牌需含 delete_repo 权限"
+                        404 -> "仓库不存在或无访问权限"
+                        else -> "删除失败 (${resp.code()}): ${err?.take(200)}"
+                    }
+                    _deleteMessage.update { reason }
+                }
+            } catch (e: Exception) {
+                _deleteMessage.update { e.localizedMessage ?: "删除失败" }
+            } finally {
+                _isDeleting.update { false }
+            }
+        }
+    }
+
+    fun consumeDeleteSuccess() {
+        _deleteSuccess.update { false }
+    }
+
+    fun clearDeleteMessage() {
+        _deleteMessage.update { null }
     }
 
     // ── Translation ──────────────────────────────────────────
