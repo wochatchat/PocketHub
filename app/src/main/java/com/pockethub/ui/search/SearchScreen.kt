@@ -3,6 +3,7 @@ package com.pockethub.ui.search
 import com.pockethub.R
 
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +19,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Search
@@ -37,9 +40,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -64,12 +70,17 @@ fun SearchScreen(
     onBack: () -> Unit,
     vm: SearchViewModel = hiltViewModel(),
 ) {
+    // Auto-focus the search field when the screen opens
+    val focusRequester = remember { FocusRequester() }
+
     // Seed the query from the route argument on first composition.
     LaunchedEffect(Unit) {
         if (initialQuery.isNotBlank() && vm.query.value.isBlank()) {
             vm.query.value = initialQuery
             vm.search()
         }
+        // Request focus for the search TextField
+        focusRequester.requestFocus()
     }
     val query by vm.query.collectAsState()
     val tab by vm.currentTab.collectAsState()
@@ -86,12 +97,14 @@ fun SearchScreen(
                     value = query,
                     onValueChange = { vm.query.value = it },
                     placeholder = { Text(stringResource(R.string.search_placeholder)) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
                     singleLine = true,
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = MaterialTheme.colorScheme.surface,
                         unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                     ),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { vm.search() }),
                     trailingIcon = {
                         IconButton(onClick = { vm.search() }) { Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.action_search)) }
                     },

@@ -62,7 +62,7 @@ object Routes {
     fun createIssue(owner: String, repo: String) = "create_issue/$owner/$repo"
     fun issueDetail(owner: String, repo: String, number: Int) = "repo/$owner/$repo/issues/$number"
     fun prDetail(owner: String, repo: String, number: Int) = "repo/$owner/$repo/pulls/$number"
-    fun search(query: String = "") = "search?query=${java.net.URLEncoder.encode(query.ifBlank { " " }, "UTF-8")}"
+    fun search(query: String = "") = "search?query=${java.net.URLEncoder.encode(query, "UTF-8")}"
     fun userDetail(login: String) = "user/$login"
 }
 
