@@ -341,8 +341,6 @@
     <string name="no_prs">No pull requests</string>
 
     <!-- Commit detail -->
-    <string name="commit_files_changed">%1$d files changed</string>
-    <string name="commit_stats">+%1$d −%2$d</string>
     <string name="commit_parent">Parent %1$s</string>
     <string name="commit_no_diff">No diff available for this file</string>
 

@@ -189,7 +189,7 @@ fun CommitDetailScreen(
                         val stats = data.stats
                         if (stats != null) {
                             Text(
-                                stringResource(R.string.commit_stats, stats.additions, stats.deletions),
+                                stringResource(R.string.commit_additions_deletions, stats.additions, stats.deletions),
                                 style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )

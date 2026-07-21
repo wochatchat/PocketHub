@@ -60,6 +60,7 @@
     <!-- Bottom nav / tabs -->
     <string name="tab_explore">发现</string>
     <string name="tab_repos">仓库</string>
+    <string name="tab_starred">已加星</string>
     <string name="tab_notifications">通知</string>
     <string name="tab_profile">我</string>
     <string name="profile_avatar_fallback">我</string>
@@ -340,8 +341,6 @@
     <string name="no_prs">没有 PR</string>
 
     <!-- 提交详情 -->
-    <string name="commit_files_changed">%1$d 个文件变更</string>
-    <string name="commit_stats">+%1$d −%2$d</string>
     <string name="commit_parent">父提交 %1$s</string>
     <string name="commit_no_diff">该文件没有可用的差异内容</string>
 
