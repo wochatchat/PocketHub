@@ -546,6 +546,7 @@ interface GitHubApi {
             val deletions: Int = 0,
             val changes: Int = 0,
             val patch: String? = null,
+            @kotlinx.serialization.SerialName("previous_filename") val previousFilename: String? = null,
             @kotlinx.serialization.SerialName("raw_url") val rawUrl: String? = null,
             @kotlinx.serialization.SerialName("blob_url") val blobUrl: String? = null,
         )

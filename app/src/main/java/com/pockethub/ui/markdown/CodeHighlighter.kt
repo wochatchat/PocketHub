@@ -312,8 +312,9 @@ object CodeHighlighter {
         var i = 0
         val n = code.length
         while (i < n) {
-            when (val c = code[i]) {
-                '"' -> {
+            val c = code[i]
+            when {
+                c == '"' -> {
                     var j = i + 1
                     while (j < n) {
                         if (code[j] == '\\') { j += 2; continue }
