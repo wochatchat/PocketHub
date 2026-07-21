@@ -52,6 +52,7 @@ fun CommitsTab(
     owner: String,
     repo: String,
     onNavigateToUser: (String) -> Unit = {},
+    onCommitClick: (String) -> Unit = {},
     vm: CommitsViewModel = hiltViewModel(),
 ) {
     val commits by vm.commits.collectAsState()
@@ -97,7 +98,7 @@ fun CommitsTab(
 
             else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
                 items(commits, key = { it.sha }) { commit ->
-                    CommitRow(commit = commit, onNavigateToUser = onNavigateToUser)
+                    CommitRow(commit = commit, onNavigateToUser = onNavigateToUser, onClick = { onCommitClick(commit.sha) })
                 }
                 if (isLoading) {
                     item {
@@ -115,6 +116,7 @@ fun CommitsTab(
 private fun CommitRow(
     commit: GitHubApi.Commit,
     onNavigateToUser: (String) -> Unit = {},
+    onClick: () -> Unit = {},
 ) {
     val dateFmt = remember { DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault()) }
     val authorLogin = commit.author?.login
@@ -122,7 +124,7 @@ private fun CommitRow(
 
     Column(
         Modifier.fillMaxWidth()
-            .clickable { /* TODO: navigate to commit detail */ }
+            .clickable(onClick = onClick)
             .padding(vertical = 10.dp),
     ) {
         Row(verticalAlignment = Alignment.Top) {

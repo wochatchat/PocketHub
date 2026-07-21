@@ -39,6 +39,9 @@ class CodeBrowserViewModel @Inject constructor(
         val viewingFile: GitHubApi.ContentEntry? = null,
         val fileContent: String? = null,            // decoded text (binary files stay null)
         val error: String? = null,
+        /** Available branches (lazy-loaded once for the branch switcher). */
+        val branches: List<GitHubApi.Branch> = emptyList(),
+        val isLoadingBranches: Boolean = false,
     )
 
     private val _state = MutableStateFlow(State())
@@ -135,6 +138,44 @@ class CodeBrowserViewModel @Inject constructor(
 
     fun closeFile() {
         _state.update { it.copy(viewingFile = null, fileContent = null) }
+    }
+
+    /**
+     * Handle a system-back press inside the code browser.
+     * Returns true when the press was consumed (closed file or popped a directory),
+     * false when already at the repository root (caller should navigate back).
+     */
+    fun handleBack(): Boolean {
+        val s = _state.value
+        return when {
+            s.viewingFile != null -> { closeFile(); true }
+            s.currentPath.isNotBlank() -> { popDir(); true }
+            else -> false
+        }
+    }
+
+    /** Lazy-load the branch list (only fetched once per repo). */
+    fun loadBranches() {
+        val s = _state.value
+        if (s.owner.isBlank() || s.branches.isNotEmpty() || s.isLoadingBranches) return
+        viewModelScope.launch {
+            _state.update { it.copy(isLoadingBranches = true) }
+            try {
+                // Fetch up to 100 branches — enough for the vast majority of repos.
+                val branches = api.getBranches(s.owner, s.repo, perPage = 100)
+                _state.update { it.copy(branches = branches, isLoadingBranches = false) }
+            } catch (_: Exception) {
+                _state.update { it.copy(isLoadingBranches = false) }
+            }
+        }
+    }
+
+    /** Switch the browsed ref (branch) and reload the tree from its root. */
+    fun switchRef(ref: String) {
+        val s = _state.value
+        if (s.ref == ref) return
+        _state.update { it.copy(ref = ref, viewingFile = null, fileContent = null) }
+        listDir("")
     }
 
     private fun buildPathStack(path: String): List<String> {

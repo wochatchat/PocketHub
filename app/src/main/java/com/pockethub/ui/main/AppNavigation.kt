@@ -52,6 +52,7 @@ object Routes {
     const val CREATE_ISSUE = "create_issue/{owner}/{repo}"
     const val ISSUE_DETAIL = "repo/{owner}/{repo}/issues/{number}"
     const val PR_DETAIL = "repo/{owner}/{repo}/pulls/{number}"
+    const val COMMIT_DETAIL = "repo/{owner}/{repo}/commits/{sha}"
     const val USER_DETAIL = "user/{login}"
     const val HISTORY = "history"
     const val DOWNLOADS = "downloads?tab={tab}"
@@ -62,6 +63,7 @@ object Routes {
     fun createIssue(owner: String, repo: String) = "create_issue/$owner/$repo"
     fun issueDetail(owner: String, repo: String, number: Int) = "repo/$owner/$repo/issues/$number"
     fun prDetail(owner: String, repo: String, number: Int) = "repo/$owner/$repo/pulls/$number"
+    fun commitDetail(owner: String, repo: String, sha: String) = "repo/$owner/$repo/commits/$sha"
     fun search(query: String = "") = "search?query=${java.net.URLEncoder.encode(query, "UTF-8")}"
     fun userDetail(login: String) = "user/$login"
 }
@@ -154,6 +156,8 @@ fun PocketHubApp(
                     com.pockethub.ui.notifications.NotificationsScreen(
                         modifier = Modifier.fillMaxSize(),
                         onNavigateToRepo = { owner, repo -> navController.navigate(Routes.repoDetail(owner, repo)) },
+                        onNavigateToIssue = { o, r, n -> navController.navigate(Routes.issueDetail(o, r, n)) },
+                        onNavigateToPR = { o, r, n -> navController.navigate(Routes.prDetail(o, r, n)) },
                         onBack = { navController.popBackStack() },
                     )
                 }
@@ -191,6 +195,7 @@ fun PocketHubApp(
                         repo = repo,
                         onNavigateToIssue = { n -> navController.navigate(Routes.issueDetail(owner, repo, n)) },
                         onNavigateToPR = { n -> navController.navigate(Routes.prDetail(owner, repo, n)) },
+                        onNavigateToCommit = { sha -> navController.navigate(Routes.commitDetail(owner, repo, sha)) },
                         onNavigateToCreateIssue = { o, r -> navController.navigate(Routes.createIssue(o, r)) },
                         onNavigateToRepo = { o, r -> navController.navigate(Routes.repoDetail(o, r)) },
                         onNavigateToUser = { login -> navController.navigate(Routes.userDetail(login)) },
@@ -283,6 +288,26 @@ fun PocketHubApp(
                 }
 
                 composable(
+                    Routes.COMMIT_DETAIL,
+                    arguments = listOf(
+                        navArgument("owner") { type = NavType.StringType },
+                        navArgument("repo") { type = NavType.StringType },
+                        navArgument("sha") { type = NavType.StringType },
+                    ),
+                ) { backStackEntry ->
+                    val owner = backStackEntry.arguments?.getString("owner") ?: return@composable
+                    val repo = backStackEntry.arguments?.getString("repo") ?: return@composable
+                    val sha = backStackEntry.arguments?.getString("sha") ?: return@composable
+                    com.pockethub.ui.repo.CommitDetailScreen(
+                        owner = owner,
+                        repo = repo,
+                        sha = sha,
+                        onNavigateToUser = { login -> navController.navigate(Routes.userDetail(login)) },
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+
+                composable(
                     Routes.USER_DETAIL,
                     arguments = listOf(navArgument("login") { type = NavType.StringType }),
                 ) { backStackEntry ->
@@ -290,6 +315,7 @@ fun PocketHubApp(
                     com.pockethub.ui.user.UserDetailScreen(
                         login = login,
                         onNavigateToRepo = { owner, repo -> navController.navigate(Routes.repoDetail(owner, repo)) },
+                        onNavigateToUser = { l -> navController.navigate(Routes.userDetail(l)) },
                         onBack = { navController.popBackStack() },
                     )
                 }

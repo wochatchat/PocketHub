@@ -38,6 +38,38 @@ interface GitHubApi {
     suspend fun getUser(@Path("login") login: String): User
 
     // ──────────────────────────────────────────────
+    //  User following
+    // ──────────────────────────────────────────────
+
+    /** Check whether the authenticated user follows [login]. 204 = yes, 404 = no. */
+    @GET("user/following/{login}")
+    suspend fun checkFollowing(@Path("login") login: String): Response<Unit>
+
+    /** Follow a user. */
+    @PUT("user/following/{login}")
+    suspend fun followUser(@Path("login") login: String): Response<Unit>
+
+    /** Unfollow a user. */
+    @DELETE("user/following/{login}")
+    suspend fun unfollowUser(@Path("login") login: String): Response<Unit>
+
+    /** Followers of a user. */
+    @GET("users/{login}/followers")
+    suspend fun getFollowers(
+        @Path("login") login: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 50,
+    ): List<User>
+
+    /** Users the given user follows. */
+    @GET("users/{login}/following")
+    suspend fun getFollowing(
+        @Path("login") login: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 50,
+    ): List<User>
+
+    // ──────────────────────────────────────────────
     //  Repositories
     // ──────────────────────────────────────────────
 

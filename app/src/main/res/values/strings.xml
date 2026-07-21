@@ -325,4 +325,31 @@
     <string name="delete_repo_warning">This will permanently delete the repository %1$s, including all issues, PRs, wikis, stars, and watchers. This action cannot be undone.\n\nType the repository name to confirm:</string>
     <string name="delete_repo_confirm_label">Type %1$s to confirm</string>
     <string name="delete_repo_confirm">DELETE</string>
+
+    <!-- Code browser -->
+    <string name="cd_switch_branch">Switch branch</string>
+    <string name="branch_load_failed">Failed to load branches</string>
+    <string name="action_copy">Copy</string>
+    <string name="copied_toast">Copied to clipboard</string>
+
+    <!-- Issue / PR state filter -->
+    <string name="issue_state_all">All</string>
+    <string name="no_closed_issues">No closed issues</string>
+    <string name="no_issues">No issues</string>
+    <string name="no_open_prs">No open pull requests</string>
+    <string name="no_closed_prs">No closed pull requests</string>
+    <string name="no_prs">No pull requests</string>
+
+    <!-- Commit detail -->
+    <string name="commit_files_changed">%1$d files changed</string>
+    <string name="commit_stats">+%1$d −%2$d</string>
+    <string name="commit_parent">Parent %1$s</string>
+    <string name="commit_no_diff">No diff available for this file</string>
+
+    <!-- User follow -->
+    <string name="action_follow">Follow</string>
+    <string name="action_unfollow">Unfollow</string>
+    <string name="user_not_found">User not found</string>
+    <string name="no_followers">No followers yet</string>
+    <string name="not_following_anyone">Not following anyone yet</string>
 </resources>

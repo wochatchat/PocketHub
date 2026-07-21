@@ -78,6 +78,8 @@ import coil.compose.AsyncImage
 import com.pockethub.data.model.Issue
 import com.pockethub.data.model.Repository
 import com.pockethub.ui.markdown.MarkdownText
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.derivedStateOf
 import java.text.DateFormat
 import java.util.Locale
 
@@ -88,6 +90,7 @@ fun RepoDetailScreen(
     repo: String,
     onNavigateToIssue: (Int) -> Unit,
     onNavigateToPR: (Int) -> Unit = { _ -> },
+    onNavigateToCommit: (String) -> Unit = { _ -> },
     onNavigateToCreateIssue: (String, String) -> Unit = { _, _ -> },
     onNavigateToRepo: (String, String) -> Unit = { _, _ -> },
     onNavigateToUser: (String) -> Unit = {},
@@ -122,6 +125,8 @@ fun RepoDetailScreen(
     val isTranslating by vm.isTranslating.collectAsState()
     val translateTarget by vm.translateTarget.collectAsState()
     val translateMessage by vm.translateMessage.collectAsState()
+    val issueStateFilter by vm.issueStateFilter.collectAsState()
+    val isLoadingMoreIssues by vm.isLoadingMoreIssues.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     var showForkDialog by remember { mutableStateOf(false) }
@@ -131,8 +136,8 @@ fun RepoDetailScreen(
 
     LaunchedEffect(owner, repo) { vm.loadRepo(owner, repo) }
     LaunchedEffect(owner, repo, tab) {
-        if (tab == RepoTab.ISSUES) vm.loadIssues(owner, repo, state = "open")
-        if (tab == RepoTab.PRS) vm.loadPulls(owner, repo, state = "open")
+        if (tab == RepoTab.ISSUES) vm.loadIssues(owner, repo)
+        if (tab == RepoTab.PRS) vm.loadPulls(owner, repo)
         if (tab == RepoTab.RELEASES) vm.loadReleases(owner, repo)
         if (tab == RepoTab.WORKFLOWS) vm.loadWorkflowRuns(owner, repo)
     }
@@ -328,8 +333,24 @@ fun RepoDetailScreen(
                     downloadVm = downloadVm,
                     onNavigateToDownloads = onNavigateToDownloads,
                 )
-                RepoTab.ISSUES -> IssuesTab(issues, onClick = onNavigateToIssue, onNavigateToUser = onNavigateToUser)
-                RepoTab.PRS -> PullsTab(pulls, onClick = onNavigateToPR, onNavigateToUser = onNavigateToUser)
+                RepoTab.ISSUES -> IssuesTab(
+                    issues,
+                    stateFilter = issueStateFilter,
+                    isLoadingMore = isLoadingMoreIssues,
+                    onCycleFilter = { vm.cycleIssueStateFilter(owner, repo) },
+                    onLoadMore = { vm.loadMoreIssues(owner, repo) },
+                    onClick = onNavigateToIssue,
+                    onNavigateToUser = onNavigateToUser,
+                )
+                RepoTab.PRS -> PullsTab(
+                    pulls,
+                    stateFilter = issueStateFilter,
+                    isLoadingMore = isLoadingMoreIssues,
+                    onCycleFilter = { vm.cycleIssueStateFilter(owner, repo) },
+                    onLoadMore = { vm.loadMoreIssues(owner, repo) },
+                    onClick = onNavigateToPR,
+                    onNavigateToUser = onNavigateToUser,
+                )
                 RepoTab.RELEASES -> ReleasesTab(
                     releases,
                     repoContext = "$owner/$repo",
@@ -350,7 +371,7 @@ fun RepoDetailScreen(
                         onNavigateToDownloads("active")
                     },
                 )
-                RepoTab.COMMITS -> CommitsTab(owner, repo, onNavigateToUser = onNavigateToUser)
+                RepoTab.COMMITS -> CommitsTab(owner, repo, onNavigateToUser = onNavigateToUser, onCommitClick = onNavigateToCommit)
                 RepoTab.WORKFLOWS -> WorkflowsTab(
                     workflowRuns,
                     onNavigateToUser = onNavigateToUser,
@@ -470,7 +491,7 @@ private fun StatsRow(
 private fun StatChip(star: Boolean, count: Int, label: String = "") {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
-            if (star) Icons.Outlined.Star else Icons.AutoMirrored.Outlined.ArrowBack,
+            if (star) Icons.Outlined.Star else Icons.Outlined.ForkRight,
             null,
             modifier = Modifier.size(14.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -617,21 +638,69 @@ private fun OverviewTab(
     }
 }
 
+@Composable
+private fun IssueStateFilterChips(
+    selected: IssueStateFilter,
+    onSelect: (IssueStateFilter) -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        IssueStateFilter.entries.forEach { filter ->
+            val label = when (filter) {
+                IssueStateFilter.OPEN -> stringResource(R.string.issue_state_open)
+                IssueStateFilter.CLOSED -> stringResource(R.string.issue_state_closed)
+                IssueStateFilter.ALL -> stringResource(R.string.issue_state_all)
+            }
+            androidx.compose.material3.FilterChip(
+                selected = selected == filter,
+                onClick = { onSelect(filter) },
+                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun IssuesTab(
     issues: List<Issue>,
+    stateFilter: IssueStateFilter,
+    isLoadingMore: Boolean,
+    onCycleFilter: () -> Unit,
+    onLoadMore: () -> Unit,
     onClick: (Int) -> Unit,
     onNavigateToUser: (String) -> Unit = {},
 ) {
-    if (issues.isEmpty()) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(stringResource(R.string.no_open_issues), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val listState = rememberLazyListState()
+    val shouldLoadMore by remember {
+        derivedStateOf {
+            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            lastVisible >= listState.layoutInfo.totalItemsCount - 3
         }
-        return
     }
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        items(issues, key = { it.id }) { issue ->
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore && issues.isNotEmpty()) onLoadMore()
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        // Cycle through filters with a single tap on the chips row.
+        IssueStateFilterChips(selected = stateFilter, onSelect = { if (it != stateFilter) onCycleFilter() })
+
+        if (issues.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                val emptyText = when (stateFilter) {
+                    IssueStateFilter.OPEN -> stringResource(R.string.no_open_issues)
+                    IssueStateFilter.CLOSED -> stringResource(R.string.no_closed_issues)
+                    IssueStateFilter.ALL -> stringResource(R.string.no_issues)
+                }
+                Text(emptyText, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            return@Column
+        }
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+            items(issues, key = { it.id }) { issue ->
             Row(
                 Modifier.fillMaxWidth().clickable { onClick(issue.number) }.padding(vertical = 10.dp),
                 verticalAlignment = Alignment.Top,
@@ -691,6 +760,14 @@ private fun IssuesTab(
                 }
             }
             HorizontalDivider()
+            }
+            if (isLoadingMore) {
+                item {
+                    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(Modifier.size(24.dp))
+                    }
+                }
+            }
         }
     }
 }
@@ -699,17 +776,40 @@ private fun IssuesTab(
 @Composable
 private fun PullsTab(
     pulls: List<Issue>,
+    stateFilter: IssueStateFilter,
+    isLoadingMore: Boolean,
+    onCycleFilter: () -> Unit,
+    onLoadMore: () -> Unit,
     onClick: (Int) -> Unit,
     onNavigateToUser: (String) -> Unit = {},
 ) {
-    if (pulls.isEmpty()) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(stringResource(R.string.no_open_pull_requests), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val listState = rememberLazyListState()
+    val shouldLoadMore by remember {
+        derivedStateOf {
+            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            lastVisible >= listState.layoutInfo.totalItemsCount - 3
         }
-        return
     }
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        items(pulls, key = { it.id }) { pr ->
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore && pulls.isNotEmpty()) onLoadMore()
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        IssueStateFilterChips(selected = stateFilter, onSelect = { if (it != stateFilter) onCycleFilter() })
+
+        if (pulls.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                val emptyText = when (stateFilter) {
+                    IssueStateFilter.OPEN -> stringResource(R.string.no_open_prs)
+                    IssueStateFilter.CLOSED -> stringResource(R.string.no_closed_prs)
+                    IssueStateFilter.ALL -> stringResource(R.string.no_prs)
+                }
+                Text(emptyText, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            return@Column
+        }
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+            items(pulls, key = { it.id }) { pr ->
             Row(
                 Modifier.fillMaxWidth().clickable { onClick(pr.number) }.padding(vertical = 10.dp),
                 verticalAlignment = Alignment.Top,
@@ -756,6 +856,14 @@ private fun PullsTab(
                 }
             }
             HorizontalDivider()
+            }
+            if (isLoadingMore) {
+                item {
+                    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(Modifier.size(24.dp))
+                    }
+                }
+            }
         }
     }
 }

@@ -57,9 +57,13 @@ class NotificationsViewModel @Inject constructor(
     }
 
     fun markRead(threadId: String) {
+        // Optimistic local update so tapping a notification doesn't reflash the list.
+        _notifications.update { list ->
+            list.map { if (it.id == threadId) it.copy(unread = false) else it }
+                .filter { currentTab.value == NotifTab.READ || it.unread }
+        }
         viewModelScope.launch {
             try { api.markNotificationRead(threadId) } catch (_: Exception) {}
-            load(all = currentTab.value == NotifTab.READ)
         }
     }
 

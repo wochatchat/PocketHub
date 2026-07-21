@@ -25,6 +25,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Article
+import androidx.compose.material.icons.outlined.AccountTree
+import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Folder
@@ -32,6 +35,8 @@ import androidx.compose.material.icons.outlined.FolderZip
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,12 +45,23 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import com.pockethub.ui.markdown.CodeHighlighter
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 
 /**
@@ -66,6 +82,11 @@ fun CodeTab(
     // Lazy initialise for this owner/repo pair on first composition.
     androidx.compose.runtime.LaunchedEffect(owner, repo) {
         vm.init(owner, repo)
+    }
+
+    // System back: close the open file or pop one directory before leaving the screen.
+    BackHandler(enabled = state.viewingFile != null || state.currentPath.isNotBlank()) {
+        vm.handleBack()
     }
 
     // Download a single file (raw download_url) — used for archives / binaries
@@ -102,6 +123,16 @@ fun CodeTab(
     }
 
     Column(Modifier.fillMaxSize()) {
+        // Branch selector row (when not viewing a file)
+        if (state.viewingFile == null) {
+            BranchSelector(
+                currentRef = state.ref ?: defaultBranch ?: "main",
+                branches = state.branches,
+                isLoading = state.isLoadingBranches,
+                onOpen = { vm.loadBranches() },
+                onSelect = { vm.switchRef(it) },
+            )
+        }
         // Breadcrumb bar (when not viewing a file)
         if (state.viewingFile == null) {
             BreadcrumbBar(
@@ -155,6 +186,84 @@ fun CodeTab(
                         Text(stringResource(R.string.directory_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } }
                 }
+            }
+        }
+    }
+}
+
+/** Branch selector chip + dropdown. Defaults to the repo's default branch. */
+@Composable
+private fun BranchSelector(
+    currentRef: String,
+    branches: List<com.pockethub.data.remote.GitHubApi.Branch>,
+    isLoading: Boolean,
+    onOpen: () -> Unit,
+    onSelect: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            modifier = Modifier
+                .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clickable {
+                    onOpen()
+                    expanded = true
+                }
+                .padding(horizontal = 10.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Outlined.AccountTree,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                currentRef,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (isLoading) {
+                Spacer(Modifier.width(6.dp))
+                CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 1.5.dp)
+            } else {
+                Icon(
+                    Icons.Outlined.ArrowDropDown,
+                    contentDescription = stringResource(R.string.cd_switch_branch),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            if (branches.isEmpty() && !isLoading) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.branch_load_failed)) },
+                    onClick = { expanded = false },
+                )
+            }
+            branches.forEach { branch ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            branch.name,
+                            fontWeight = if (branch.name == currentRef) androidx.compose.ui.text.font.FontWeight.Bold else null,
+                            color = if (branch.name == currentRef) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onSelect(branch.name)
+                    },
+                )
             }
         }
     }
@@ -248,6 +357,8 @@ private fun FileViewerContent(
     onClose: () -> Unit,
     onDownload: () -> Unit,
 ) {
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
     Column(Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -256,19 +367,35 @@ private fun FileViewerContent(
             IconButton(onClick = onClose) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back_to_directory))
             }
-            Text(entry.path, style = MaterialTheme.typography.labelMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                entry.path,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            if (content != null) {
+                IconButton(onClick = {
+                    clipboard.setText(AnnotatedString(content))
+                    android.widget.Toast.makeText(context, context.getString(R.string.copied_toast), android.widget.Toast.LENGTH_SHORT).show()
+                }) {
+                    Icon(
+                        Icons.Outlined.ContentCopy,
+                        contentDescription = stringResource(R.string.action_copy),
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
         if (isLoading) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         } else if (content != null) {
-            val hScroll = rememberScrollState()
-            Text(
-                text = content,
-                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp)
-                    .horizontalScroll(hScroll),
+            SyntaxHighlightedCode(
+                code = content,
+                fileName = entry.name,
+                modifier = Modifier.fillMaxSize(),
             )
         } else {
             Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
@@ -290,5 +417,71 @@ private fun humanReadableSize(bytes: Long): String = when {
     bytes >= 1_048_576 -> "%.1f MB".format(bytes / 1_048_576.0)
     bytes >= 1024 -> "%.1f KB".format(bytes / 1024.0)
     else -> "$bytes B"
+}
+
+/** Files larger than this render without highlighting to keep the UI responsive. */
+private const val HIGHLIGHT_MAX_CHARS = 200_000
+
+/**
+ * Code view with line numbers, syntax highlighting and horizontal scrolling.
+ * Line numbers scroll vertically with the code but stay pinned at the start
+ * of each line.
+ */
+@Composable
+private fun SyntaxHighlightedCode(
+    code: String,
+    fileName: String,
+    modifier: Modifier = Modifier,
+) {
+    val vScroll = rememberScrollState()
+    val hScroll = rememberScrollState()
+    val lines = remember(code) { code.split("\n") }
+    val gutterWidth = remember(lines.size) {
+        val digits = lines.size.toString().length
+        (digits * 8 + 16).dp
+    }
+    // Capture the palette from the theme once, then cache the tokenized result.
+    val colorScheme = MaterialTheme.colorScheme
+    val palette = remember(colorScheme) {
+        CodeHighlighter.Palette(
+            keyword = colorScheme.primary,
+            string = colorScheme.tertiary,
+            comment = colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            number = colorScheme.secondary,
+            annotation = colorScheme.primary,
+        )
+    }
+    val highlighted = remember(code, fileName, palette) {
+        CodeHighlighter.highlight(code.take(HIGHLIGHT_MAX_CHARS), fileName, palette)
+    }
+    val gutterText = remember(lines.size) { (1..lines.size).joinToString("\n") }
+    val codeStyle = MaterialTheme.typography.bodySmall.copy(
+        fontFamily = FontFamily.Monospace,
+        lineHeight = 18.sp,
+    )
+
+    Row(modifier.verticalScroll(vScroll)) {
+        // Line-number gutter — one Text so line heights always match the code body.
+        Text(
+            text = gutterText,
+            style = codeStyle,
+            textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            modifier = Modifier
+                .width(gutterWidth)
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                .padding(horizontal = 6.dp),
+            softWrap = false,
+        )
+        // Code body
+        Text(
+            text = highlighted,
+            style = codeStyle,
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .horizontalScroll(hScroll),
+            softWrap = false,
+        )
+    }
 }
 

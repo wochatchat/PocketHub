@@ -24,6 +24,13 @@ import javax.inject.Inject
 
 enum class RepoTab { OVERVIEW, CODE, ISSUES, PRS, RELEASES, COMMITS, WORKFLOWS }
 
+/** Issue / PR list state filter. Maps to the GitHub `state` query param. */
+enum class IssueStateFilter(val apiValue: String) {
+    OPEN("open"), CLOSED("closed"), ALL("all");
+
+    fun next(): IssueStateFilter = entries[(ordinal + 1) % entries.size]
+}
+
 @HiltViewModel
 class RepoDetailViewModel @Inject constructor(
     private val api: GitHubApi,
@@ -41,6 +48,26 @@ class RepoDetailViewModel @Inject constructor(
 
     private val _pulls = MutableStateFlow<List<Issue>>(emptyList())
     val pulls: StateFlow<List<Issue>> = _pulls
+
+    /** Current state filter shared by the Issues and PRs tabs. */
+    private val _issueStateFilter = MutableStateFlow(IssueStateFilter.OPEN)
+    val issueStateFilter: StateFlow<IssueStateFilter> = _issueStateFilter
+
+    /** True while a further page is being fetched. */
+    private val _isLoadingMoreIssues = MutableStateFlow(false)
+    val isLoadingMoreIssues: StateFlow<Boolean> = _isLoadingMoreIssues
+
+    // Pagination state for the issues/PRs list.
+    private var issuePage = 1
+    private var issuesCanLoadMore = true
+    private var loadedIssueState: String? = null
+
+    /** Cycle OPEN → CLOSED → ALL and reload both lists. */
+    fun cycleIssueStateFilter(owner: String, repo: String) {
+        _issueStateFilter.update { it.next() }
+        loadIssues(owner, repo, force = true)
+        loadPulls(owner, repo, force = true)
+    }
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
@@ -181,26 +208,53 @@ class RepoDetailViewModel @Inject constructor(
         }
     }
 
-    fun loadIssues(owner: String, repo: String, state: String = "open") {
-        viewModelScope.launch {
-            try {
-                val all = cache.getIssues(owner, repo, state = state)
-                _issues.update { all.filter { it.pullRequest == null } }
-            } catch (e: Exception) {
-                _issues.update { emptyList() }
-                _error.update { e.localizedMessage ?: "加载 Issues 失败" }
-            }
-        }
+    fun loadIssues(owner: String, repo: String, state: String? = null, force: Boolean = false) {
+        val effectiveState = state ?: _issueStateFilter.value.apiValue
+        if (!force && loadedIssueState == effectiveState && (_issues.value.isNotEmpty() || _pulls.value.isNotEmpty())) return
+        loadedIssueState = effectiveState
+        issuePage = 1
+        issuesCanLoadMore = true
+        fetchIssuesPage(owner, repo, effectiveState, append = false)
     }
 
-    fun loadPulls(owner: String, repo: String, state: String = "open") {
+    fun loadPulls(owner: String, repo: String, state: String? = null, force: Boolean = false) {
+        // Shares the issues fetch (PRs come from the same endpoint); just ensure loaded.
+        loadIssues(owner, repo, state, force)
+    }
+
+    /** Fetch the next page of issues/PRs for the current filter. */
+    fun loadMoreIssues(owner: String, repo: String) {
+        if (!issuesCanLoadMore || _isLoadingMoreIssues.value) return
+        val state = _issueStateFilter.value.apiValue
+        issuePage++
+        fetchIssuesPage(owner, repo, state, append = true)
+    }
+
+    private fun fetchIssuesPage(owner: String, repo: String, state: String, append: Boolean) {
         viewModelScope.launch {
+            if (append) _isLoadingMoreIssues.update { true }
             try {
-                val all = cache.getIssues(owner, repo, state = state)
-                _pulls.update { all.filter { it.pullRequest != null } }
+                val all = cache.getIssues(owner, repo, state = state, page = issuePage)
+                val issuesOnly = all.filter { it.pullRequest == null }
+                val pullsOnly = all.filter { it.pullRequest != null }
+                if (append) {
+                    val existingIssueIds = _issues.value.map { it.id }.toSet()
+                    val existingPrIds = _pulls.value.map { it.id }.toSet()
+                    _issues.update { it + issuesOnly.filter { n -> n.id !in existingIssueIds } }
+                    _pulls.update { it + pullsOnly.filter { n -> n.id !in existingPrIds } }
+                } else {
+                    _issues.update { issuesOnly }
+                    _pulls.update { pullsOnly }
+                }
+                issuesCanLoadMore = all.size >= 30
             } catch (e: Exception) {
-                _pulls.update { emptyList() }
-                _error.update { e.localizedMessage ?: "加载 PR 失败" }
+                if (!append) {
+                    _issues.update { emptyList() }
+                    _pulls.update { emptyList() }
+                }
+                _error.update { e.localizedMessage ?: "加载 Issues 失败" }
+            } finally {
+                if (append) _isLoadingMoreIssues.update { false }
             }
         }
     }

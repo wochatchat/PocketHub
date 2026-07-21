@@ -55,6 +55,8 @@ import com.pockethub.data.model.GitHubNotification
 fun NotificationsScreen(
     modifier: Modifier = Modifier,
     onNavigateToRepo: (String, String) -> Unit,
+    onNavigateToIssue: (String, String, Int) -> Unit = { _, _, _ -> },
+    onNavigateToPR: (String, String, Int) -> Unit = { _, _, _ -> },
     onBack: () -> Unit = {},
     vm: NotificationsViewModel = hiltViewModel(),
 ) {
@@ -120,7 +122,20 @@ fun NotificationsScreen(
                             onClick = {
                                 val owner = repoFullName.substringBefore('/')
                                 val repo = repoFullName.substringAfter('/')
-                                onNavigateToRepo(owner, repo)
+                                // Navigate straight to the subject (issue/PR) when we can
+                                // resolve a number from the API URL; fall back to the repo.
+                                val number = notif.subject.url
+                                    ?.substringAfterLast('/')
+                                    ?.toIntOrNull()
+                                when {
+                                    number != null && notif.subject.type == "Issue" ->
+                                        onNavigateToIssue(owner, repo, number)
+                                    number != null && notif.subject.type == "PullRequest" ->
+                                        onNavigateToPR(owner, repo, number)
+                                    else -> onNavigateToRepo(owner, repo)
+                                }
+                                // Tapping a notification implies it has been seen.
+                                if (notif.unread) vm.markRead(notif.id)
                             },
                         )
                     }

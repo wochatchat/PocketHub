@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,6 +32,8 @@ import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -38,14 +41,23 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -63,6 +75,7 @@ import com.pockethub.data.model.User
 fun UserDetailScreen(
     login: String,
     onNavigateToRepo: (String, String) -> Unit,
+    onNavigateToUser: (String) -> Unit = {},
     onBack: () -> Unit,
     vm: UserDetailViewModel = hiltViewModel(),
 ) {
@@ -70,9 +83,23 @@ fun UserDetailScreen(
     val repos by vm.repos.collectAsState()
     val isLoading by vm.isLoading.collectAsState()
     val error by vm.error.collectAsState()
+    val isFollowing by vm.isFollowing.collectAsState()
+    val isSelf by vm.isSelf.collectAsState()
+    val followActionInProgress by vm.followActionInProgress.collectAsState()
+    val followers by vm.followers.collectAsState()
+    val followingList by vm.followingList.collectAsState()
+    val isLoadingFollowLists by vm.isLoadingFollowLists.collectAsState()
     val context = LocalContext.current
 
+    // Which follow list to show in the bottom sheet: 0 = followers, 1 = following, -1 = hidden.
+    var followSheetTab by remember { mutableIntStateOf(-1) }
+
     LaunchedEffect(login) { vm.loadUser(login) }
+
+    // Load follow lists lazily when the sheet opens.
+    LaunchedEffect(followSheetTab) {
+        if (followSheetTab >= 0) vm.loadFollowLists()
+    }
 
     Scaffold(
         topBar = {
@@ -115,10 +142,24 @@ fun UserDetailScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // Profile header card
-            item { UserHeader(user) }
+            item {
+                UserHeader(
+                    user = user,
+                    isSelf = isSelf,
+                    isFollowing = isFollowing,
+                    followInProgress = followActionInProgress,
+                    onToggleFollow = { vm.toggleFollow() },
+                )
+            }
 
-            // Stats row
-            item { UserStatsRow(user) }
+            // Stats row — followers / following tap through to the list sheet.
+            item {
+                UserStatsRow(
+                    user = user,
+                    onFollowersClick = { followSheetTab = 0 },
+                    onFollowingClick = { followSheetTab = 1 },
+                )
+            }
 
             // Additional info
             item { UserAdditionalInfo(user) }
@@ -152,10 +193,100 @@ fun UserDetailScreen(
             item { Spacer(Modifier.height(24.dp)) }
         }
     }
+
+    // Followers / following bottom sheet.
+    if (followSheetTab >= 0) {
+        ModalBottomSheet(
+            onDismissRequest = { followSheetTab = -1 },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
+            FollowListSheet(
+                selectedTab = followSheetTab,
+                onTabChange = { followSheetTab = it },
+                followers = followers,
+                following = followingList,
+                isLoading = isLoadingFollowLists,
+                onUserClick = { userLogin ->
+                    followSheetTab = -1
+                    if (userLogin.equals(login, ignoreCase = true)) {
+                        // Tapping yourself in the list just dismisses the sheet.
+                    } else {
+                        onNavigateToUser(userLogin)
+                    }
+                },
+            )
+        }
+    }
+}
+
+/**
+ * Bottom-sheet content: a segmented followers/following switcher and the user list.
+ */
+@Composable
+private fun FollowListSheet(
+    selectedTab: Int,
+    onTabChange: (Int) -> Unit,
+    followers: List<com.pockethub.data.model.User>,
+    following: List<com.pockethub.data.model.User>,
+    isLoading: Boolean,
+    onUserClick: (String) -> Unit,
+) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            SegmentedButton(
+                selected = selectedTab == 0,
+                onClick = { onTabChange(0) },
+                shape = SegmentedButtonDefaults.itemShape(0, 2),
+                label = { Text(stringResource(R.string.followers)) },
+            )
+            SegmentedButton(
+                selected = selectedTab == 1,
+                onClick = { onTabChange(1) },
+                shape = SegmentedButtonDefaults.itemShape(1, 2),
+                label = { Text(stringResource(R.string.following)) },
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+
+        val list = if (selectedTab == 0) followers else following
+        when {
+            isLoading -> Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+            list.isEmpty() -> Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                Text(
+                    stringResource(if (selectedTab == 0) R.string.no_followers else R.string.not_following_anyone),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            else -> LazyColumn(Modifier.fillMaxWidth().heightIn(max = 480.dp)) {
+                items(list, key = { it.login }) { u ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onUserClick(u.login) }.padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        AsyncImage(model = u.avatarUrl, contentDescription = null, modifier = Modifier.size(36.dp).clip(CircleShape))
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text(u.name ?: "@${u.login}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                            Text("@${u.login}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+    }
 }
 
 @Composable
-private fun UserHeader(user: User?) {
+private fun UserHeader(
+    user: User?,
+    isSelf: Boolean = true,
+    isFollowing: Boolean = false,
+    followInProgress: Boolean = false,
+    onToggleFollow: () -> Unit = {},
+) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         shape = RoundedCornerShape(16.dp),
@@ -190,25 +321,59 @@ private fun UserHeader(user: User?) {
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
             }
+            // Follow / unfollow button — hidden on your own profile.
+            if (!isSelf && user != null) {
+                Spacer(Modifier.height(14.dp))
+                Button(
+                    onClick = onToggleFollow,
+                    enabled = !followInProgress,
+                    colors = if (isFollowing) {
+                        ButtonDefaults.outlinedButtonColors()
+                    } else {
+                        ButtonDefaults.buttonColors()
+                    },
+                ) {
+                    if (followInProgress) {
+                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 1.5.dp)
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(
+                        stringResource(if (isFollowing) R.string.action_unfollow else R.string.action_follow),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun UserStatsRow(user: User?) {
+private fun UserStatsRow(
+    user: User?,
+    onFollowersClick: () -> Unit = {},
+    onFollowingClick: () -> Unit = {},
+) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
-        StatPill(stringResource(R.string.followers), user?.followers ?: 0)
-        StatPill(stringResource(R.string.following), user?.following ?: 0)
+        StatPill(stringResource(R.string.followers), user?.followers ?: 0, onClick = onFollowersClick)
+        StatPill(stringResource(R.string.following), user?.following ?: 0, onClick = onFollowingClick)
         StatPill(stringResource(R.string.repos), user?.publicRepos ?: 0)
     }
 }
 
 @Composable
-private fun StatPill(label: String, count: Int) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun StatPill(label: String, count: Int, onClick: (() -> Unit)? = null) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = if (onClick != null) {
+            Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(onClick = onClick)
+                .padding(horizontal = 12.dp, vertical = 4.dp)
+        } else Modifier,
+    ) {
         Text(count.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }

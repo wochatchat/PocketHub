@@ -40,6 +40,19 @@ class UserDetailViewModel @Inject constructor(
 
     private var loadedLogin: String? = null
 
+    private val _followers = MutableStateFlow<List<User>>(emptyList())
+    val followers: StateFlow<List<User>> = _followers
+
+    private val _followingList = MutableStateFlow<List<User>>(emptyList())
+    val followingList: StateFlow<List<User>> = _followingList
+
+    private val _isLoadingFollowLists = MutableStateFlow(false)
+    val isLoadingFollowLists: StateFlow<Boolean> = _isLoadingFollowLists
+
+    /** True when viewing your own profile — hides the follow button. */
+    private val _isSelf = MutableStateFlow(false)
+    val isSelf: StateFlow<Boolean> = _isSelf
+
     fun loadUser(login: String) {
         if (loadedLogin == login && _user.value != null) return
         loadedLogin = login
@@ -56,10 +69,65 @@ class UserDetailViewModel @Inject constructor(
                         // Non-fatal
                     }
                 }
+                // Determine whether this is the authenticated user's own profile,
+                // and whether we already follow them.
+                launch {
+                    try {
+                        val me = api.getAuthenticatedUser()
+                        val self = me.login.equals(login, ignoreCase = true)
+                        _isSelf.update { self }
+                        if (!self) {
+                            _isFollowing.update { api.checkFollowing(login).isSuccessful }
+                        }
+                    } catch (_: Exception) {
+                        // Non-fatal — follow button just won't reflect state.
+                    }
+                }
             } catch (e: Exception) {
                 _error.update { e.localizedMessage ?: "加载用户失败" }
             } finally {
                 _isLoading.update { false }
+            }
+        }
+    }
+
+    /** Toggle follow / unfollow on the loaded user. */
+    fun toggleFollow() {
+        val login = loadedLogin ?: return
+        if (_followActionInProgress.value || _isSelf.value) return
+        viewModelScope.launch {
+            _followActionInProgress.update { true }
+            try {
+                val currentlyFollowing = _isFollowing.value
+                val resp = if (currentlyFollowing) api.unfollowUser(login) else api.followUser(login)
+                if (resp.isSuccessful) {
+                    _isFollowing.update { !currentlyFollowing }
+                    // Optimistically adjust the follower count shown in the stats row.
+                    _user.update { u ->
+                        u?.copy(followers = (u.followers ?: 0) + if (currentlyFollowing) -1 else 1)
+                    }
+                }
+            } catch (_: Exception) {
+                // Non-fatal
+            } finally {
+                _followActionInProgress.update { false }
+            }
+        }
+    }
+
+    /** Load followers + following lists (shown in a bottom sheet). */
+    fun loadFollowLists() {
+        val login = loadedLogin ?: return
+        if (_isLoadingFollowLists.value) return
+        viewModelScope.launch {
+            _isLoadingFollowLists.update { true }
+            try {
+                val f1 = runCatching { api.getFollowers(login) }.getOrDefault(emptyList())
+                val f2 = runCatching { api.getFollowing(login) }.getOrDefault(emptyList())
+                _followers.update { f1 }
+                _followingList.update { f2 }
+            } finally {
+                _isLoadingFollowLists.update { false }
             }
         }
     }
