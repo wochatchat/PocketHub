@@ -226,9 +226,18 @@
     <string name="search_tab_repos">仓库</string>
     <string name="search_tab_users">用户</string>
     <string name="search_tab_code">代码</string>
+    <string name="search_tab_issues">议题</string>
     <string name="search_results_empty">没有找到“%1$s”相关的结果</string>
-    <string name="search_initial_hint">搜索仓库、用户和代码</string>
+    <string name="search_initial_hint">搜索仓库、用户、代码或议题</string>
     <string name="load_failed">加载失败</string>
+
+    <!-- 评论 -->
+    <string name="cd_comment_actions">评论操作</string>
+    <string name="comment_edit_title">编辑评论</string>
+    <string name="comment_delete_confirm_title">删除评论？</string>
+    <string name="comment_delete_confirm_message">该操作无法撤销。</string>
+    <string name="action_edit">编辑</string>
+    <string name="action_delete">删除</string>
 
     <!-- Settings -->
     <string name="settings">设置</string>

@@ -2,6 +2,7 @@ package com.pockethub.ui.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pockethub.data.model.Issue
 import com.pockethub.data.model.Repository
 import com.pockethub.data.model.User
 import com.pockethub.data.remote.GitHubApi
@@ -14,7 +15,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-enum class SearchTab { REPOS, USERS, CODE }
+enum class SearchTab { REPOS, USERS, CODE, ISSUES }
 
 @HiltViewModel
 class SearchViewModel @Inject constructor(
@@ -32,6 +33,9 @@ class SearchViewModel @Inject constructor(
 
     private val _code = MutableStateFlow<List<GitHubApi.CodeSearchItem>>(emptyList())
     val code: StateFlow<List<GitHubApi.CodeSearchItem>> = _code
+
+    private val _issues = MutableStateFlow<List<Issue>>(emptyList())
+    val issues: StateFlow<List<Issue>> = _issues
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -74,6 +78,11 @@ class SearchViewModel @Inject constructor(
                     SearchTab.CODE -> {
                         val r = api.searchCode(q, page = 1)
                         _code.update { r.items }
+                        totalCounts[tab] = r.total_count
+                    }
+                    SearchTab.ISSUES -> {
+                        val r = api.searchIssues(q, page = 1)
+                        _issues.update { r.items }
                         totalCounts[tab] = r.total_count
                     }
                 }
@@ -120,6 +129,13 @@ class SearchViewModel @Inject constructor(
                         _code.update { it + r.items }
                         totalCounts[tab] = r.total_count
                     }
+                    SearchTab.ISSUES -> {
+                        if (_issues.value.size >= (totalCounts[tab] ?: Int.MAX_VALUE)) return@launch
+                        val r = api.searchIssues(q, page = nextPage)
+                        if (r.items.isEmpty()) { totalCounts[tab] = _issues.value.size; return@launch }
+                        _issues.update { it + r.items }
+                        totalCounts[tab] = r.total_count
+                    }
                 }
                 pages[tab] = nextPage
             } catch (e: Exception) {
@@ -137,6 +153,7 @@ class SearchViewModel @Inject constructor(
             SearchTab.REPOS -> _repos.value.size
             SearchTab.USERS -> _users.value.size
             SearchTab.CODE -> _code.value.size
+            SearchTab.ISSUES -> _issues.value.size
         }
         return size > 0 && size < (totalCounts[tab] ?: Int.MAX_VALUE)
     }
@@ -150,6 +167,7 @@ class SearchViewModel @Inject constructor(
             SearchTab.REPOS -> _repos.value.isNotEmpty()
             SearchTab.USERS -> _users.value.isNotEmpty()
             SearchTab.CODE -> _code.value.isNotEmpty()
+            SearchTab.ISSUES -> _issues.value.isNotEmpty()
         }
         if (!hasResults) _error.update { null }
         if (query.value.isNotBlank() && !hasResults) search()

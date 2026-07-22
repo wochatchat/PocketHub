@@ -67,10 +67,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.pockethub.ui.components.CommentItem
 import com.pockethub.ui.markdown.MarkdownText
 import kotlinx.coroutines.launch
-import java.text.DateFormat
-import java.util.Locale
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,6 +87,14 @@ fun IssueDetailScreen(
 ) {
     val issue by vm.issue.collectAsState()
     val comments by vm.comments.collectAsState()
+    // Touch these so comment rows re-compose when viewer reactions arrive async
+    // (currentLogin hydrates from disk; viewerReactions arrive after a /reactions call).
+    @Suppress("unused")
+    val currentLogin by vm.currentLogin.collectAsState()
+    @Suppress("unused")
+    val viewerReactions by vm.viewerReactions.collectAsState()
+    @Suppress("unused")
+    val busyComments by vm.busyComments.collectAsState()
     val isLoading by vm.isLoading.collectAsState()
     val error by vm.error.collectAsState()
     val isSendingComment by vm.isSendingComment.collectAsState()
@@ -93,7 +103,6 @@ fun IssueDetailScreen(
     val repositoryLabels by vm.repositoryLabels.collectAsState()
     val milestones by vm.milestones.collectAsState()
     val actionMessage by vm.actionMessage.collectAsState()
-    val dateFmt = remember { DateFormat.getDateInstance(DateFormat.MEDIUM) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -123,6 +132,9 @@ fun IssueDetailScreen(
     }
 
     var showEditDialog by remember { mutableStateOf(false) }
+    var editingCommentId by remember { mutableStateOf<Long?>(null) }
+    var editingBody by remember { mutableStateOf("") }
+    var pendingDeleteId by remember { mutableStateOf<Long?>(null) }
 
     // Show action results as snackbar
     LaunchedEffect(actionMessage) {
@@ -310,40 +322,21 @@ fun IssueDetailScreen(
                 } else if (comments.isEmpty()) {
                     Text(stringResource(R.string.no_comments_yet), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
-                    comments.forEach { c ->
-                        Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                val user = c.user
-                                if (user != null) {
-                                    AsyncImage(
-                                        model = user.avatarUrl,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp).clip(CircleShape)
-                                            .clickable { onNavigateToUser(user.login) },
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(
-                                        user.login,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        modifier = Modifier.clickable { onNavigateToUser(user.login) },
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                } else {
-                                    Text(c.user?.login ?: stringResource(R.string.unknown), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                                }
-                                c.createdAt?.let {
-                                    Text(dateFmt.format(parseIso(it)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
-                            MarkdownText(
-                                markdown = c.body.ifBlank { stringResource(R.string.no_content) },
-                                modifier = Modifier.fillMaxWidth(),
-                                repoContext = "$owner/$repo",
-                                onLinkClick = onLinkClick,
-                            )
-                            HorizontalDivider()
-                        }
+                    vm.commentStates().forEach { state ->
+                        CommentItem(
+                            state = state,
+                            onNavigateToUser = onNavigateToUser,
+                            onLinkClick = onLinkClick,
+                            onCopy = {
+                                val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                cm.setPrimaryClip(ClipData.newPlainText("comment", state.comment.body))
+                                scope.launch { snackbarHostState.showSnackbar("已复制") }
+                            },
+                            onEdit = { editingCommentId = state.comment.id; editingBody = state.comment.body },
+                            onDelete = { pendingDeleteId = state.comment.id },
+                            onAddReaction = { content -> vm.toggleReaction(state.comment.id, content) },
+                            onRemoveReaction = { content -> vm.toggleReaction(state.comment.id, content) },
+                        )
                     }
                 }
 
@@ -367,6 +360,35 @@ fun IssueDetailScreen(
             onSave = { title, body, labels, assignees, milestone ->
                 showEditDialog = false
                 vm.saveIssue(title, body, labels, assignees, milestone)
+            },
+        )
+    }
+    editingCommentId?.let { id ->
+        EditCommentDialog(
+            initialBody = editingBody,
+            onDismiss = { editingCommentId = null },
+            onSave = { newBody ->
+                vm.editComment(id, newBody)
+                editingCommentId = null
+            },
+        )
+    }
+    pendingDeleteId?.let { id ->
+        AlertDialog(
+            onDismissRequest = { pendingDeleteId = null },
+            title = { Text(stringResource(R.string.comment_delete_confirm_title)) },
+            text = { Text(stringResource(R.string.comment_delete_confirm_message)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        vm.deleteComment(id)
+                        pendingDeleteId = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                ) { Text(stringResource(R.string.action_delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteId = null }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }
@@ -463,11 +485,32 @@ private fun CommentInputBox(
     }
 }
 
-/** Parse an ISO-8601 timestamp into a Date for SimpleDateFormat. */
-private fun parseIso(iso: String): java.util.Date {
-    return runCatching {
-        java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.ENGLISH).apply {
-            timeZone = java.util.TimeZone.getTimeZone("UTC")
-        }.parse(iso)
-    }.getOrDefault(java.util.Date())
+@Composable
+private fun EditCommentDialog(
+    initialBody: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    var body by remember { mutableStateOf(initialBody) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.comment_edit_title)) },
+        text = {
+            OutlinedTextField(
+                value = body,
+                onValueChange = { body = it },
+                label = { Text(stringResource(R.string.comment_placeholder)) },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 4,
+            )
+        },
+        confirmButton = {
+            Button(onClick = { onSave(body.trim()) }, enabled = body.isNotBlank()) {
+                Text(stringResource(R.string.action_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
+    )
 }

@@ -76,10 +76,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.pockethub.data.remote.GitHubApi
+import com.pockethub.ui.components.CommentItem
 import com.pockethub.ui.markdown.MarkdownText
 import kotlinx.coroutines.launch
-import java.text.DateFormat
-import java.util.Locale
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,6 +98,13 @@ fun PullRequestDetailScreen(
     val files by vm.files.collectAsState()
     val reviews by vm.reviews.collectAsState()
     val comments by vm.comments.collectAsState()
+    // Touch these so comment rows re-compose when viewer reactions arrive async.
+    @Suppress("unused")
+    val currentLogin by vm.currentLogin.collectAsState()
+    @Suppress("unused")
+    val viewerReactions by vm.viewerReactions.collectAsState()
+    @Suppress("unused")
+    val busyComments by vm.busyComments.collectAsState()
     val isLoading by vm.isLoading.collectAsState()
     val error by vm.error.collectAsState()
     val isMerging by vm.isMerging.collectAsState()
@@ -112,6 +121,9 @@ fun PullRequestDetailScreen(
     var showMergeDialog by remember { mutableStateOf(false) }
     var showReviewDialog by remember { mutableStateOf(false) }
     var reviewEvent by remember { mutableStateOf("APPROVE") }
+    var editingCommentId by remember { mutableStateOf<Long?>(null) }
+    var editingBody by remember { mutableStateOf("") }
+    var pendingDeleteId by remember { mutableStateOf<Long?>(null) }
 
     val onLinkClick: (String, com.pockethub.ui.markdown.LinkKind) -> Unit = link@{ url, kind ->
         if (kind == com.pockethub.ui.markdown.LinkKind.DOWNLOADABLE ||
@@ -416,42 +428,21 @@ fun PullRequestDetailScreen(
                 if (comments.isEmpty()) {
                     Text(stringResource(R.string.no_comments_yet), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
-                    comments.forEach { c ->
-                        Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                val user = c.user
-                                if (user != null) {
-                                    AsyncImage(
-                                        model = user.avatarUrl,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp).clip(CircleShape)
-                                            .clickable { onNavigateToUser(user.login) },
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(
-                                        user.login,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        modifier = Modifier.clickable { onNavigateToUser(user.login) },
-                                    )
-                                }
-                                c.createdAt?.let {
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        formatDate(it),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                            MarkdownText(
-                                markdown = c.body,
-                                modifier = Modifier.fillMaxWidth(),
-                                repoContext = "$owner/$repo",
-                                onLinkClick = onLinkClick,
-                            )
-                        }
-                        HorizontalDivider()
+                    vm.commentStates().forEach { state ->
+                        CommentItem(
+                            state = state,
+                            onNavigateToUser = onNavigateToUser,
+                            onLinkClick = onLinkClick,
+                            onCopy = {
+                                val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                cm.setPrimaryClip(ClipData.newPlainText("comment", state.comment.body))
+                                scope.launch { snackbarHostState.showSnackbar("已复制") }
+                            },
+                            onEdit = { editingCommentId = state.comment.id; editingBody = state.comment.body },
+                            onDelete = { pendingDeleteId = state.comment.id },
+                            onAddReaction = { content -> vm.toggleReaction(state.comment.id, content) },
+                            onRemoveReaction = { content -> vm.toggleReaction(state.comment.id, content) },
+                        )
                     }
                 }
 
@@ -546,6 +537,54 @@ fun PullRequestDetailScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showReviewDialog = false }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
+    }
+
+    // Edit comment dialog
+    editingCommentId?.let { id ->
+        AlertDialog(
+            onDismissRequest = { editingCommentId = null },
+            title = { Text(stringResource(R.string.comment_edit_title)) },
+            text = {
+                OutlinedTextField(
+                    value = editingBody,
+                    onValueChange = { editingBody = it },
+                    label = { Text(stringResource(R.string.comment_placeholder)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 4,
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    vm.editComment(id, editingBody.trim())
+                    editingCommentId = null
+                }, enabled = editingBody.isNotBlank()) {
+                    Text(stringResource(R.string.action_save))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingCommentId = null }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
+    }
+    // Delete comment confirm
+    pendingDeleteId?.let { id ->
+        AlertDialog(
+            onDismissRequest = { pendingDeleteId = null },
+            title = { Text(stringResource(R.string.comment_delete_confirm_title)) },
+            text = { Text(stringResource(R.string.comment_delete_confirm_message)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        vm.deleteComment(id)
+                        pendingDeleteId = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                ) { Text(stringResource(R.string.action_delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteId = null }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }

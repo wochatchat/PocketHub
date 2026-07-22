@@ -26,6 +26,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Merge
+import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -60,9 +62,10 @@ import com.pockethub.ui.components.LoadingFooter
 
 @Composable
 private fun searchTabLabel(tab: SearchTab): String = when (tab) {
-    SearchTab.REPOS -> stringResource(R.string.search_tab_repos)
-    SearchTab.USERS -> stringResource(R.string.search_tab_users)
-    SearchTab.CODE  -> stringResource(R.string.search_tab_code)
+    SearchTab.REPOS  -> stringResource(R.string.search_tab_repos)
+    SearchTab.USERS  -> stringResource(R.string.search_tab_users)
+    SearchTab.CODE   -> stringResource(R.string.search_tab_code)
+    SearchTab.ISSUES -> stringResource(R.string.search_tab_issues)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -71,6 +74,8 @@ fun SearchScreen(
     initialQuery: String = "",
     onNavigateToRepo: (String, String) -> Unit,
     onNavigateToUser: (String) -> Unit = {},
+    onNavigateToIssue: (String, String, Int) -> Unit = { _, _, _ -> },
+    onNavigateToPR: (String, String, Int) -> Unit = { _, _, _ -> },
     onBack: () -> Unit,
     vm: SearchViewModel = hiltViewModel(),
 ) {
@@ -91,6 +96,7 @@ fun SearchScreen(
     val repos by vm.repos.collectAsState()
     val users by vm.users.collectAsState()
     val code by vm.code.collectAsState()
+    val issues by vm.issues.collectAsState()
     val isLoading by vm.isLoading.collectAsState()
     val isLoadingMore by vm.isLoadingMore.collectAsState()
     val error by vm.error.collectAsState()
@@ -150,6 +156,7 @@ fun SearchScreen(
             SearchTab.REPOS -> repos.isNotEmpty()
             SearchTab.USERS -> users.isNotEmpty()
             SearchTab.CODE -> code.isNotEmpty()
+            SearchTab.ISSUES -> issues.isNotEmpty()
         }
 
         // Full-screen loading only when this tab has nothing to show yet; otherwise
@@ -181,6 +188,7 @@ fun SearchScreen(
                     SearchTab.REPOS -> repoItems(repos, onNavigateToRepo, onNavigateToUser)
                     SearchTab.USERS -> userItems(users, onNavigateToUser)
                     SearchTab.CODE -> codeItems(code, onNavigateToRepo)
+                    SearchTab.ISSUES -> issueItems(issues, onNavigateToIssue, onNavigateToPR)
                 }
                 // Inline error banner when a refresh failed but stale results are visible.
                 if (error != null) {
@@ -254,6 +262,49 @@ private fun LazyListScope.codeItems(
         }.padding(vertical = 8.dp)) {
             Text(item.path, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             item.repository?.let { Text("${it.owner.login}/${it.name}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+    }
+}
+
+private fun LazyListScope.issueItems(
+    issues: List<com.pockethub.data.model.Issue>,
+    onNavigateToIssue: (String, String, Int) -> Unit,
+    onNavigateToPR: (String, String, Int) -> Unit,
+) {
+    items(issues, key = { it.id }) { issue ->
+        val owner = issue.repository?.owner?.login
+        val repo = issue.repository?.name
+        val isPR = issue.pullRequest != null
+        val repoLabel = if (owner != null && repo != null) "$owner/$repo" else "—"
+        Row(
+            Modifier.fillMaxWidth().clickable {
+                if (owner != null && repo != null) {
+                    if (isPR) onNavigateToPR(owner, repo, issue.number) else onNavigateToIssue(owner, repo, issue.number)
+                }
+            }.padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                if (isPR) Icons.Outlined.Merge else Icons.Outlined.ErrorOutline,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.width(8.dp))
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("#${issue.number}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(6.dp))
+                    val stateColor = when {
+                        issue.state == "closed" && isPR && issue.pullRequest?.let { true } == true -> MaterialTheme.colorScheme.secondary
+                        issue.state == "closed" -> MaterialTheme.colorScheme.error
+                        else -> MaterialTheme.colorScheme.primary
+                    }
+                    Text(issue.state, style = MaterialTheme.typography.labelSmall, color = stateColor)
+                }
+                Text(issue.title.ifBlank { "(no title)" }, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(repoLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
     }
 }

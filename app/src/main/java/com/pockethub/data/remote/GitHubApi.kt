@@ -252,11 +252,65 @@ interface GitHubApi {
         val id: Long = 0,
         val body: String = "",
         val user: User? = null,
+        @kotlinx.serialization.SerialName("author_association") val authorAssociation: String? = null,
         @kotlinx.serialization.SerialName("created_at") val createdAt: String? = null,
         @kotlinx.serialization.SerialName("updated_at") val updatedAt: String? = null,
         @kotlinx.serialization.SerialName("html_url") val htmlUrl: String? = null,
         val reactions: com.pockethub.data.model.Reactions? = null,
     )
+
+    /** GitHub reaction content values accepted by the reactions API. */
+    enum class ReactionContent(val apiValue: String) {
+        PLUS_ONE("+1"),
+        MINUS_ONE("-1"),
+        LAUGH("laugh"),
+        CONFUSED("confused"),
+        HEART("heart"),
+        HOORAY("hooray"),
+        ROCKET("rocket"),
+        EYES("eyes");
+    }
+
+    @kotlinx.serialization.Serializable
+    data class ReactionResponse(
+        val id: Long = 0,
+        val user: User? = null,
+        val content: String = "",
+        @kotlinx.serialization.SerialName("created_at") val createdAt: String? = null,
+    )
+
+    /** Add a reaction to an issue / PR comment (issue-PR comments share the same endpoint). */
+    @POST("repos/{owner}/{repo}/issues/comments/{comment_id}/reactions")
+    suspend fun createIssueCommentReaction(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("comment_id") commentId: Long,
+        @Body content: ReactionRequest,
+    ): ReactionResponse
+
+    /**
+     * List reactions on an issue / PR comment. We use the IDs returned here to
+     * delete reactions the current viewer has previously added (the GitHub API
+     * needs a specific reaction_id, not just a content type).
+     */
+    @GET("repos/{owner}/{repo}/issues/comments/{comment_id}/reactions")
+    suspend fun listIssueCommentReactions(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("comment_id") commentId: Long,
+    ): List<ReactionResponse>
+
+    /** Delete a reaction on an issue / PR comment. */
+    @DELETE("repos/{owner}/{repo}/issues/comments/{comment_id}/reactions/{reaction_id}")
+    suspend fun deleteIssueCommentReaction(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("comment_id") commentId: Long,
+        @Path("reaction_id") reactionId: Long,
+    ): Response<Unit>
+
+    @kotlinx.serialization.Serializable
+    data class ReactionRequest(val content: String)
 
     // ── Pull Requests (dedicated PR endpoints) ──────────
 

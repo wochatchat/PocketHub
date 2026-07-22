@@ -242,9 +242,18 @@
     <string name="search_tab_repos">Repos</string>
     <string name="search_tab_users">Users</string>
     <string name="search_tab_code">Code</string>
+    <string name="search_tab_issues">Issues</string>
     <string name="search_results_empty">No results for "%1$s"</string>
-    <string name="search_initial_hint">Search repositories, users and code</string>
+    <string name="search_initial_hint">Search repositories, users, code or issues</string>
     <string name="load_failed">Load failed</string>
+
+    <!-- Comments -->
+    <string name="cd_comment_actions">Comment actions</string>
+    <string name="comment_edit_title">Edit comment</string>
+    <string name="comment_delete_confirm_title">Delete comment?</string>
+    <string name="comment_delete_confirm_message">This cannot be undone.</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_delete">Delete</string>
 
     <!-- Settings -->
     <string name="settings">Settings</string>
