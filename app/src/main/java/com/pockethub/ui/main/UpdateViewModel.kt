@@ -44,6 +44,14 @@ class UpdateViewModel @Inject constructor(
     /** Minimum gap between two automatic background checks (24h). */
     private val autoCheckIntervalMs = 24L * 60 * 60 * 1000
 
+    /**
+     * Once the user has dismissed an update prompt (tapped "Later" / backed out),
+     * the same release won't be auto-shown again for this long — avoids nagging
+     * the user every app launch. Manual "Check for updates" from Settings bypasses
+     * this throttle and always shows whatever's found.
+     */
+    private val promptSuppressMs = 3L * 24 * 60 * 60 * 1000
+
     sealed interface State {
         data object Idle : State
         data object Checking : State
@@ -73,7 +81,7 @@ class UpdateViewModel @Inject constructor(
             val lastMs = settings.getLastUpdateCheckMs()
             if (System.currentTimeMillis() - lastMs < autoCheckIntervalMs) return@launch
             settings.markUpdateCheckedNow()
-            runCheck(includePre = false)
+            runCheck(includePre = false, forceShow = false)
         }
     }
 
@@ -81,11 +89,11 @@ class UpdateViewModel @Inject constructor(
         _state.value = State.Checking
         viewModelScope.launch {
             settings.markUpdateCheckedNow()
-            runCheck(includePre = false)
+            runCheck(includePre = false, forceShow = true)
         }
     }
 
-    private suspend fun runCheck(includePre: Boolean) {
+    private suspend fun runCheck(includePre: Boolean, forceShow: Boolean = false) {
         val info = updater.fetchLatest(owner, repo, includePre)
         if (info == null) {
             _state.value = State.Error
@@ -93,7 +101,16 @@ class UpdateViewModel @Inject constructor(
         }
         val ignored = settings.ignoredUpdateVersion.first()
         if (updater.isNewer(info) && info.latestVersionName != ignored) {
-            _state.value = State.UpdateAvailable(info)
+            // Auto-check path: respect the suppress window after "Later" dismiss.
+            val lastPromptMs = settings.getLastUpdatePromptMs()
+            val suppressed = lastPromptMs > 0 && System.currentTimeMillis() - lastPromptMs < promptSuppressMs
+            if (forceShow || !suppressed) {
+                settings.markUpdatePromptedNow()
+                _state.value = State.UpdateAvailable(info)
+            } else {
+                // Still newer than installed, but user recently said "Later" — don't auto-pop.
+                _state.value = State.Idle
+            }
         } else {
             _state.value = State.UpToDate
         }
@@ -172,7 +189,12 @@ class UpdateViewModel @Inject constructor(
                         tmp.copyTo(dest, overwrite = true)
                         tmp.delete()
                     }
+                    // Auto-launch the system PackageInstaller — the user already
+                    // tapped Download, so handing off immediately spares them an extra
+                    // confirmation tap inside the dialog. The OS still shows its own
+                    // permission prompt, preserving user control.
                     _download.value = DownloadState.Done(dest.absolutePath)
+                    install(appContext, dest.absolutePath)
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 tmp.delete()

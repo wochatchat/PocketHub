@@ -95,7 +95,14 @@ fun PocketHubApp(
 
     // Run the throttled auto-check once on launch — the ViewModel handles the
     // 24h interval and the "ignored version" gates.
-    androidx.compose.runtime.LaunchedEffect(Unit) { updateVm.maybeAutoCheck() }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        // Delay the auto-check so the home screen has a chance to render fully
+        // before any in-flight network work competes for resources. 5s is long
+        // enough to skip the cold-start critical path; short enough to catch users
+        // who linger on the home screen for a moment.
+        kotlinx.coroutines.delay(5_000)
+        updateVm.maybeAutoCheck()
+    }
 
     // Observe signedOut to empty the nav stack back to Login when the user signs out.
     androidx.compose.runtime.LaunchedEffect(signedOut) {

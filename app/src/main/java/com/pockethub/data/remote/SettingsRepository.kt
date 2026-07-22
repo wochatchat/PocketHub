@@ -38,6 +38,7 @@ class SettingsRepository @Inject constructor(
         val STORE_LAST_REFRESH = intPreferencesKey("store_last_refresh_epoch_min")
         val IGNORED_UPDATE_VERSION = stringPreferencesKey("ignored_update_version")
         val LAST_UPDATE_CHECK_MS = intPreferencesKey("last_update_check_epoch_ms")
+        val LAST_UPDATE_PROMPT_MS = intPreferencesKey("last_update_prompt_epoch_ms")
     }
 
     // ── Theme ─────────────────────────────────────────────
@@ -158,6 +159,24 @@ class SettingsRepository @Inject constructor(
     suspend fun markUpdateCheckedNow() {
         context.dataStore.edit { prefs ->
             prefs[Keys.LAST_UPDATE_CHECK_MS] = (System.currentTimeMillis() / 1000L).toInt()
+        }
+    }
+
+    /**
+     * Epoch millis (seconds) of the last time the [UpdateDialog] was actually
+     * surfaced to the user. Used to suppress auto-prompt frequency to once per
+     * a few days when the user taps "Later". 0 if never prompted.
+     */
+    suspend fun getLastUpdatePromptMs(): Long {
+        return context.dataStore.data.map { prefs ->
+            (prefs[Keys.LAST_UPDATE_PROMPT_MS]?.toLong() ?: 0L) * 1000L
+        }.first()
+    }
+
+    /** Record that the [UpdateDialog] is being shown right now. */
+    suspend fun markUpdatePromptedNow() {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.LAST_UPDATE_PROMPT_MS] = (System.currentTimeMillis() / 1000L).toInt()
         }
     }
 
