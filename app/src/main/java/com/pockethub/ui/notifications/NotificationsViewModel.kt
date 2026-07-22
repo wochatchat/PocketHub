@@ -3,6 +3,7 @@ package com.pockethub.ui.notifications
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockethub.data.model.GitHubNotification
+import com.pockethub.data.model.NotificationReason
 import com.pockethub.data.remote.CachedRepository
 import com.pockethub.data.remote.GitHubApi
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,6 +16,20 @@ import java.time.OffsetDateTime
 import javax.inject.Inject
 
 enum class NotifTab { UNREAD, READ }
+
+/**
+ * Reason filter chip state. [ALL] shows every notification regardless of reason;
+ * the rest scope the list to a single GitHub notification reason.
+ */
+enum class ReasonFilter(val labelKey: String, val apiValue: String?) {
+    ALL("notif_reason_all", null),
+    ASSIGN("notif_reason_assign", "assign"),
+    MENTION("notif_reason_mention", "mention"),
+    REVIEW_REQUESTED("notif_reason_review_requested", "review_requested"),
+    AUTHOR("notif_reason_author", "author"),
+    STATE_CHANGE("notif_reason_state_change", "state_change"),
+    CI_ACTIVITY("notif_reason_ci_activity", "ci_activity"),
+}
 
 @HiltViewModel
 class NotificationsViewModel @Inject constructor(
@@ -31,7 +46,11 @@ class NotificationsViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
+    private val _actionMessage = MutableStateFlow<String?>(null)
+    val actionMessage: StateFlow<String?> = _actionMessage
+
     var currentTab = MutableStateFlow(NotifTab.UNREAD)
+    var reasonFilter = MutableStateFlow(ReasonFilter.ALL)
 
     init { load() }
 
@@ -56,6 +75,11 @@ class NotificationsViewModel @Inject constructor(
         load(all = tab == NotifTab.READ)
     }
 
+    fun switchReasonFilter(filter: ReasonFilter) {
+        if (reasonFilter.value == filter) return
+        reasonFilter.value = filter
+    }
+
     fun refresh() = load()
 
     fun markRead(threadId: String) {
@@ -77,6 +101,23 @@ class NotificationsViewModel @Inject constructor(
         }
     }
 
+    fun unsubscribe(threadId: String) {
+        // Optimistic local hide — same pattern as markRead, but also pull the thread
+        // out of the list entirely so the user sees it disappear immediately.
+        val before = _notifications.value
+        _notifications.update { list -> list.filter { it.id != threadId } }
+        viewModelScope.launch {
+            try {
+                api.unsubscribeThread(threadId)
+                _actionMessage.update { "已取消订阅此话题" }
+            } catch (e: Exception) {
+                // Unsubscribe failed — restore the thread so the user can retry.
+                _notifications.value = before
+                _actionMessage.update { e.localizedMessage ?: "取消订阅失败" }
+            }
+        }
+    }
+
     fun markAllRead() {
         viewModelScope.launch {
             try {
@@ -90,6 +131,8 @@ class NotificationsViewModel @Inject constructor(
             }
         }
     }
+
+    fun clearActionMessage() { _actionMessage.value = null }
 
     /**
      * GitHub's `all=true` list keeps `unread=true` for threads that were read and later

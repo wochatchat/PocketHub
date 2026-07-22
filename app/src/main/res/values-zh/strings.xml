@@ -104,6 +104,24 @@
     <string name="tab_read">已读</string>
     <string name="no_notifications">没有通知</string>
     <string name="cd_mark_read">标为已读</string>
+
+    <!-- 通知 -->
+    <string name="cd_notif_actions">通知操作</string>
+    <string name="action_mark_read">标为已读</string>
+    <string name="action_unsubscribe">取消订阅</string>
+    <string name="notif_unsub_confirm_title">取消订阅该话题？</string>
+    <string name="notif_unsub_confirm_message">将不再接收该话题的通知。</string>
+    <string name="notif_reason_all">全部</string>
+    <string name="notif_reason_assign">指派给我</string>
+    <string name="notif_reason_mention">@提及我</string>
+    <string name="notif_reason_review_requested">请求 review</string>
+    <string name="notif_reason_author">我创建的</string>
+    <string name="notif_reason_state_change">状态变更</string>
+    <string name="notif_reason_ci_activity">CI 活动</string>
+    <string name="notif_reason_comment">评论</string>
+    <string name="notif_reason_team_mention">团队 @ 提及</string>
+    <string name="notif_reason_manual">手动</string>
+    <string name="notif_reason_subscribed">已订阅</string>
     <string name="cd_toggle_visibility">切换可见性</string>
 
     <!-- Profile -->

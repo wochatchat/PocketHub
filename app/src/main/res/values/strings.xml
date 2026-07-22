@@ -119,6 +119,24 @@
     <string name="tab_read">Read</string>
     <string name="no_notifications">No notifications</string>
     <string name="cd_mark_read">Mark read</string>
+
+    <!-- Notifications -->
+    <string name="cd_notif_actions">Notification actions</string>
+    <string name="action_mark_read">Mark read</string>
+    <string name="action_unsubscribe">Unsubscribe</string>
+    <string name="notif_unsub_confirm_title">Unsubscribe from this thread?</string>
+    <string name="notif_unsub_confirm_message">You will no longer receive notifications about this thread.</string>
+    <string name="notif_reason_all">All</string>
+    <string name="notif_reason_assign">Assigned</string>
+    <string name="notif_reason_mention">@Mentioned</string>
+    <string name="notif_reason_review_requested">Review requested</string>
+    <string name="notif_reason_author">Created by you</string>
+    <string name="notif_reason_state_change">State change</string>
+    <string name="notif_reason_ci_activity">CI activity</string>
+    <string name="notif_reason_comment">Comment</string>
+    <string name="notif_reason_team_mention">Team @mention</string>
+    <string name="notif_reason_manual">Manual</string>
+    <string name="notif_reason_subscribed">Subscribed</string>
     <string name="cd_toggle_visibility">Toggle visibility</string>
 
     <!-- Profile -->

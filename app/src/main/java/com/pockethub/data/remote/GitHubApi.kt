@@ -761,6 +761,12 @@ interface GitHubApi {
         @Path("thread_id") threadId: String,
     ): Response<Unit>
 
+    /** Unsubscribe from a thread (no future notifications for this thread). */
+    @DELETE("notifications/threads/{thread_id}/subscription")
+    suspend fun unsubscribeThread(
+        @Path("thread_id") threadId: String,
+    ): Response<Unit>
+
     /** Mark all notifications as read. */
     @PUT("notifications")
     suspend fun markAllNotificationsRead(): Response<Unit>
