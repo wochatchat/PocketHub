@@ -524,7 +524,7 @@ private fun ActivityCard(
     event: FeedEvent,
     onNavigateToRepo: (String) -> Unit,
 ) {
-    val (icon, verb): Pair<androidx.compose.ui.graphics.vector.ImageVector, String> = when (event.type) {
+    val pair: Pair<androidx.compose.ui.graphics.vector.ImageVector, String> = when (event.type) {
         "PushEvent" -> Icons.Outlined.CloudUpload to stringResource(R.string.event_pushed)
         "WatchEvent" -> Icons.Outlined.Star to stringResource(R.string.event_starred)
         "ForkEvent" -> Icons.Outlined.ForkRight to stringResource(R.string.event_forked)
@@ -537,6 +537,7 @@ private fun ActivityCard(
         "PublicEvent" -> Icons.Outlined.Public to stringResource(R.string.event_made_public)
         else -> Icons.Outlined.History to event.type.removeSuffix("Event")
     }
+    val (icon, verb) = pair
 
     val repoName = event.repo?.name ?: ""
     val summary = when (event.type) {
