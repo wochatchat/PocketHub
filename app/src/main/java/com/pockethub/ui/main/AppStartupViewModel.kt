@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.pockethub.data.remote.AccountRepository
 import com.pockethub.data.remote.AuthInterceptor
 import com.pockethub.data.remote.NotifScheduler
+import com.pockethub.data.remote.SessionEventBus
 import com.pockethub.data.remote.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow

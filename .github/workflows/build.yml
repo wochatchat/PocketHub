@@ -50,3 +50,16 @@ jobs:
           gh release create "v${VERSION_NAME}" "$APK" \
             --title "PocketHub v${VERSION_NAME}" \
             --notes "Auto-built release APK for PocketHub v${VERSION_NAME}."
+
+          # Prune old releases/tags, keep only the newest 2.
+          # `gh release list` output columns: Title / Type / Tag / Published
+          # Sort by Published ascending so the oldest are at the top.
+          mapfile -t ALL_TAGS < <(gh release list --json tagName --jq '.[].tagName' | sort -V -r)
+          TOTAL=${#ALL_TAGS[@]}
+          echo "Found $TOTAL releases, keeping newest 2"
+          if [ "$TOTAL" -gt 2 ]; then
+            for tag in "${ALL_TAGS[@]:2}"; do
+              echo "Pruning old release+tag: $tag"
+              gh release delete "$tag" --yes --cleanup-tag 2>/dev/null || true
+            done
+          fi

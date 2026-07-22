@@ -7,9 +7,12 @@
 # The script reads/writes version.properties for auto-increment.
 #
 # Archived APK path: apk/pockethub-<versionName>.apk
+# Local archive keeps only the newest 2 APKs (pruned below).
+#
 # The CI workflow (build.yml) also creates a matching GitHub Release (tag vX.Y.Z)
 # with that APK as an asset — the app's in-app updater polls GitHub Releases
-# to detect and prompt new versions.
+# to detect and prompt new versions. The CI keeps only the newest 2 Releases/tags
+# on GitHub as well (old ones are pruned in build.yml).
 
 set -euo pipefail
 cd "$(dirname "$0")"
