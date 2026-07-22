@@ -33,6 +33,7 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.material3.AlertDialog
@@ -105,6 +106,10 @@ fun SettingsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+
+    // Manual update check — independent Hilt VM so the same UpdateDialog is reused.
+    val updateVm: com.pockethub.ui.main.UpdateViewModel = hiltViewModel()
+    val updateState by updateVm.state.collectAsState()
 
     // Compute cache size once on entry so the user sees current disk usage.
     LaunchedEffect(Unit) {
@@ -231,6 +236,25 @@ fun SettingsScreen(
 
             SectionHeader(stringResource(R.string.section_about))
             ListItem(
+                leadingContent = { Icon(Icons.Outlined.SystemUpdate, contentDescription = null) },
+                headlineContent = { Text(stringResource(R.string.update_check_now)) },
+                supportingContent = {
+                    Text(
+                        when (updateState) {
+                            is com.pockethub.ui.main.UpdateViewModel.State.Checking -> stringResource(R.string.update_checking)
+                            is com.pockethub.ui.main.UpdateViewModel.State.UpToDate -> stringResource(R.string.update_uptodate)
+                            is com.pockethub.ui.main.UpdateViewModel.State.Error -> stringResource(R.string.update_check_failed)
+                            is com.pockethub.ui.main.UpdateViewModel.State.UpdateAvailable -> {
+                                val v = (updateState as com.pockethub.ui.main.UpdateViewModel.State.UpdateAvailable).info.latestVersionName
+                                "${v} →"
+                            }
+                            else -> stringResource(R.string.update_check_summary)
+                        }
+                    )
+                },
+                modifier = Modifier.clickable { updateVm.manualCheck() },
+            )
+            ListItem(
                 leadingContent = { Icon(Icons.Outlined.Info, contentDescription = null) },
                 headlineContent = { Text(stringResource(R.string.about_pockethub)) },
                 supportingContent = { Text(stringResource(R.string.version_template, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)) },
@@ -305,6 +329,30 @@ fun SettingsScreen(
             },
             dismissButton = { TextButton(onClick = { showSignOutDialog = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
+    }
+
+    // Manual update check results.
+    when (val s = updateState) {
+        is com.pockethub.ui.main.UpdateViewModel.State.UpdateAvailable ->
+            com.pockethub.ui.main.UpdateDialog(
+                info = s.info,
+                onDownload = { updateVm.dismiss() },
+                onIgnore = { updateVm.ignoreVersion(s.info.latestVersionName) },
+                onLater = { updateVm.dismiss() },
+            )
+        is com.pockethub.ui.main.UpdateViewModel.State.UpToDate -> {
+            LaunchedEffect(s) {
+                snackbarHostState.showSnackbar(context.getString(R.string.update_uptodate))
+                updateVm.dismiss()
+            }
+        }
+        is com.pockethub.ui.main.UpdateViewModel.State.Error -> {
+            LaunchedEffect(s) {
+                snackbarHostState.showSnackbar(context.getString(R.string.update_check_failed))
+                updateVm.dismiss()
+            }
+        }
+        else -> Unit
     }
 }
 

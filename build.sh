@@ -5,6 +5,11 @@
 #
 # Requirements: ANDROID_HOME set, gradlew in project root.
 # The script reads/writes version.properties for auto-increment.
+#
+# Archived APK path: apk/pockethub-<versionName>.apk
+# The CI workflow (build.yml) also creates a matching GitHub Release (tag vX.Y.Z)
+# with that APK as an asset — the app's in-app updater polls GitHub Releases
+# to detect and prompt new versions.
 
 set -euo pipefail
 cd "$(dirname "$0")"

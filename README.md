@@ -31,6 +31,12 @@ Tabs: Overview (README) · Code (file tree) · Issues · PRs · Commits · Relea
 - Cache-first display with per-entry TTL
 - Background system alerts for new unread notifications (WorkManager, deduplicated)
 
+### Self-Update
+- On launch and in Settings, the app polls the project's GitHub Releases
+- A newer stable release triggers an in-app dialog (download / ignore this version / remind later)
+- Ignored versions won't prompt again until a newer one ships
+- Pre-releases are never surfaced automatically
+
 ### Multi-account
 - Sign in with multiple GitHub accounts simultaneously
 - Quick switch between accounts

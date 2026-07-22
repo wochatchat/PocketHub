@@ -85,6 +85,14 @@ fun PocketHubApp(
     val startRoute by appVm.startRoute.collectAsState()
     val signedOut by appVm.signedOut.collectAsState()
 
+    // In-app update check (auto on launch; manual from Settings).
+    val updateVm: UpdateViewModel = hiltViewModel()
+    val updateState by updateVm.state.collectAsState()
+
+    // Run the throttled auto-check once on launch — the ViewModel handles the
+    // 24h interval and the "ignored version" gates.
+    androidx.compose.runtime.LaunchedEffect(Unit) { updateVm.maybeAutoCheck() }
+
     // Observe signedOut to empty the nav stack back to Login when the user signs out.
     androidx.compose.runtime.LaunchedEffect(signedOut) {
         if (signedOut) {
@@ -320,6 +328,21 @@ fun PocketHubApp(
                     )
                 }
             }
+        }
+
+        // Update dialog — surfaced on top of the nav graph whenever a newer
+        // non-ignored release is detected. Auto-check runs on launch; Settings
+        // offers a manual trigger via the same flow.
+        when (val s = updateState) {
+            is UpdateViewModel.State.UpdateAvailable -> {
+                UpdateDialog(
+                    info = s.info,
+                    onDownload = { updateVm.dismiss() },
+                    onIgnore = { updateVm.ignoreVersion(s.info.latestVersionName) },
+                    onLater = { updateVm.dismiss() },
+                )
+            }
+            else -> Unit
         }
     }
 }

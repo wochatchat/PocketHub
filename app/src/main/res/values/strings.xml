@@ -35,6 +35,19 @@
     <string name="action_new_issue">New issue</string>
     <string name="action_create_issue">Create issue</string>
     <string name="action_back">Back</string>
+
+    <!-- Update -->
+    <string name="update_check_now">Check for updates</string>
+    <string name="update_check_summary">Manually check GitHub Releases for a newer version</string>
+    <string name="update_available_title">Update available</string>
+    <string name="update_version_line">Version %1$s is now available</string>
+    <string name="update_published">Released %1$s</string>
+    <string name="update_uptodate">You\'re on the latest version</string>
+    <string name="update_check_failed">Couldn\'t check for updates — try again later</string>
+    <string name="action_ignore_version">Ignore this version</string>
+    <string name="action_remind_later">Remind me later</string>
+    <string name="update_checking">Checking for updates…</string>
+
     <string name="create_issue_title">New issue</string>
     <string name="hint_issue_title">Title</string>
     <string name="hint_issue_body">Body (optional)</string>

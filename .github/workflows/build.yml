@@ -37,3 +37,16 @@ jobs:
           git add version.properties apk/
           git commit -m "chore: release v$(grep '^versionName=' version.properties | cut -d= -f2) [skip ci]" || true
           git push
+
+      - name: Create GitHub Release with APK asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION_NAME=$(grep '^versionName=' version.properties | cut -d= -f2)
+          APK=$(ls apk/pockethub-${VERSION_NAME}.apk 2>/dev/null | head -1)
+          [ -z "$APK" ] && { echo "No APK found, skipping release"; exit 0; }
+          # Replace existing release/tag if re-running on the same version.
+          gh release delete "v${VERSION_NAME}" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "v${VERSION_NAME}" "$APK" \
+            --title "PocketHub v${VERSION_NAME}" \
+            --notes "Auto-built release APK for PocketHub v${VERSION_NAME}."

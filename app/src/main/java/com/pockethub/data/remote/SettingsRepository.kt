@@ -36,6 +36,8 @@ class SettingsRepository @Inject constructor(
         val NOTIFIED_IDS = stringPreferencesKey("notified_ids")
         val TRANSLATE_TARGET = stringPreferencesKey("translate_target")
         val STORE_LAST_REFRESH = intPreferencesKey("store_last_refresh_epoch_min")
+        val IGNORED_UPDATE_VERSION = stringPreferencesKey("ignored_update_version")
+        val LAST_UPDATE_CHECK_MS = intPreferencesKey("last_update_check_epoch_ms")
     }
 
     // ── Theme ─────────────────────────────────────────────
@@ -125,6 +127,37 @@ class SettingsRepository @Inject constructor(
                 .split(',').filter { it.isNotBlank() }
             val merged = (existing + ids).distinct().takeLast(KEEP)
             prefs[Keys.NOTIFIED_IDS] = merged.joinToString(",")
+        }
+    }
+
+    // ── App update (GitHub Releases) ───────────────────────
+    /**
+     * Version name the user has explicitly ignored. We will not surface the
+     * update dialog for this version again until a newer version is released.
+     * Empty string means nothing ignored.
+     */
+    val ignoredUpdateVersion: Flow<String> = context.dataStore.data.map {
+        it[Keys.IGNORED_UPDATE_VERSION].orEmpty()
+    }
+
+    suspend fun setIgnoredUpdateVersion(version: String) {
+        context.dataStore.edit { prefs ->
+            if (version.isBlank()) prefs.remove(Keys.IGNORED_UPDATE_VERSION)
+            else prefs[Keys.IGNORED_UPDATE_VERSION] = version
+        }
+    }
+
+    /** Epoch millis of the last automatic update check, used to throttle (min interval). */
+    suspend fun getLastUpdateCheckMs(): Long {
+        return context.dataStore.data.map { prefs ->
+            (prefs[Keys.LAST_UPDATE_CHECK_MS]?.toLong() ?: 0L) * 1000L
+        }.first()
+    }
+
+    /** Persist epoch millis — stored as int (seconds) since DataStore prefs are typed. */
+    suspend fun markUpdateCheckedNow() {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.LAST_UPDATE_CHECK_MS] = (System.currentTimeMillis() / 1000L).toInt()
         }
     }
 
