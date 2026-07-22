@@ -37,5 +37,8 @@ GitHub 代码归属与默认推送目标
 - Category: 工作流协作
 - Instructions:
   - 本项目对应的 GitHub 仓库是 wochatchat/PocketHub（origin 已指向该仓库），这是用户本人的代码库
-  - 提交代码时若用户未特别说明，默认推送到此 GitHub 仓库（wochatchat 的 origin）
-  - 不要推送到任何其他账号或仓库，避免搞错归属
+  - 提交代码时若用户未特别说明，默认推送到此 GitHub 仓库（wochatchat 的 origin），不要推送到任何其他账号或仓库
+  - 改完代码并自检无误后，直接提交并推送到主分支（main）；不特意指定新开分支时，一律走主分支，不额外创建 feat/fix 分支
+  - 仅在用户明确要求新开分支时才创建分支
+  - 推送前先尝试 `git pull --no-rebase origin main` 合入远端最新的 CI 自动 commit，避免 push 被拒
+

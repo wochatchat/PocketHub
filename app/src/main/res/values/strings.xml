@@ -46,7 +46,10 @@
     <string name="update_check_failed">Couldn\'t check for updates — try again later</string>
     <string name="action_ignore_version">Ignore this version</string>
     <string name="action_remind_later">Remind me later</string>
+    <string name="action_install">Install</string>
     <string name="update_checking">Checking for updates…</string>
+    <string name="update_downloaded_ready">Download complete — tapping Install will run the system updater.</string>
+    <string name="update_download_failed">Download failed: %1$s</string>
 
     <string name="create_issue_title">New issue</string>
     <string name="hint_issue_title">Title</string>

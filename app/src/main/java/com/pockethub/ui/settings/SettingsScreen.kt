@@ -332,11 +332,16 @@ fun SettingsScreen(
     }
 
     // Manual update check results.
+    val updateDownload by updateVm.download.collectAsState()
     when (val s = updateState) {
         is com.pockethub.ui.main.UpdateViewModel.State.UpdateAvailable ->
             com.pockethub.ui.main.UpdateDialog(
                 info = s.info,
-                onDownload = { updateVm.dismiss() },
+                downloadState = updateDownload,
+                onDownload = { updateVm.startDownload(s.info) },
+                onCancel = { updateVm.cancelDownload() },
+                onInstall = { path -> updateVm.install(context, path) },
+                onRetry = { updateVm.startDownload(s.info) },
                 onIgnore = { updateVm.ignoreVersion(s.info.latestVersionName) },
                 onLater = { updateVm.dismiss() },
             )

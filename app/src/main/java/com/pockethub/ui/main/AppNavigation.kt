@@ -88,6 +88,7 @@ fun PocketHubApp(
     // In-app update check (auto on launch; manual from Settings).
     val updateVm: UpdateViewModel = hiltViewModel()
     val updateState by updateVm.state.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     // Run the throttled auto-check once on launch — the ViewModel handles the
     // 24h interval and the "ignored version" gates.
@@ -333,11 +334,16 @@ fun PocketHubApp(
         // Update dialog — surfaced on top of the nav graph whenever a newer
         // non-ignored release is detected. Auto-check runs on launch; Settings
         // offers a manual trigger via the same flow.
+        val updateDownload by updateVm.download.collectAsState()
         when (val s = updateState) {
             is UpdateViewModel.State.UpdateAvailable -> {
                 UpdateDialog(
                     info = s.info,
-                    onDownload = { updateVm.dismiss() },
+                    downloadState = updateDownload,
+                    onDownload = { updateVm.startDownload(s.info) },
+                    onCancel = { updateVm.cancelDownload() },
+                    onInstall = { path -> updateVm.install(context, path) },
+                    onRetry = { updateVm.startDownload(s.info) },
                     onIgnore = { updateVm.ignoreVersion(s.info.latestVersionName) },
                     onLater = { updateVm.dismiss() },
                 )

@@ -4,4 +4,6 @@
         name="downloads"
         path="Download/PocketHub/" />
     <external-path name="ext" path="." />
+    <!-- In-app update APKs land in cache so they're auto-purged on uninstall. -->
+    <cache-path name="updates" path="updates/" />
 </paths>

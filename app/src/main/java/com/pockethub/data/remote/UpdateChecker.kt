@@ -1,7 +1,6 @@
 package com.pockethub.data.remote
 
 import com.pockethub.BuildConfig
-import com.pockethub.data.remote.GitHubApi.Release
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -24,6 +23,8 @@ class UpdateChecker @Inject constructor(
         val latestVersionName: String,
         val latestVersionCode: Int,
         val downloadUrl: String?,
+        val downloadAssetName: String?,
+        val assetSizeBytes: Long,
         val htmlUrl: String?,
         val releaseNotes: String?,
         val isPreRelease: Boolean,
@@ -41,12 +42,16 @@ class UpdateChecker @Inject constructor(
                     .firstOrNull()
                     ?: return@runCatching null
 
+                // Prefer an .apk asset; fall back to the first asset if none matches.
+                val apkAsset = pick.assets.firstOrNull { it.name.endsWith(".apk", ignoreCase = true) }
+                    ?: pick.assets.firstOrNull()
                 val tagName = pick.tagName.removePrefix("v").trim()
-                val code = pick.assets.firstOrNull()?.name?.let { inferCodeFromName(it) } ?: 0
                 UpdateInfo(
                     latestVersionName = tagName,
-                    latestVersionCode = code,
-                    downloadUrl = pick.assets.firstOrNull()?.browserDownloadUrl,
+                    latestVersionCode = 0,
+                    downloadUrl = apkAsset?.browserDownloadUrl,
+                    downloadAssetName = apkAsset?.name,
+                    assetSizeBytes = apkAsset?.size ?: 0L,
                     htmlUrl = pick.htmlUrl,
                     releaseNotes = pick.body,
                     isPreRelease = pick.prerelease,
@@ -71,12 +76,6 @@ class UpdateChecker @Inject constructor(
             val bi = pb.getOrElse(i) { 0 }
             if (ai != bi) return ai - bi
         }
-        return 0
-    }
-
-    /** Try to find an Android APK asset and read a versionCode from its name, else 0. */
-    private fun inferCodeFromName(name: String): Int {
-        // Archive naming convention: pockethub-<version>.apk — code not encoded; keep 0.
         return 0
     }
 }
