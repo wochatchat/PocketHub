@@ -38,6 +38,10 @@
     <string name="create_issue_title">提 issue</string>
     <string name="hint_issue_title">标题</string>
     <string name="hint_issue_body">正文（可选）</string>
+    <string name="issue_template_browser_title">提 issue</string>
+    <string name="issue_template_picker_hint">选择模板或新建空白 issue。</string>
+    <string name="issue_template_blank">空白 issue</string>
+    <string name="issue_template_blank_desc">不使用模板。</string>
     <string name="fork_dialog_title">Fork 这个仓库？</string>
     <string name="fork_dialog_message">将 %1$s Fork 到你的账号。</string>
     <string name="browse_history">浏览历史</string>

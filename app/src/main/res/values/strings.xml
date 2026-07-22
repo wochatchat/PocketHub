@@ -54,6 +54,10 @@
     <string name="create_issue_title">New issue</string>
     <string name="hint_issue_title">Title</string>
     <string name="hint_issue_body">Body (optional)</string>
+    <string name="issue_template_browser_title">New issue</string>
+    <string name="issue_template_picker_hint">Pick a template to get started, or open a blank issue.</string>
+    <string name="issue_template_blank">Blank issue</string>
+    <string name="issue_template_blank_desc">Open a plain issue without a template.</string>
     <string name="fork_dialog_title">Fork this repository?</string>
     <string name="fork_dialog_message">Fork %1$s to your account.</string>
     <string name="browse_history">Browse history</string>
