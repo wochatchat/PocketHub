@@ -354,6 +354,15 @@
     <string name="no_followers">还没有粉丝</string>
     <string name="not_following_anyone">还没有关注任何人</string>
 
+    <!-- 个人首页工作台 -->
+    <string name="work_list_title">工作台</string>
+    <string name="work_tab_assigned">指派给我的</string>
+    <string name="work_tab_mentioned">提及我的</string>
+    <string name="work_tab_created">我创建的</string>
+    <string name="work_tab_involved">与我相关</string>
+    <string name="work_list_empty">没有需要处理的内容，已全部搞定。</string>
+    <string name="work_list_more">还有 %1$d 条</string>
+
     <!-- 应用更新 -->
     <string name="update_check_now">检查更新</string>
     <string name="update_check_summary">手动检查 GitHub Releases 是否有新版本</string>

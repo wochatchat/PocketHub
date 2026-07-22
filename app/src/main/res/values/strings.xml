@@ -369,4 +369,13 @@
     <string name="user_not_found">User not found</string>
     <string name="no_followers">No followers yet</string>
     <string name="not_following_anyone">Not following anyone yet</string>
+
+    <!-- Profile work-list -->
+    <string name="work_list_title">Work list</string>
+    <string name="work_tab_assigned">Assigned</string>
+    <string name="work_tab_mentioned">Mentioned</string>
+    <string name="work_tab_created">Created</string>
+    <string name="work_tab_involved">Involved</string>
+    <string name="work_list_empty">Nothing to handle — you\'re all caught up.</string>
+    <string name="work_list_more">+ %1$d more</string>
 </resources>

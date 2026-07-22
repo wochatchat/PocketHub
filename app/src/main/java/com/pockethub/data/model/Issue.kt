@@ -34,6 +34,10 @@ data class Issue(
 
     // PR-specific (present when ?pulls endpoint is used)
     @SerialName("pull_request") val pullRequest: PullRequestRef? = null,
+
+    // Only present on /search/issues responses — lets a work-list surface the
+    // owning repo without re-fetching. Null on the per-repo issues endpoint.
+    @SerialName("repository") val repository: com.pockethub.data.model.Repository? = null,
 ) {
     @Serializable
     data class Label(

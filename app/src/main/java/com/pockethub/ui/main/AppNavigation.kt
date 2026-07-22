@@ -157,6 +157,8 @@ fun PocketHubApp(
                         modifier = Modifier.fillMaxSize(),
                         onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                         onNavigateToRepo = { owner, repo -> navController.navigate(Routes.repoDetail(owner, repo)) },
+                        onNavigateToIssue = { o, r, n -> navController.navigate(Routes.issueDetail(o, r, n)) },
+                        onNavigateToPR = { o, r, n -> navController.navigate(Routes.prDetail(o, r, n)) },
                         onBack = { navController.popBackStack() },
                     )
                 }

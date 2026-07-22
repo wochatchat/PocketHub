@@ -786,6 +786,21 @@ interface GitHubApi {
         @Query("per_page") perPage: Int = 20,
     ): SearchCodeResult
 
+    /**
+     * Global search — issues & pull requests (GitHub's /search/issues endpoint
+     * returns both; use `is:issue` / `is:pr` to scope). Backs the Profile work-list
+     * ("Assigned to me", "Mentions me", "Created by me") via qualifier strings like
+     * `assignee:<login> state:open`, `involves:<login>`, `author:<login>`.
+     */
+    @GET("search/issues")
+    suspend fun searchIssues(
+        @Query("q") query: String,
+        @Query("sort") sort: String = "updated",
+        @Query("order") order: String = "desc",
+        @Query("per_page") perPage: Int = 30,
+        @Query("page") page: Int = 1,
+    ): SearchIssueResult
+
     // ──────────────────────────────────────────────
     //  Generic / raw endpoint for OAuth token exchange
     // ──────────────────────────────────────────────
@@ -831,6 +846,14 @@ interface GitHubApi {
         val path: String = "",
         @kotlinx.serialization.SerialName("html_url") val htmlUrl: String = "",
         val repository: Repository? = null,
+    )
+
+    /** Wrapper returned by /search/issues (issues + PRs share this shape). */
+    @kotlinx.serialization.Serializable
+    data class SearchIssueResult(
+        val total_count: Int = 0,
+        val incomplete_results: Boolean = false,
+        val items: List<com.pockethub.data.model.Issue> = emptyList(),
     )
 
     @kotlinx.serialization.Serializable
