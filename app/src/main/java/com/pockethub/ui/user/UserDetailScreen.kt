@@ -28,20 +28,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
-import androidx.compose.material.icons.automirrored.outlined.Update
 import androidx.compose.material.icons.outlined.Apartment
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Comment
 import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.GrpNewReleases
+import androidx.compose.material.icons.outlined.ForkRight
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Merge
 import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.material.icons.outlined.Public
-import androidx.compose.material.icons.outlined.ReportProblem
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Button
@@ -524,14 +524,14 @@ private fun ActivityCard(
     event: FeedEvent,
     onNavigateToRepo: (String) -> Unit,
 ) {
-    val (icon, verb) = when (event.type) {
+    val (icon, verb): Pair<androidx.compose.ui.graphics.vector.ImageVector, String> = when (event.type) {
         "PushEvent" -> Icons.Outlined.CloudUpload to stringResource(R.string.event_pushed)
         "WatchEvent" -> Icons.Outlined.Star to stringResource(R.string.event_starred)
-        "ForkEvent" -> Icons.Outlined.GrpNewReleases to stringResource(R.string.event_forked)
+        "ForkEvent" -> Icons.Outlined.ForkRight to stringResource(R.string.event_forked)
         "CreateEvent" -> Icons.Outlined.CreateNewFolder to stringResource(R.string.event_created)
         "IssueCommentEvent" -> Icons.Outlined.Comment to stringResource(R.string.event_commented)
-        "IssuesEvent" -> Icons.Outlined.ReportProblem to stringResource(R.string.event_opened_issue)
-        "PullRequestEvent" -> Icons.AutoMirrored.Outlined.Update to stringResource(R.string.event_pull_request)
+        "IssuesEvent" -> Icons.Outlined.ErrorOutline to stringResource(R.string.event_opened_issue)
+        "PullRequestEvent" -> Icons.Outlined.Merge to stringResource(R.string.event_pull_request)
         "ReleaseEvent" -> Icons.Outlined.NewReleases to stringResource(R.string.event_released)
         "DeleteEvent" -> Icons.Outlined.Delete to stringResource(R.string.event_deleted)
         "PublicEvent" -> Icons.Outlined.Public to stringResource(R.string.event_made_public)
