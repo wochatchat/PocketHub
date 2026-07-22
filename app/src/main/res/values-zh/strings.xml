@@ -200,6 +200,11 @@
     <string name="no_workflow_runs">没有工作流运行记录</string>
     <string name="workflow_run_status">#%1$d · %2$s · %3$s</string>
     <string name="action_dispatch_workflow">运行工作流</string>
+    <string name="action_cancel_run">取消</string>
+    <string name="action_rerun_run">重新运行</string>
+    <string name="action_open_logs">查看日志</string>
+    <string name="workflow_runs_jobs_count">个任务</string>
+    <string name="workflow_run_steps_label">步骤</string>
     <string name="workflow_dispatch_title">手动运行工作流</string>
     <string name="workflow_dispatch_select">选择要触发的工作流</string>
     <string name="workflow_dispatch_empty">此仓库没有可用的工作流。</string>

@@ -1144,4 +1144,80 @@ interface GitHubApi {
     /** GraphQL endpoint (currently maps to https://api.github.com/graphql). */
     @POST("graphql")
     suspend fun graphQL(@Body body: GraphQLRequest): GraphQLResponse
+
+    // ──────────────────────────────────────────────
+    //  GitHub Actions — workflow run jobs & per-job logs
+    //  (https://docs.github.com/en/rest/actions/workflow-jobs)
+    // ──────────────────────────────────────────────
+
+    /** List jobs for a specific workflow run. */
+    @GET("repos/{owner}/{repo}/actions/runs/{run_id}/jobs")
+    suspend fun getWorkflowRunJobs(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("run_id") runId: Long,
+        @Query("per_page") perPage: Int = 100,
+        @Query("page") page: Int = 1,
+        @Query("filter") filter: String = "latest",
+    ): WorkflowJobsResponse
+
+    /**
+     * Per-job logs endpoint. GitHub responds with HTTP 302 to a signed
+     * objects.githubusercontent.com URL (zip). The retrofit call therefore must
+     * use [retrofit2.Response] to surface the Location header for callers that
+     * want to follow it themselves, or for callers that just want a 302 sentinel.
+     */
+    @GET("repos/{owner}/{repo}/actions/jobs/{job_id}/logs")
+    suspend fun getWorkflowJobLogsUrl(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("job_id") jobId: Long,
+    ): retrofit2.Response<Unit>
+
+    @PUT("repos/{owner}/{repo}/actions/runs/{run_id}/cancel")
+    suspend fun cancelWorkflowRun(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("run_id") runId: Long,
+    ): retrofit2.Response<Unit>
+
+    @POST("repos/{owner}/{repo}/actions/runs/{run_id}/rerun")
+    suspend fun rerunWorkflowRun(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("run_id") runId: Long,
+    ): retrofit2.Response<Unit>
+
+    @kotlinx.serialization.Serializable
+    data class WorkflowJobsResponse(
+        @kotlinx.serialization.SerialName("total_count") val totalCount: Int = 0,
+        val jobs: List<WorkflowJob> = emptyList(),
+    )
+
+    @kotlinx.serialization.Serializable
+    data class WorkflowJob(
+        val id: Long = 0,
+        @kotlinx.serialization.SerialName("run_id") val runId: Long = 0,
+        @kotlinx.serialization.SerialName("node_id") val nodeId: String? = null,
+        @kotlinx.serialization.SerialName("head_sha") val headSha: String? = null,
+        val status: String? = null,              // queued | in_progress | completed
+        val conclusion: String? = null,          // success | failure | cancelled | skipped | neutral
+        val name: String = "",
+        val steps: List<WorkflowStep> = emptyList(),
+        @kotlinx.serialization.SerialName("html_url") val htmlUrl: String? = null,
+        @kotlinx.serialization.SerialName("started_at") val startedAt: String? = null,
+        @kotlinx.serialization.SerialName("completed_at") val completedAt: String? = null,
+        val runnerName: String? = null,
+        @kotlinx.serialization.SerialName("runner_group_id") val runnerGroupId: Long? = null,
+    )
+
+    @kotlinx.serialization.Serializable
+    data class WorkflowStep(
+        val name: String = "",
+        val status: String = "",                // queued | in_progress | completed
+        val conclusion: String? = null,         // success | failure | cancelled | skipped
+        val number: Int = 0,
+        @kotlinx.serialization.SerialName("started_at") val startedAt: String? = null,
+        @kotlinx.serialization.SerialName("completed_at") val completedAt: String? = null,
+    )
 }

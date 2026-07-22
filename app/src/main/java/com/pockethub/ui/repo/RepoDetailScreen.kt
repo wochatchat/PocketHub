@@ -100,6 +100,7 @@ fun RepoDetailScreen(
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToSearch: (String) -> Unit = {},
     onNavigateToDownloads: (tab: String) -> Unit = { _ -> },
+    onNavigateToWorkflowRun: (Long) -> Unit = {},
     onBack: () -> Unit,
     vm: RepoDetailViewModel = hiltViewModel(),
     downloadVm: com.pockethub.ui.download.DownloadViewModel = hiltViewModel(),
@@ -403,6 +404,7 @@ fun RepoDetailScreen(
                 RepoTab.WORKFLOWS -> WorkflowsTab(
                     workflowRuns,
                     onNavigateToUser = onNavigateToUser,
+                    onNavigateToWorkflowRun = onNavigateToWorkflowRun,
                 )
                 RepoTab.WIKI -> WikiTab(
                     owner = owner,
@@ -1011,6 +1013,7 @@ private fun ReleasesTab(
 private fun WorkflowsTab(
     runs: List<GitHubApi.WorkflowRun>,
     onNavigateToUser: (String) -> Unit = {},
+    onNavigateToWorkflowRun: (Long) -> Unit = {},
 ) {
     if (runs.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -1021,7 +1024,9 @@ private fun WorkflowsTab(
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         items(runs, key = { it.id }) { run ->
             Row(
-                Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                Modifier.fillMaxWidth()
+                    .clickable { onNavigateToWorkflowRun(run.id) }
+                    .padding(vertical = 10.dp),
                 verticalAlignment = Alignment.Top,
             ) {
                 // Status dot

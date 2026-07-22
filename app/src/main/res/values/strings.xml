@@ -215,6 +215,11 @@
     <string name="no_workflow_runs">No workflow runs</string>
     <string name="workflow_run_status">#%1$d · %2$s · %3$s</string>
     <string name="action_dispatch_workflow">Run workflow</string>
+    <string name="action_cancel_run">Cancel</string>
+    <string name="action_rerun_run">Re-run</string>
+    <string name="action_open_logs">View logs</string>
+    <string name="workflow_runs_jobs_count">jobs</string>
+    <string name="workflow_run_steps_label">Steps</string>
     <string name="workflow_dispatch_title">Run a workflow</string>
     <string name="workflow_dispatch_select">Select a workflow to trigger</string>
     <string name="workflow_dispatch_empty">No active workflows in this repository.</string>

@@ -54,6 +54,7 @@ object Routes {
     const val ISSUE_DETAIL = "repo/{owner}/{repo}/issues/{number}"
     const val PR_DETAIL = "repo/{owner}/{repo}/pulls/{number}"
     const val COMMIT_DETAIL = "repo/{owner}/{repo}/commits/{sha}"
+    const val WORKFLOW_RUN_DETAIL = "repo/{owner}/{repo}/actions/runs/{runId}"
     const val USER_DETAIL = "user/{login}"
     const val HISTORY = "history"
     const val DOWNLOADS = "downloads?tab={tab}"
@@ -65,6 +66,7 @@ object Routes {
     fun issueDetail(owner: String, repo: String, number: Int) = "repo/$owner/$repo/issues/$number"
     fun prDetail(owner: String, repo: String, number: Int) = "repo/$owner/$repo/pulls/$number"
     fun commitDetail(owner: String, repo: String, sha: String) = "repo/$owner/$repo/commits/$sha"
+    fun workflowRunDetail(owner: String, repo: String, runId: Long) = "repo/$owner/$repo/actions/runs/$runId"
     fun search(query: String = "") = "search?query=${java.net.URLEncoder.encode(query, "UTF-8")}"
     fun userDetail(login: String) = "user/$login"
 }
@@ -223,6 +225,7 @@ fun PocketHubApp(
                         onNavigateToUser = { login -> navController.navigate(Routes.userDetail(login)) },
                         onNavigateToSearch = { query -> navController.navigate(Routes.search(query)) },
                         onNavigateToDownloads = { tab -> navController.navigate(Routes.downloads(tab)) },
+                        onNavigateToWorkflowRun = { runId -> navController.navigate(Routes.workflowRunDetail(owner, repo, runId)) },
                         onBack = { navController.popBackStack() },
                     )
                 }
@@ -325,6 +328,25 @@ fun PocketHubApp(
                         repo = repo,
                         sha = sha,
                         onNavigateToUser = { login -> navController.navigate(Routes.userDetail(login)) },
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+
+                composable(
+                    Routes.WORKFLOW_RUN_DETAIL,
+                    arguments = listOf(
+                        navArgument("owner") { type = NavType.StringType },
+                        navArgument("repo") { type = NavType.StringType },
+                        navArgument("runId") { type = NavType.LongType },
+                    ),
+                ) { backStackEntry ->
+                    val owner = backStackEntry.arguments?.getString("owner") ?: return@composable
+                    val repo = backStackEntry.arguments?.getString("repo") ?: return@composable
+                    val runId = backStackEntry.arguments?.getLong("runId") ?: return@composable
+                    com.pockethub.ui.repo.WorkflowRunDetailScreen(
+                        owner = owner,
+                        repo = repo,
+                        runId = runId,
                         onBack = { navController.popBackStack() },
                     )
                 }
