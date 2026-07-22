@@ -167,6 +167,9 @@
     <string name="tab_prs">PRs</string>
     <string name="tab_releases">Releases</string>
     <string name="tab_workflows">Workflows</string>
+    <string name="tab_wiki">Wiki</string>
+    <string name="wiki_empty">This repository has no wiki, or it doesn\'t follow the default Home.md layout.</string>
+    <string name="wiki_open_in_browser">Open wiki in browser</string>
     <string name="stats_by">by %1$s</string>
     <string name="stat_forks">forks</string>
     <string name="repo_issues_header">%1$d issues</string>

@@ -152,6 +152,9 @@
     <string name="tab_prs">PRs</string>
     <string name="tab_releases">Releases</string>
     <string name="tab_workflows">工作流</string>
+    <string name="tab_wiki">Wiki</string>
+    <string name="wiki_empty">此仓库未启用 wiki，或 wiki 首页不是默认的 Home.md。</string>
+    <string name="wiki_open_in_browser">在浏览器打开 Wiki</string>
     <string name="stats_by">%1$s</string>
     <string name="stat_forks">forks</string>
     <string name="repo_issues_header">%1$d issues</string>

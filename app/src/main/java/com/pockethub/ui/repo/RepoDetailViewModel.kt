@@ -12,6 +12,7 @@ import com.pockethub.data.remote.GoogleTranslate
 import com.pockethub.data.remote.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -20,9 +21,12 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import javax.inject.Inject
 
-enum class RepoTab { OVERVIEW, CODE, ISSUES, PRS, RELEASES, COMMITS, WORKFLOWS }
+enum class RepoTab { OVERVIEW, CODE, ISSUES, PRS, RELEASES, COMMITS, WORKFLOWS, WIKI }
 
 /**
  * Three-state watch subscription on a repository — `NOT_WATCHING`, `WATCHING` and `MUTED`.
@@ -49,6 +53,7 @@ class RepoDetailViewModel @Inject constructor(
     private val history: com.pockethub.data.remote.HistoryRepository,
     private val settings: SettingsRepository,
     private val accountRepository: AccountRepository,
+    private val okHttp: OkHttpClient,
 ) : ViewModel() {
 
     private val _repo = MutableStateFlow<Repository?>(null)
@@ -197,6 +202,32 @@ class RepoDetailViewModel @Inject constructor(
             _readme.update { markdown }
         } catch (_: Exception) {
             _readme.update { null }
+        }
+    }
+
+    /** Wiki content state: null=unknown/loading, "" = no wiki, otherwise markdown body of Home.md. */
+    private val _wiki = MutableStateFlow<String?>(null)
+    val wiki: StateFlow<String?> = _wiki
+
+    /** Whether the user has explicitly opened the Wiki tab (avoid preloading for repos that have no wiki). */
+    private val _wikiChecked = MutableStateFlow(false)
+
+    fun loadWiki(owner: String, repo: String): Job = viewModelScope.launch {
+        if (_wikiChecked.value && _wiki.value != null) return@launch
+        _wikiChecked.update { true }
+        _wiki.update { "" }  // loading state — empty string distinguishes from null (unknown)
+        val baseUrl = "https://raw.githubusercontent.com/wiki/$owner/$repo/Home.md"
+        try {
+            val md = withContext(Dispatchers.IO) {
+                val req = Request.Builder().url(baseUrl).build()
+                okHttp.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) return@use null
+                    resp.body?.string()
+                }
+            }
+            _wiki.update { md ?: "" }  // md null = 404 -> empty (no wiki)
+        } catch (_: Exception) {
+            _wiki.update { "" }
         }
     }
 
