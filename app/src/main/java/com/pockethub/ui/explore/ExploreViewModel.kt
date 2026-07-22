@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -28,7 +29,19 @@ class ExploreViewModel @Inject constructor(
     private val sources: FeedSourceService,
     private val sourceRepo: FeedSourceRepository,
     private val accounts: AccountRepository,
+    private val settings: com.pockethub.data.remote.SettingsRepository,
 ) : ViewModel() {
+
+    /** Pinned repos (owner/repo slugs) shown at the top of the Explore tab. */
+    val pinnedRepos: StateFlow<List<String>> = settings.pinnedRepos
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun togglePin(slug: String) {
+        viewModelScope.launch {
+            val current = settings.pinnedRepos.first()
+            if (current.contains(slug)) settings.unpinRepo(slug) else settings.pinRepo(slug)
+        }
+    }
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()

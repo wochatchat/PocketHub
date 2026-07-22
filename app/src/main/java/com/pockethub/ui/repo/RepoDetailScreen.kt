@@ -37,6 +37,7 @@ import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.ForkRight
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.SnackbarHost
@@ -114,6 +115,7 @@ fun RepoDetailScreen(
     val wiki by vm.wiki.collectAsState()
     val isLoading by vm.isLoading.collectAsState()
     val isStarred by vm.isStarred.collectAsState()
+    val isPinned by vm.isPinned.collectAsState()
     val isForking by vm.isForking.collectAsState()
     val forkMessage by vm.forkMessage.collectAsState()
     val canDelete by vm.canDelete.collectAsState()
@@ -246,6 +248,14 @@ fun RepoDetailScreen(
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
+                    }
+                    // Pin / unpin locally — quick access from the home Explore tab.
+                    IconButton(onClick = { vm.togglePin() }) {
+                        Icon(
+                            if (isPinned) Icons.Outlined.PushPin else Icons.Outlined.PushPin,
+                            contentDescription = if (isPinned) stringResource(R.string.cd_unpin) else stringResource(R.string.cd_pin),
+                            tint = if (isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                     if (canDelete) {
                         IconButton(

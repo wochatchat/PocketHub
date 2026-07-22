@@ -151,7 +151,7 @@ fun PocketHubApp(
                     val activeAccount by appVm.activeAccount.collectAsState()
                     HomeScreen(
                         activeAvatarUrl = activeAccount?.avatarUrl,
-                        onNavigateToSearch = { navController.navigate(Routes.search()) },
+                        onNavigateToSearch = { q -> navController.navigate(Routes.search(q)) },
                         onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                         onNavigateToFeedSources = { navController.navigate(Routes.FEED_SOURCES) },
                         onNavigateToRepo = { owner, repo -> navController.navigate(Routes.repoDetail(owner, repo)) },

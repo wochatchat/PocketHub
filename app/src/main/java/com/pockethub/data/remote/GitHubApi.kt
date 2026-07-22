@@ -984,6 +984,8 @@ interface GitHubApi {
         @Query("q") query: String,
         @Query("page") page: Int = 1,
         @Query("per_page") perPage: Int = 20,
+        @Query("sort") sort: String? = null,
+        @Query("order") order: String? = null,
     ): SearchRepoResult
 
     /** Global search — users. */

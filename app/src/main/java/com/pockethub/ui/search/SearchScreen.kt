@@ -13,11 +13,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -25,14 +27,19 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.ArrowUpward
+import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Merge
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -45,7 +52,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -152,6 +161,11 @@ fun SearchScreen(
             }
         }
 
+        // Repos-tab filter row — sort chips + language input + order toggle.
+        if (tab == SearchTab.REPOS) {
+            RepoFilterRow(vm)
+        }
+
         val hasResults = when (tab) {
             SearchTab.REPOS -> repos.isNotEmpty()
             SearchTab.USERS -> users.isNotEmpty()
@@ -206,6 +220,97 @@ fun SearchScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * Repos-tab sort + language filter row. Sort is a 4-choice chip row (Best / Stars /
+ * Forks / Updated). Language is a single-line OutlinedTextField — it gets appended
+ * to the query as the `language:` qualifier on search.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RepoFilterRow(vm: SearchViewModel) {
+    val sort by vm.repoSort.collectAsState()
+    val order by vm.sortOrder.collectAsState()
+    var language by remember { mutableStateOf("") }
+
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            item {
+                FilterChip(
+                    selected = sort == RepoSort.BEST_MATCH,
+                    onClick = { vm.applyRepoFilters(sort = RepoSort.BEST_MATCH) },
+                    label = { Text(stringResource(R.string.sort_best_match)) },
+                )
+            }
+            item {
+                FilterChip(
+                    selected = sort == RepoSort.STARS,
+                    onClick = { vm.applyRepoFilters(sort = RepoSort.STARS) },
+                    label = { Text(stringResource(R.string.sort_stars)) },
+                )
+            }
+            item {
+                FilterChip(
+                    selected = sort == RepoSort.FORKS,
+                    onClick = { vm.applyRepoFilters(sort = RepoSort.FORKS) },
+                    label = { Text(stringResource(R.string.sort_forks)) },
+                )
+            }
+            item {
+                FilterChip(
+                    selected = sort == RepoSort.UPDATED,
+                    onClick = { vm.applyRepoFilters(sort = RepoSort.UPDATED) },
+                    label = { Text(stringResource(R.string.sort_updated)) },
+                )
+            }
+            // Order toggle — only flavorful when a real sort is active.
+            if (sort != RepoSort.BEST_MATCH) {
+                item {
+                    FilterChip(
+                        selected = order == SortOrder.ASC,
+                        onClick = {
+                            val next = if (order == SortOrder.ASC) SortOrder.DESC else SortOrder.ASC
+                            vm.applyRepoFilters(order = next)
+                        },
+                        label = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    if (order == SortOrder.ASC) Icons.Outlined.ArrowUpward else Icons.Outlined.ArrowDownward,
+                                    null,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(if (order == SortOrder.ASC) stringResource(R.string.order_asc) else stringResource(R.string.order_desc))
+                            }
+                        },
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        OutlinedTextField(
+            value = language,
+            onValueChange = {
+                language = it
+                vm.applyRepoFilters(language = it.trim())
+            },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text(stringResource(R.string.language_filter_placeholder)) },
+            singleLine = true,
+            trailingIcon = {
+                if (language.isNotEmpty()) {
+                    IconButton(onClick = {
+                        language = ""
+                        vm.applyRepoFilters(language = "")
+                    }) {
+                        Icon(Icons.Outlined.Clear, contentDescription = null)
+                    }
+                }
+            },
+        )
+        Spacer(Modifier.height(8.dp))
     }
 }
 

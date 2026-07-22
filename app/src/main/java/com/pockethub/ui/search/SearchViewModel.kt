@@ -17,6 +17,19 @@ import javax.inject.Inject
 
 enum class SearchTab { REPOS, USERS, CODE, ISSUES }
 
+/** Repo search sort options; "" = GitHub default ("best match"). */
+enum class RepoSort(val apiValue: String?) {
+    BEST_MATCH(null),
+    STARS("stars"),
+    FORKS("forks"),
+    UPDATED("updated"),
+}
+
+enum class SortOrder(val apiValue: String) {
+    DESC("desc"),
+    ASC("asc"),
+}
+
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     private val api: GitHubApi,
@@ -24,6 +37,12 @@ class SearchViewModel @Inject constructor(
 
     var query = MutableStateFlow("")
     var currentTab = MutableStateFlow(SearchTab.REPOS)
+
+    /** Repos tab sort + order — applied as `sort` & `order` query params. */
+    var repoSort = MutableStateFlow(RepoSort.BEST_MATCH)
+    var sortOrder = MutableStateFlow(SortOrder.DESC)
+    /** Optional language filter — appended as `language:` qualifier in the q string. Empty = any. */
+    var repoLanguage = MutableStateFlow("")
 
     private val _repos = MutableStateFlow<List<Repository>>(emptyList())
     val repos: StateFlow<List<Repository>> = _repos
@@ -66,7 +85,13 @@ class SearchViewModel @Inject constructor(
             try {
                 when (tab) {
                     SearchTab.REPOS -> {
-                        val r = api.searchRepositories(q, page = 1)
+                        val composedQuery = composeRepoQuery(q, repoLanguage.value)
+                        val r = api.searchRepositories(
+                            query = composedQuery,
+                            page = 1,
+                            sort = repoSort.value.apiValue,
+                            order = if (repoSort.value.apiValue == null) null else sortOrder.value.apiValue,
+                        )
                         _repos.update { r.items }
                         totalCounts[tab] = r.total_count
                     }
@@ -110,7 +135,13 @@ class SearchViewModel @Inject constructor(
                 when (tab) {
                     SearchTab.REPOS -> {
                         if (_repos.value.size >= (totalCounts[tab] ?: Int.MAX_VALUE)) return@launch
-                        val r = api.searchRepositories(q, page = nextPage)
+                        val composedQuery = composeRepoQuery(q, repoLanguage.value)
+                        val r = api.searchRepositories(
+                            query = composedQuery,
+                            page = nextPage,
+                            sort = repoSort.value.apiValue,
+                            order = if (repoSort.value.apiValue == null) null else sortOrder.value.apiValue,
+                        )
                         if (r.items.isEmpty()) { totalCounts[tab] = _repos.value.size; return@launch }
                         _repos.update { it + r.items }
                         totalCounts[tab] = r.total_count
@@ -171,5 +202,26 @@ class SearchViewModel @Inject constructor(
         }
         if (!hasResults) _error.update { null }
         if (query.value.isNotBlank() && !hasResults) search()
+    }
+
+    /** Apply a new sort/order/language to the repos tab and re-search immediately. */
+    fun applyRepoFilters(
+        sort: RepoSort = repoSort.value,
+        order: SortOrder = sortOrder.value,
+        language: String = repoLanguage.value,
+    ) {
+        repoSort.value = sort
+        sortOrder.value = order
+        repoLanguage.value = language
+        if (query.value.isNotBlank()) search()
+    }
+
+    /** Compose the GitHub search query string — user text plus optional `language:` qualifier. */
+    private fun composeRepoQuery(rawQuery: String, language: String): String {
+        val trimmed = rawQuery.trim()
+        if (language.isBlank()) return trimmed
+        // GitHub supports `language:Kotlin` as a qualifier in q. Words and quoted
+        // strings are left intact; just append the qualifier.
+        return "$trimmed language:$language"
     }
 }

@@ -12,6 +12,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import org.json.JSONArray
+import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -39,6 +41,7 @@ class SettingsRepository @Inject constructor(
         val IGNORED_UPDATE_VERSION = stringPreferencesKey("ignored_update_version")
         val LAST_UPDATE_CHECK_MS = intPreferencesKey("last_update_check_epoch_ms")
         val LAST_UPDATE_PROMPT_MS = intPreferencesKey("last_update_prompt_epoch_ms")
+        val PINNED_REPOS = stringPreferencesKey("pinned_repos_json")
     }
 
     // ── Theme ─────────────────────────────────────────────
@@ -178,6 +181,56 @@ class SettingsRepository @Inject constructor(
         context.dataStore.edit { prefs ->
             prefs[Keys.LAST_UPDATE_PROMPT_MS] = (System.currentTimeMillis() / 1000L).toInt()
         }
+    }
+
+    // ── Pinned Repos ─────────────────────────────────────
+    /**
+     * Flow of the user's pinned repositories, newest first.
+     * Each entry is an "owner/repo" slug. Format is a JSON array of objects
+     * {"slug":"owner/repo"} to leave room for future per-pin metadata.
+     */
+    val pinnedRepos: Flow<List<String>> = context.dataStore.data.map { prefs ->
+        val raw = prefs[Keys.PINNED_REPOS].orEmpty()
+        runCatching { parsePinned(raw) }.getOrDefault(emptyList())
+    }
+
+    /** Add a slug (owner/repo) to the pinned list if absent, capping at KEEP entries. */
+    suspend fun pinRepo(slug: String) {
+        if (slug.isBlank()) return
+        context.dataStore.edit { prefs ->
+            val cur = readPinned(prefs[Keys.PINNED_REPOS])
+            if (cur.contains(slug)) return@edit
+            val next = (listOf(slug) + cur).take(KEEP)
+            prefs[Keys.PINNED_REPOS] = writePinned(next)
+        }
+    }
+
+    /** Remove a slug (owner/repo) from the pinned list. */
+    suspend fun unpinRepo(slug: String) {
+        if (slug.isBlank()) return
+        context.dataStore.edit { prefs ->
+            val cur = readPinned(prefs[Keys.PINNED_REPOS])
+            val next = cur.filterNot { it == slug }
+            if (next.size != cur.size) prefs[Keys.PINNED_REPOS] = writePinned(next)
+        }
+    }
+
+    private fun readPinned(raw: String?): List<String> {
+        if (raw.isNullOrBlank()) return emptyList()
+        return runCatching { parsePinned(raw) }.getOrDefault(emptyList())
+    }
+
+    private fun parsePinned(raw: String): List<String> {
+        val arr = JSONArray(raw)
+        return (0 until arr.length()).mapNotNull { i ->
+            arr.optJSONObject(i)?.optString("slug")?.takeIf { it.isNotBlank() }
+        }
+    }
+
+    private fun writePinned(list: List<String>): String {
+        val arr = JSONArray()
+        list.forEach { slug -> arr.put(JSONObject().put("slug", slug)) }
+        return arr.toString()
     }
 
     private companion object {

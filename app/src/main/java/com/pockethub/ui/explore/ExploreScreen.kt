@@ -100,6 +100,7 @@ fun ExploreScreen(
     val trendingSource by vm.trendingSourceOption.collectAsState()
     val featuredSource by vm.featuredSourceOption.collectAsState()
     val followingSource by vm.followingSourceOption.collectAsState()
+    val pinnedRepos by vm.pinnedRepos.collectAsState()
     val pullState = rememberPullToRefreshState()
 
     // Bring up trending data on first composition; later filter changes are driven
@@ -154,6 +155,45 @@ fun ExploreScreen(
                     }
                 }
                 Spacer(Modifier.height(4.dp))
+            }
+
+            // Pinned repos horizontal scroller — only rendered when the user has
+            // at least one pin so the empty state doesn't take real estate on first
+            // launch.
+            if (pinnedRepos.isNotEmpty()) {
+                item(key = "pinned") {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Outlined.PushPin,
+                                null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                stringResource(R.string.pinned_repos_title),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            items(pinnedRepos, key = { it }) { slug ->
+                                PinnedRepoCard(
+                                    slug = slug,
+                                    onClick = {
+                                        val parts = slug.split("/", limit = 2)
+                                        if (parts.size == 2) onNavigateToRepo(parts[0], parts[1])
+                                    },
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                }
             }
 
             // Wall-of-text source badge — tells you what is powering the current tab.
@@ -693,4 +733,48 @@ private fun languageColorHex(language: String): String? = when (language.lowerca
     "dart" -> "#00B4AB"
     "shell" -> "#89E051"
     else -> null
+}
+
+/**
+ * Compact card for a pinned repo entry. The slug is "owner/repo"; we split it for
+ * visual hierarchy and route to the repo detail screen on tap.
+ */
+@Composable
+private fun PinnedRepoCard(
+    slug: String,
+    onClick: () -> Unit,
+) {
+    val parts = slug.split("/", limit = 2)
+    val owner = parts.getOrNull(0).orEmpty()
+    val repo = parts.getOrNull(1).orEmpty()
+    Card(
+        onClick = onClick,
+        modifier = Modifier.width(180.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Outlined.PushPin,
+                    null,
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    repo,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Text(
+                owner,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
 }

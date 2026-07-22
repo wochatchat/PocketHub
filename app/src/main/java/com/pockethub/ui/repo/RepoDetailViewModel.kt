@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -132,6 +134,13 @@ class RepoDetailViewModel @Inject constructor(
     private val _isStarred = MutableStateFlow(false)
     val isStarred: StateFlow<Boolean> = _isStarred.asStateFlow()
 
+    /** Whether this repo is pinned locally (independent from GitHub star). */
+    val isPinned: StateFlow<Boolean> = settings.pinnedRepos
+        .map { list -> list.contains(_currentSlug) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    private var _currentSlug: String = ""
+
     /** Whether the current user is watching (subscribed to) this repo's notifications. */
     private val _watchState = MutableStateFlow<WatchState>(WatchState.UNKNOWN)
     val watchState: StateFlow<WatchState> = _watchState.asStateFlow()
@@ -174,6 +183,7 @@ class RepoDetailViewModel @Inject constructor(
     fun loadRepo(owner: String, repo: String) {
         if (loadedOwner == owner && loadedRepo == repo && _repo.value != null) return
         loadedOwner = owner; loadedRepo = repo
+        _currentSlug = "$owner/$repo"
         viewModelScope.launch {
             _isLoading.update { true }
             _error.update { null }
@@ -319,11 +329,18 @@ class RepoDetailViewModel @Inject constructor(
                 }
                 cache.invalidateRepo(owner, repo)
             } catch (e: Exception) {
-                // Surface the failure so the user knows the star isn't actually flipped
-                // (and isn't left believing the button worked while GitHub still shows
-                // the old state). _isStarred intentionally keeps its pre-toggle value.
                 _error.update { e.localizedMessage ?: "操作失败" }
             }
+        }
+    }
+
+    /** Pin / unpin the current repo locally — purely client-side, no GitHub API. */
+    fun togglePin() {
+        val slug = _currentSlug
+        if (slug.isBlank()) return
+        viewModelScope.launch {
+            val current = settings.pinnedRepos.first()
+            if (current.contains(slug)) settings.unpinRepo(slug) else settings.pinRepo(slug)
         }
     }
 

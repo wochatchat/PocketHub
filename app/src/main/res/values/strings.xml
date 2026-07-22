@@ -19,6 +19,7 @@
 
     <!-- Common actions -->
     <string name="action_search">Search</string>
+    <string name="action_cancel">Cancel</string>
     <string name="action_sign_in">Sign in</string>
     <string name="action_sign_out">Sign out</string>
     <string name="action_retry">Retry</string>
@@ -27,7 +28,6 @@
     <string name="action_remove">Remove</string>
     <string name="action_save">Save</string>
     <string name="action_clear">Clear</string>
-    <string name="action_cancel">Cancel</string>
     <string name="action_show">Show</string>
     <string name="action_hide">Hide</string>
     <string name="action_mark_all_read">Mark all read</string>
@@ -88,6 +88,8 @@
     <!-- Explore -->
     <string name="section_trending">Trending</string>
     <string name="section_featured">Featured</string>
+    <string name="pinned_repos_title">Pinned Repositories</string>
+    <string name="pinned_repos_empty">Pin your favorite repos to keep them one tap away.</string>
     <string name="section_following">Following</string>
     <string name="trending_language_all">All</string>
     <string name="time_range_daily">Daily</string>
@@ -189,6 +191,8 @@
 
     <!-- Repo detail -->
     <string name="cd_star">Star</string>
+    <string name="cd_pin">Pin to home</string>
+    <string name="cd_unpin">Unpin from home</string>
     <string name="cd_unstar">Unstar</string>
     <string name="cd_watch">Watch</string>
     <string name="cd_unwatch">Unwatch</string>
@@ -317,6 +321,13 @@
     <!-- Search -->
     <string name="search_placeholder">Search GitHub…</string>
     <string name="search_tab_repos">Repos</string>
+    <string name="sort_best_match">Best match</string>
+    <string name="sort_stars">Stars</string>
+    <string name="sort_forks">Forks</string>
+    <string name="sort_updated">Updated</string>
+    <string name="order_asc">Asc</string>
+    <string name="order_desc">Desc</string>
+    <string name="language_filter_placeholder">Language (e.g. Kotlin, Python)…</string>
     <string name="search_tab_users">Users</string>
     <string name="search_tab_code">Code</string>
     <string name="search_tab_issues">Issues</string>

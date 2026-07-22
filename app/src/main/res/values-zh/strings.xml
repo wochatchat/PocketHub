@@ -19,6 +19,7 @@
 
     <!-- Common actions -->
     <string name="action_search">搜索</string>
+    <string name="action_cancel">取消</string>
     <string name="action_sign_in">登录</string>
     <string name="action_sign_out">登出</string>
     <string name="action_retry">重试</string>
@@ -27,7 +28,6 @@
     <string name="action_remove">移除</string>
     <string name="action_save">保存</string>
     <string name="action_clear">清除</string>
-    <string name="action_cancel">取消</string>
     <string name="action_show">显示</string>
     <string name="action_hide">隐藏</string>
     <string name="action_mark_all_read">全部已读</string>
@@ -73,6 +73,8 @@
     <!-- Explore -->
     <string name="section_trending">趋势</string>
     <string name="section_featured">精选</string>
+    <string name="pinned_repos_title">收藏仓库</string>
+    <string name="pinned_repos_empty">收藏你常用的仓库，一键直达。</string>
     <string name="section_following">关注</string>
     <string name="trending_language_all">全部</string>
     <string name="time_range_daily">今日</string>
@@ -174,6 +176,8 @@
 
     <!-- Repo detail -->
     <string name="cd_star">标星</string>
+    <string name="cd_pin">收藏到首页</string>
+    <string name="cd_unpin">取消首页收藏</string>
     <string name="cd_unstar">取消标星</string>
     <string name="cd_watch">关注</string>
     <string name="cd_unwatch">取消关注</string>
@@ -301,6 +305,13 @@
     <!-- Search -->
     <string name="search_placeholder">搜索 GitHub…</string>
     <string name="search_tab_repos">仓库</string>
+    <string name="sort_best_match">最佳匹配</string>
+    <string name="sort_stars">星标数</string>
+    <string name="sort_forks">Fork 数</string>
+    <string name="sort_updated">最近更新</string>
+    <string name="order_asc">升序</string>
+    <string name="order_desc">降序</string>
+    <string name="language_filter_placeholder">语言 (如 Kotlin, Python)…</string>
     <string name="search_tab_users">用户</string>
     <string name="search_tab_code">代码</string>
     <string name="search_tab_issues">议题</string>
