@@ -12,6 +12,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import javax.inject.Inject
 
 /** Aggregated CI status for the PR head SHA. Rendered as a one-line banner. */
@@ -43,6 +48,25 @@ class PullRequestDetailViewModel @Inject constructor(
 
     private val _reviews = MutableStateFlow<List<GitHubApi.PullRequestReview>>(emptyList())
     val reviews: StateFlow<List<GitHubApi.PullRequestReview>> = _reviews
+
+    /**
+     * PR review thread state, keyed by the comment id of the first / root comment of each thread.
+     *
+     * Filled lazily by [fetchThreadState]; holds the GraphQL thread node id and the
+     * resolved flag (only available via GraphQL — REST `ReviewComment` has neither).
+     * This is an in-memory cache — never persisted. Refreshed on PR refresh or on
+     * resolve mutation failure.
+     */
+    private val _threadState = MutableStateFlow<Map<Long, ThreadInfo>>(emptyMap())
+    val threadState: StateFlow<Map<Long, ThreadInfo>> = _threadState
+
+    /** Hit-map of comment ids currently mutating (edit / delete / resolve). */
+    private val _busyReviewComments = MutableStateFlow<Set<Long>>(emptySet())
+    val busyReviewComments: StateFlow<Set<Long>> = _busyReviewComments
+
+    /** Last error encountered while mutating inline review comments (edit / reply / resolve / delete). */
+    private val _inlineCommentError = MutableStateFlow<String?>(null)
+    val inlineCommentError: StateFlow<String?> = _inlineCommentError
 
     private val _comments = MutableStateFlow<List<GitHubApi.IssueComment>>(emptyList())
     val comments: StateFlow<List<GitHubApi.IssueComment>> = _comments
@@ -116,6 +140,9 @@ class PullRequestDetailViewModel @Inject constructor(
                 try {
                     _reviewComments.update { api.listPullRequestReviewComments(owner, repo, number) }
                 } catch (_: Exception) {}
+            }
+            viewModelScope.launch {
+                runCatching { fetchThreadState(owner, repo, number) }
             }
             viewModelScope.launch {
                 try {
@@ -210,6 +237,219 @@ class PullRequestDetailViewModel @Inject constructor(
             }
         }
     }
+
+    /**
+     * Reply within an existing review-comment thread — anchored to the root comment
+     * by id; the server ignores `path` / `line` / `commit_id` when `in_reply_to_id`
+     * is provided. Optimistically appends to [reviewComments]; rolls back on failure.
+     */
+    fun replyInlineComment(rootCommentId: Long, body: String) {
+        val owner = loadedOwner ?: return
+        val repo = loadedRepo ?: return
+        val number = loadedNumber ?: return
+        if (body.isBlank() || rootCommentId in _busyReviewComments.value) return
+        viewModelScope.launch {
+            _busyReviewComments.update { it + rootCommentId }
+            _inlineCommentError.update { null }
+            try {
+                val created = api.createPullRequestReviewComment(
+                    owner, repo, number,
+                    GitHubApi.ReviewCommentRequest(
+                        body = body,
+                        inReplyToId = rootCommentId,
+                    ),
+                )
+                _reviewComments.update { it + created }
+            } catch (e: Exception) {
+                _inlineCommentError.update { e.localizedMessage ?: "回复失败" }
+            } finally {
+                _busyReviewComments.update { it - rootCommentId }
+            }
+        }
+    }
+
+    /**
+     * Edit a pull request review comment's body. Owner / repo are read from the
+     * loaded PR; caller is responsible for ensuring the current user authored
+     * the comment (UI gate). Optimistically updates in-memory list then rolls
+     * back on failure.
+     */
+    fun editInlineComment(commentId: Long, newBody: String) {
+        val owner = loadedOwner ?: return
+        val repo = loadedRepo ?: return
+        if (newBody.isBlank() || commentId in _busyReviewComments.value) return
+        viewModelScope.launch {
+            _busyReviewComments.update { it + commentId }
+            _inlineCommentError.update { null }
+            val snapshot = _reviewComments.value
+            try {
+                val updated = api.editPullRequestReviewComment(owner, repo, commentId, GitHubApi.EditReviewCommentRequest(newBody))
+                _reviewComments.update { list -> list.map { if (it.id == commentId) updated else it } }
+            } catch (e: Exception) {
+                _reviewComments.update { snapshot }
+                _inlineCommentError.update { e.localizedMessage ?: "评论更新失败" }
+            } finally {
+                _busyReviewComments.update { it - commentId }
+            }
+        }
+    }
+
+    /**
+     * Delete a review comment. If the comment is a thread root (`inReplyToId == null`),
+     * the entire thread is removed from the in-memory list; otherwise just the
+     * single reply. Shows a soft 404 toast if the comment is gone server-side.
+     */
+    fun deleteInlineComment(commentId: Long) {
+        val owner = loadedOwner ?: return
+        val repo = loadedRepo ?: return
+        if (commentId in _busyReviewComments.value) return
+        val isRoot = _reviewComments.value.firstOrNull { it.id == commentId }?.let { it.inReplyToId == null } ?: false
+        viewModelScope.launch {
+            _busyReviewComments.update { it + commentId }
+            _inlineCommentError.update { null }
+            val snapshot = _reviewComments.value
+            try {
+                val resp = api.deletePullRequestReviewComment(owner, repo, commentId)
+                if (resp.isSuccessful || resp.code() == 404) {
+                    _reviewComments.update { list ->
+                        if (isRoot) list.filterNot { it.id == commentId || it.inReplyToId == commentId }
+                        else list.filterNot { it.id == commentId }
+                    }
+                    if (resp.code() == 404) {
+                        _inlineCommentError.update { "该评论已不存在" }
+                    }
+                } else {
+                    _inlineCommentError.update { "删除失败 (${resp.code()})" }
+                }
+            } catch (e: Exception) {
+                _reviewComments.update { snapshot }
+                _inlineCommentError.update { e.localizedMessage ?: "评论删除失败" }
+            } finally {
+                _busyReviewComments.update { it - commentId }
+            }
+        }
+    }
+
+    /**
+     * Resolve a review thread via GraphQL. Uses the thread node id lookup table
+     * in [threadState]; if missing, refreshes once and retries.
+     */
+    fun resolveThread(rootCommentId: Long) {
+        val info = _threadState.value[rootCommentId]
+        if (info == null) {
+            viewModelScope.launch {
+                runCatching { fetchThreadState(loadedOwner ?: return@launch, loadedRepo ?: return@launch, loadedNumber ?: return@launch) }
+                    .onSuccess { _threadState.value[rootCommentId]?.let { resolveRoot(rootCommentId, it.threadId) } }
+            }
+            return
+        }
+        resolveRoot(rootCommentId, info.threadId)
+    }
+
+    private fun resolveRoot(rootCommentId: Long, threadId: String) {
+        if (rootCommentId in _busyReviewComments.value) return
+        viewModelScope.launch {
+            _busyReviewComments.update { it + rootCommentId }
+            _inlineCommentError.update { null }
+            try {
+                runThreadMutation(RESOLVE_MUTATION, threadId)
+                _threadState.update { map -> map[rootCommentId]?.let { info -> map + (rootCommentId to info.copy(isResolved = true)) } ?: map }
+            } catch (e: Exception) {
+                _inlineCommentError.update { e.localizedMessage ?: "标记为已解决失败" }
+            } finally {
+                _busyReviewComments.update { it - rootCommentId }
+            }
+        }
+    }
+
+    /** Unresolve a review thread via GraphQL; mirror of [resolveThread]. */
+    fun unresolveThread(rootCommentId: Long) {
+        val info = _threadState.value[rootCommentId]
+        if (info == null) {
+            viewModelScope.launch {
+                runCatching { fetchThreadState(loadedOwner ?: return@launch, loadedRepo ?: return@launch, loadedNumber ?: return@launch) }
+                    .onSuccess { _threadState.value[rootCommentId]?.let { unresolveRoot(rootCommentId, it.threadId) } }
+            }
+            return
+        }
+        unresolveRoot(rootCommentId, info.threadId)
+    }
+
+    private fun unresolveRoot(rootCommentId: Long, threadId: String) {
+        if (rootCommentId in _busyReviewComments.value) return
+        viewModelScope.launch {
+            _busyReviewComments.update { it + rootCommentId }
+            _inlineCommentError.update { null }
+            try {
+                runThreadMutation(UNRESOLVE_MUTATION, threadId)
+                _threadState.update { map -> map[rootCommentId]?.let { info -> map + (rootCommentId to info.copy(isResolved = false)) } ?: map }
+            } catch (e: Exception) {
+                _inlineCommentError.update { e.localizedMessage ?: "取消标记失败" }
+            } finally {
+                _busyReviewComments.update { it - rootCommentId }
+            }
+        }
+    }
+
+    /**
+     * Fire a GraphQL mutation (resolve / unresolve) for [threadId]. Throws on any
+     * server-side or GraphQL-level error so callers fall into the rollback branch.
+     */
+    private suspend fun runThreadMutation(mutation: String, threadId: String) {
+        val resp = api.graphQL(
+            GitHubApi.GraphQLRequest(
+                query = mutation,
+                variables = mapOf("id" to JsonPrimitive(threadId)),
+            ),
+        )
+        val errs = resp.errors
+        if (!errs.isNullOrEmpty()) {
+            throw IllegalStateException(errs.firstOrNull()?.message?.ifBlank { "GraphQL mutation failed" } ?: "GraphQL mutation failed")
+        }
+        if (resp.data == null) throw IllegalStateException("Empty GraphQL response")
+    }
+
+    /**
+     * Pull list of PR review threads via GraphQL, filling [_threadState] with
+     * `rootCommentId (databaseId) -> ThreadInfo(threadId, isResolved)`. Page size
+     * 100 is GitHub GraphQL max for this connection. Best-effort: any error is
+     * swallowed (thread resolve buttons will refresh on demand instead).
+     */
+    private suspend fun fetchThreadState(owner: String, repo: String, number: Int) {
+        val resp = api.graphQL(
+            GitHubApi.GraphQLRequest(
+                query = REVIEW_THREADS_QUERY,
+                variables = mapOf(
+                    "owner" to JsonPrimitive(owner),
+                    "repo" to JsonPrimitive(repo),
+                    "number" to JsonPrimitive(number),
+                ),
+            ),
+        )
+        val errs = resp.errors
+        if (!errs.isNullOrEmpty()) {
+            _inlineCommentError.update { errs.firstOrNull()?.message ?: "拉取 thread 状态失败" }
+            return
+        }
+        val data = resp.data ?: return
+        val threads = data["repository"]?.jsonObject
+            ?.get("pullRequest")?.jsonObject
+            ?.get("reviewThreads")?.jsonObject
+            ?.get("nodes")?.jsonArray
+            ?: return
+        val map = mutableMapOf<Long, ThreadInfo>()
+        for (thread in threads) {
+            val threadObj = thread.jsonObject
+            val threadId = threadObj["id"]?.jsonPrimitive?.content ?: continue
+            val isResolved = threadObj["isResolved"]?.jsonPrimitive?.content?.toBooleanStrictOrNull() ?: continue
+            val firstComment = threadObj["comments"]?.jsonObject?.get("nodes")?.jsonArray?.firstOrNull()?.jsonObject
+            val dbId = firstComment?.get("databaseId")?.jsonPrimitive?.content?.toLongOrNull() ?: continue
+            map[dbId] = ThreadInfo(threadId = threadId, isResolved = isResolved)
+        }
+        _threadState.update { map }
+    }
+
+    fun clearInlineCommentError() { _inlineCommentError.update { null } }
 
     private suspend fun hydrateReactions(owner: String, repo: String) {
         val current = accounts.getActiveLogin()
@@ -415,5 +655,51 @@ class PullRequestDetailViewModel @Inject constructor(
     fun retry(owner: String, repo: String, number: Int) {
         loadedNumber = null
         loadPullRequest(owner, repo, number)
+    }
+
+    companion object {
+        /** Meta state for one review thread, used by R3 resolve/unresolve. */
+        data class ThreadInfo(val threadId: String, val isResolved: Boolean)
+
+        /**
+         * GraphQL query listing PR review threads so we can map the REST root comment
+         * id (databaseId) → GraphQL thread node id, plus the resolved flag which REST
+         * doesn't surface.
+         */
+        private const val REVIEW_THREADS_QUERY = """
+            query ReviewThreads(${'$'}owner: String!, ${'$'}repo: String!, ${'$'}number: Int!) {
+              repository(owner: ${'$'}owner, name: ${'$'}repo) {
+                pullRequest(number: ${'$'}number) {
+                  reviewThreads(first: 100) {
+                    nodes {
+                      id
+                      isResolved
+                      comments(first: 1) {
+                        nodes { databaseId }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+        """
+
+        /** Mark a review comment thread resolved. */
+        private const val RESOLVE_MUTATION = """
+            mutation ResolveThread(${'$'}id: ID!) {
+              resolveReviewThread(input: {threadId: ${'$'}id}) {
+                thread { isResolved }
+              }
+            }
+        """
+
+        /** Mark a previously-resolved review thread unresolved. */
+        private const val UNRESOLVE_MUTATION = """
+            mutation UnresolveThread(${'$'}id: ID!) {
+              unresolveReviewThread(input: {threadId: ${'$'}id}) {
+                thread { isResolved }
+              }
+            }
+        """
     }
 }

@@ -38,7 +38,9 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Comment
 import androidx.compose.material.icons.outlined.Merge
 import androidx.compose.material.icons.outlined.Pending
+import androidx.compose.material.icons.outlined.RateReview
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -57,6 +59,11 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetState
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -105,6 +112,11 @@ fun PullRequestDetailScreen(
     val isSendingLineComment by vm.isSendingLineComment.collectAsState()
     val checkRuns by vm.checkRuns.collectAsState()
     val checkSummary by vm.checkSummary.collectAsState()
+    // Thread resolve state (Map<rootCommentId, ThreadInfo>) surfaced for R3.
+    val threadState by vm.threadState.collectAsState()
+    val busyReviewComments by vm.busyReviewComments.collectAsState()
+    val inlineCommentError by vm.inlineCommentError.collectAsState()
+    val viewerLogin by vm.currentLogin.collectAsState()
     // Touch these so comment rows re-compose when viewer reactions arrive async.
     @Suppress("unused")
     val currentLogin by vm.currentLogin.collectAsState()
@@ -126,11 +138,17 @@ fun PullRequestDetailScreen(
     val context = LocalContext.current
     val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
     var showMergeDialog by remember { mutableStateOf(false) }
+    var showMergeWarningDialog by remember { mutableStateOf(false) }
     var showReviewDialog by remember { mutableStateOf(false) }
-    var reviewEvent by remember { mutableStateOf("APPROVE") }
+    var reviewEvent by remember { mutableStateOf(ReviewEvent.APPROVE) }
     var editingCommentId by remember { mutableStateOf<Long?>(null) }
     var editingBody by remember { mutableStateOf("") }
     var pendingDeleteId by remember { mutableStateOf<Long?>(null) }
+    // Editing / deleting inline (PR review) comments — kept in the outer composable
+    // so dialogs can be rendered outside the scrollable column.
+    var editingInlineId by remember { mutableStateOf<Long?>(null) }
+    var editingInlineBody by remember { mutableStateOf("") }
+    var pendingDeleteInlineId by remember { mutableStateOf<Long?>(null) }
 
     val onLinkClick: (String, com.pockethub.ui.markdown.LinkKind) -> Unit = link@{ url, kind ->
         if (kind == com.pockethub.ui.markdown.LinkKind.DOWNLOADABLE ||
@@ -168,6 +186,12 @@ fun PullRequestDetailScreen(
         commentError?.let {
             snackbarHostState.showSnackbar(it)
             vm.clearCommentError()
+        }
+    }
+    LaunchedEffect(inlineCommentError) {
+        inlineCommentError?.let {
+            snackbarHostState.showSnackbar(it)
+            vm.clearInlineCommentError()
         }
     }
 
@@ -394,44 +418,71 @@ fun PullRequestDetailScreen(
                             onPostLineComment = { path, commitId, line, body, _ ->
                                 vm.postLineComment(path, line, body)
                             },
+                            onReply = { rootId, body -> vm.replyInlineComment(rootId, body) },
+                            onResolve = { rootId -> vm.resolveThread(rootId) },
+                            onUnresolve = { rootId -> vm.unresolveThread(rootId) },
+                            onEditInline = { id, body -> editingInlineId = id; editingInlineBody = body },
+                            onDeleteInline = { id -> pendingDeleteInlineId = id },
+                            threadState = threadState.mapValues { ThreadState(it.value.threadId, it.value.isResolved) },
+                            currentLogin = viewerLogin,
+                            busyCommentIds = busyReviewComments,
                         )
                     }
                 }
 
                 // ── Reviews ──
                 HorizontalDivider()
+                // R5 — merge warning if any non-dismissed CHANGES_REQUESTED review exists.
+                val changesRequestedCount = reviews.count { it.state == "CHANGES_REQUESTED" && it.state != "DISMISSED" }
+                if (changesRequestedCount > 0 && data.state == "open" && !data.merged) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.error.copy(alpha = 0.12f))
+                            .clickable { showMergeWarningDialog = true }
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Outlined.Warning, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            stringResource(R.string.pr_changes_requested_warning, changesRequestedCount),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                }
                 Text(stringResource(R.string.pr_reviews, reviews.size), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
 
-                // Review actions (only for open PRs)
-                if (pr?.state == "open" && !isMerging) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                            onClick = { reviewEvent = "APPROVE"; showReviewDialog = true },
-                            enabled = !isSendingReview,
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            if (isSendingReview && reviewEvent == "APPROVE") {
-                                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
-                            } else {
-                                Icon(Icons.Outlined.Check, null, modifier = Modifier.size(14.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text(stringResource(R.string.pr_approve), style = MaterialTheme.typography.labelMedium)
-                            }
+                // Review submit entry (R1) — open PR only. ModalBottomSheet opened on tap.
+                if (data.state == "open" && !data.merged) {
+                    val currentLogin = vm.currentLogin.collectAsState().value
+                    val alreadyReviewedByMe = currentLogin != null &&
+                        reviews.any { it.user?.login == currentLogin && it.state in setOf("APPROVED", "CHANGES_REQUESTED", "COMMENTED") }
+                    OutlinedButton(
+                        onClick = {
+                            reviewEvent = if (alreadyReviewedByMe) ReviewEvent.COMMENT else ReviewEvent.APPROVE
+                            showReviewDialog = true
+                        },
+                        enabled = !isSendingReview,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        if (isSendingReview) {
+                            CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(6.dp))
+                        } else {
+                            Icon(Icons.Outlined.RateReview, null, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(6.dp))
                         }
-                        OutlinedButton(
-                            onClick = { reviewEvent = "REQUEST_CHANGES"; showReviewDialog = true },
-                            enabled = !isSendingReview,
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                        ) {
-                            if (isSendingReview && reviewEvent == "REQUEST_CHANGES") {
-                                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
-                            } else {
-                                Icon(Icons.Outlined.Close, null, modifier = Modifier.size(14.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text(stringResource(R.string.pr_request_changes), style = MaterialTheme.typography.labelMedium)
-                            }
-                        }
+                        Text(
+                            if (alreadyReviewedByMe) stringResource(R.string.pr_review_already)
+                            else stringResource(R.string.pr_review_action_open),
+                            style = MaterialTheme.typography.labelMedium,
+                        )
                     }
                 }
 
@@ -520,45 +571,160 @@ fun PullRequestDetailScreen(
         )
     }
 
-    // Review dialog
+    // Review submit bottom sheet (R1)
     if (showReviewDialog) {
+        val sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         var reviewBody by remember { mutableStateOf("") }
-        AlertDialog(
+        ModalBottomSheet(
             onDismissRequest = { if (!isSendingReview) showReviewDialog = false },
-            title = {
-                Text(when (reviewEvent) {
-                    "APPROVE" -> stringResource(R.string.pr_review_approve_title)
-                    else -> stringResource(R.string.pr_review_request_changes_title)
-                })
-            },
-            text = {
+            sheetState = sheetState,
+        ) {
+            Column(
+                Modifier.padding(20.dp).fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(stringResource(R.string.pr_review_submit), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+
+                ReviewEvent.entries.forEach { ev ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable(enabled = !isSendingReview) { reviewEvent = ev }.padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(
+                            selected = reviewEvent == ev,
+                            onClick = { reviewEvent = ev },
+                            enabled = !isSendingReview,
+                            colors = RadioButtonDefaults.colors(selectedColor = when (ev) {
+                                ReviewEvent.APPROVE -> MaterialTheme.colorScheme.primary
+                                ReviewEvent.REQUEST_CHANGES -> MaterialTheme.colorScheme.error
+                                ReviewEvent.COMMENT -> MaterialTheme.colorScheme.onSurfaceVariant
+                            }),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                when (ev) {
+                                    ReviewEvent.COMMENT -> stringResource(R.string.pr_review_event_comment)
+                                    ReviewEvent.APPROVE -> stringResource(R.string.pr_review_event_approve)
+                                    ReviewEvent.REQUEST_CHANGES -> stringResource(R.string.pr_review_event_request_changes)
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                when (ev) {
+                                    ReviewEvent.COMMENT -> stringResource(R.string.pr_review_event_hint_comment)
+                                    ReviewEvent.APPROVE -> stringResource(R.string.pr_review_event_hint_approve)
+                                    ReviewEvent.REQUEST_CHANGES -> stringResource(R.string.pr_review_event_hint_request_changes)
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+
                 OutlinedTextField(
                     value = reviewBody,
                     onValueChange = { reviewBody = it },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp),
-                    placeholder = { Text(stringResource(R.string.pr_review_comment_hint)) },
+                    placeholder = {
+                        Text(when (reviewEvent) {
+                            ReviewEvent.COMMENT -> stringResource(R.string.pr_review_event_hint_comment)
+                            ReviewEvent.APPROVE -> stringResource(R.string.pr_review_event_hint_approve)
+                            ReviewEvent.REQUEST_CHANGES -> stringResource(R.string.pr_review_event_hint_request_changes)
+                        })
+                    },
+                    enabled = !isSendingReview,
+                    minLines = 3,
+                )
+
+                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                    TextButton(
+                        onClick = { showReviewDialog = false },
+                        enabled = !isSendingReview,
+                    ) { Text(stringResource(R.string.action_cancel)) }
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            showReviewDialog = false
+                            vm.submitReview(owner, repo, prNumber, reviewEvent.apiValue, reviewBody)
+                        },
+                        enabled = !isSendingReview,
+                    ) {
+                        if (isSendingReview) {
+                            CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                        } else {
+                            Text(when (reviewEvent) {
+                                ReviewEvent.COMMENT -> stringResource(R.string.pr_review_comment)
+                                ReviewEvent.APPROVE -> stringResource(R.string.pr_approve)
+                                ReviewEvent.REQUEST_CHANGES -> stringResource(R.string.pr_request_changes)
+                            })
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+        }
+    }
+
+    // Merge warning dialog (R5) — reviews requested changes; user taps "merge anyway"
+    if (showMergeWarningDialog) {
+        AlertDialog(
+            onDismissRequest = { showMergeWarningDialog = false },
+            title = { Text(stringResource(R.string.pr_merge_warning_title)) },
+            text = {
+                val count = reviews.count { it.state == "CHANGES_REQUESTED" }
+                Text(stringResource(R.string.pr_changes_requested_warning, count))
+            },
+            confirmButton = {
+                Button(onClick = { showMergeWarningDialog = false; showMergeDialog = true }) { Text(stringResource(R.string.action_merge)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showMergeWarningDialog = false }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
+    }
+
+    // Edit inline (PR review) comment dialog (R4)
+    editingInlineId?.let { id ->
+        AlertDialog(
+            onDismissRequest = { editingInlineId = null },
+            title = { Text(stringResource(R.string.pr_inline_edit_title)) },
+            text = {
+                OutlinedTextField(
+                    value = editingInlineBody,
+                    onValueChange = { editingInlineBody = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
                 )
             },
             confirmButton = {
                 Button(
-                    onClick = {
-                        showReviewDialog = false
-                        vm.submitReview(owner, repo, prNumber, reviewEvent, reviewBody)
-                    },
-                    enabled = !isSendingReview,
-                ) {
-                    if (isSendingReview) {
-                        CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                    } else {
-                        Text(when (reviewEvent) {
-                            "APPROVE" -> stringResource(R.string.pr_approve)
-                            else -> stringResource(R.string.pr_request_changes)
-                        })
-                    }
-                }
+                    onClick = { vm.editInlineComment(id, editingInlineBody.trim()); editingInlineId = null },
+                    enabled = editingInlineBody.isNotBlank(),
+                ) { Text(stringResource(R.string.action_save)) }
             },
             dismissButton = {
-                TextButton(onClick = { showReviewDialog = false }) { Text(stringResource(R.string.action_cancel)) }
+                TextButton(onClick = { editingInlineId = null }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
+    }
+
+    // Delete inline (PR review) comment confirm (R4)
+    pendingDeleteInlineId?.let { id ->
+        AlertDialog(
+            onDismissRequest = { pendingDeleteInlineId = null },
+            title = { Text(stringResource(R.string.comment_delete_confirm_title)) },
+            text = { Text(stringResource(R.string.comment_delete_confirm_message)) },
+            confirmButton = {
+                Button(
+                    onClick = { vm.deleteInlineComment(id); pendingDeleteInlineId = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                ) { Text(stringResource(R.string.action_delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteInlineId = null }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }
@@ -710,6 +876,14 @@ private fun FileDiffItem(
     reviewComments: List<GitHubApi.ReviewComment>,
     isSendingLineComment: Boolean,
     onPostLineComment: (filename: String, commitId: String?, line: Int, body: String, startLine: Int?) -> Unit,
+    onReply: (rootCommentId: Long, body: String) -> Unit,
+    onResolve: (rootCommentId: Long) -> Unit,
+    onUnresolve: (rootCommentId: Long) -> Unit,
+    onEditInline: (commentId: Long, currentBody: String) -> Unit,
+    onDeleteInline: (commentId: Long) -> Unit,
+    threadState: Map<Long, ThreadState>,
+    currentLogin: String?,
+    busyCommentIds: Set<Long>,
 ) {
     val statusColor = when (file.status) {
         "added" -> Color(0xFF2EA043)
@@ -767,6 +941,14 @@ private fun FileDiffItem(
                 reviewComments = reviewComments.filter { it.path == file.filename },
                 isSendingComment = isSendingLineComment,
                 onPostLineComment = onPostLineComment,
+                onReply = onReply,
+                onResolve = onResolve,
+                onUnresolve = onUnresolve,
+                onEdit = onEditInline,
+                onDelete = onDeleteInline,
+                threadState = threadState,
+                currentLogin = currentLogin,
+                busyCommentIds = busyCommentIds,
             )
         }
     }
@@ -871,4 +1053,14 @@ private fun parseIso(iso: String): java.util.Date {
             timeZone = java.util.TimeZone.getTimeZone("UTC")
         }.parse(iso)
     }.getOrDefault(java.util.Date())
+}
+
+/**
+ * Review event types the UI can submit. Mirrors the GitHub v3 createReview event
+ * values; indexed by the modal bottom sheet radio group.
+ */
+enum class ReviewEvent(val apiValue: String) {
+    COMMENT("COMMENT"),
+    APPROVE("APPROVE"),
+    REQUEST_CHANGES("REQUEST_CHANGES"),
 }

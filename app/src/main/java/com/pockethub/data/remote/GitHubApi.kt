@@ -455,14 +455,21 @@ interface GitHubApi {
      *
      * Fields follow the GitHub v3 doc:
      *   https://docs.github.com/en/rest/pulls/comments#create-a-review-comment
+     *
+     * Two modes:
+     *   1. New anchored line comment — `path`, `line`, `commit_id`, `side` required.
+     *   2. Reply within an existing thread — `in_reply_to_id` of the root comment;
+     *      `path`/`line`/`commit_id` are ignored by the server in this mode.
+     *
      * `subject_type` is "line" by default; `side` defaults to "RIGHT" (new file).
      */
     @kotlinx.serialization.Serializable
     data class ReviewCommentRequest(
         val body: String,
+        @kotlinx.serialization.SerialName("in_reply_to_id") val inReplyToId: Long? = null,
         @kotlinx.serialization.SerialName("commit_id") val commitId: String? = null,
-        val path: String,
-        val line: Int,
+        val path: String? = null,
+        val line: Int? = null,
         @kotlinx.serialization.SerialName("start_line") val startLine: Int? = null,
         val side: String = "RIGHT",
         @kotlinx.serialization.SerialName("start_side") val startSide: String? = null,
@@ -1073,4 +1080,68 @@ interface GitHubApi {
         @kotlinx.serialization.SerialName("error") val error: String? = null,
         @kotlinx.serialization.SerialName("error_description") val errorDescription: String? = null,
     )
+
+    // ──────────────────────────────────────────────
+    //  PR inline review comment edit / delete
+    //  (https://docs.github.com/en/rest/pulls/comments)
+    // ──────────────────────────────────────────────
+
+    /** Body for editing a pull request review comment. */
+    @kotlinx.serialization.Serializable
+    data class EditReviewCommentRequest(val body: String)
+
+    /** Edit a review comment body. */
+    @PATCH("repos/{owner}/{repo}/pulls/comments/{comment_id}")
+    suspend fun editPullRequestReviewComment(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("comment_id") commentId: Long,
+        @Body body: EditReviewCommentRequest,
+    ): ReviewComment
+
+    /** Delete a review comment. */
+    @DELETE("repos/{owner}/{repo}/pulls/comments/{comment_id}")
+    suspend fun deletePullRequestReviewComment(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("comment_id") commentId: Long,
+    ): retrofit2.Response<Unit>
+
+    // ──────────────────────────────────────────────
+    //  GraphQL endpoint for thread resolve / unresolve
+    //  (https://docs.github.com/en/graphql)
+    // ──────────────────────────────────────────────
+
+    /**
+     * Body for a GraphQL query / mutation request.
+     *
+     * GitHub GraphQL v4 accepts POST with `{query, variables, operationName}`; the
+     * `operationName` and `variables` fields can be omitted for single-operation
+     * queries like the resolve / unresolve mutations used by this feature.
+     */
+    @kotlinx.serialization.Serializable
+    data class GraphQLRequest(
+        val query: String,
+        @kotlinx.serialization.SerialName("variables") val variables: Map<String, kotlinx.serialization.json.JsonElement> = emptyMap(),
+    )
+
+    /**
+     * GitHub GraphQL response. `data` holds the per-field results object and
+     * `errors` is non-empty on failure; both are optional per the GraphQL spec.
+     */
+    @kotlinx.serialization.Serializable
+    data class GraphQLResponse(
+        val data: kotlinx.serialization.json.JsonObject? = null,
+        val errors: List<GraphQLError>? = null,
+    )
+
+    @kotlinx.serialization.Serializable
+    data class GraphQLError(
+        val message: String = "",
+        @kotlinx.serialization.SerialName("type") val type: String? = null,
+    )
+
+    /** GraphQL endpoint (currently maps to https://api.github.com/graphql). */
+    @POST("graphql")
+    suspend fun graphQL(@Body body: GraphQLRequest): GraphQLResponse
 }

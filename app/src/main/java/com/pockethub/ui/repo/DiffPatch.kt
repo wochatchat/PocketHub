@@ -17,7 +17,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Reply
 import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -107,12 +112,23 @@ fun DiffPatchWithComment(
     reviewComments: List<GitHubApi.ReviewComment>,
     isSendingComment: Boolean,
     onPostLineComment: (filename: String, commitId: String?, line: Int, body: String, startLine: Int?) -> Unit,
+    onReply: (rootCommentId: Long, body: String) -> Unit = { _, _ -> },
+    onResolve: (rootCommentId: Long) -> Unit = {},
+    onUnresolve: (rootCommentId: Long) -> Unit = {},
+    onEdit: (commentId: Long, currentBody: String) -> Unit = { _, _ -> },
+    onDelete: (commentId: Long) -> Unit = {},
+    threadState: Map<Long, ThreadState> = emptyMap(),
+    currentLogin: String? = null,
+    busyCommentIds: Set<Long> = emptySet(),
     modifier: Modifier = Modifier,
 ) {
     val lines = remember(patch) { parsePatch(patch) }
     // Track which line is currently being commented — show an inline input below it.
     var activeLine by remember { mutableStateOf<Int?>(null) }
     var draftBody by remember { mutableStateOf("") }
+    // Reply state for a given thread root id.
+    var replyTo by remember { mutableStateOf<Long?>(null) }
+    var replyBody by remember { mutableStateOf("") }
 
     val hScroll = rememberScrollState()
     val vScroll = rememberScrollState()
@@ -129,8 +145,17 @@ fun DiffPatchWithComment(
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
         lines.forEachIndexed { idx, line ->
-            val commentary = reviewComments.firstOrNull { rc ->
-                rc.path == filename && rc.line == line.newNumber
+            // Pull all comments anchored at this line, AS WELL AS every reply in the
+            // same thread (matching root id) — render them as a single thread block.
+            val anchoredHere = remember(reviewComments, line.newNumber) {
+                val direct = reviewComments.filter { rc ->
+                    rc.path == filename && rc.line == line.newNumber && rc.inReplyToId == null
+                }
+                direct.map { root ->
+                    val rootId = root.id
+                    val replies = reviewComments.filter { it.path == filename && it.inReplyToId == rootId }
+                    listOf(root) + replies
+                }
             }
 
             // Background color tuned per line type.
@@ -177,9 +202,34 @@ fun DiffPatchWithComment(
                 )
             }
 
-            // Show existing comment if anchored at this line.
-            if (commentary != null) {
-                InlineCommentBubble(commentary)
+            // Render every thread whose root is anchored at this line.
+            anchoredHere.forEach { thread ->
+                val root = thread.first()
+                val info = threadState[root.id]
+                InlineCommentThread(
+                    thread = thread,
+                    isResolved = info?.isResolved == true,
+                    currentLogin = currentLogin,
+                    isBusy = thread.any { it.id in busyCommentIds },
+                    canResolve = info?.threadId?.isNotBlank() == true,
+                    replyOpen = replyTo == root.id,
+                    replyBody = replyBody,
+                    onReplyToggle = {
+                        replyTo = if (replyTo == root.id) null else root.id
+                        replyBody = ""
+                    },
+                    onReplyBodyChange = { replyBody = it },
+                    onSubmitReply = {
+                        onReply(root.id, replyBody.trim())
+                        replyTo = null
+                        replyBody = ""
+                    },
+                    onResolve = { onResolve(root.id) },
+                    onUnresolve = { onUnresolve(root.id) },
+                    onEdit = { c -> onEdit(c.id, c.body) },
+                    onDelete = { c -> onDelete(c.id) },
+                    isSendingComment = isSendingComment,
+                )
             }
 
             // Show inline comment composer when this is the active anchor line.
@@ -219,17 +269,132 @@ fun DiffPatchWithComment(
     }
 }
 
+/** Minimal state the UI needs about a thread — surfaced from the VM's ThreadInfo. */
+data class ThreadState(val threadId: String, val isResolved: Boolean)
+
 @Composable
-private fun InlineCommentBubble(comment: GitHubApi.ReviewComment) {
+private fun InlineCommentThread(
+    thread: List<GitHubApi.ReviewComment>,
+    isResolved: Boolean,
+    currentLogin: String?,
+    isBusy: Boolean,
+    canResolve: Boolean,
+    replyOpen: Boolean,
+    replyBody: String,
+    isSendingComment: Boolean,
+    onReplyToggle: () -> Unit,
+    onReplyBodyChange: (String) -> Unit,
+    onSubmitReply: () -> Unit,
+    onResolve: () -> Unit,
+    onUnresolve: () -> Unit,
+    onEdit: (GitHubApi.ReviewComment) -> Unit,
+    onDelete: (GitHubApi.ReviewComment) -> Unit,
+) {
+    val root = thread.first()
     Column(
         Modifier.fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
             .clip(RoundedCornerShape(4.dp))
-            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f))
+            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isResolved) 0.2f else 0.4f))
             .padding(6.dp),
     ) {
+        if (isResolved) {
+            Text(
+                text = "已解决",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.height(2.dp))
+        }
+        thread.forEach { comment ->
+            InlineCommentRow(
+                comment = comment,
+                isMine = currentLogin != null && comment.user?.login == currentLogin,
+                onEdit = { onEdit(comment) },
+                onDelete = { onDelete(comment) },
+            )
+            if (comment != thread.last()) Spacer(Modifier.height(4.dp))
+        }
+        if (thread.isNotEmpty()) Spacer(Modifier.height(4.dp))
+
+        // Action buttons row — Reply + (Resolve / Unresolve) only show when canResolve
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            TextButton(onClick = onReplyToggle, enabled = !isBusy) {
+                Icon(Icons.AutoMirrored.Outlined.Reply, null, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(2.dp))
+                Text("回复", style = MaterialTheme.typography.labelSmall)
+            }
+            if (canResolve) {
+                TextButton(onClick = if (isResolved) onUnresolve else onResolve, enabled = !isBusy) {
+                    Icon(
+                        if (isResolved) Icons.Outlined.Check else Icons.Outlined.TaskAlt,
+                        null,
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Spacer(Modifier.width(2.dp))
+                    Text(
+                        if (isResolved) "取消已解决" else "标记已解决",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isResolved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        // Reply composer (collapsible)
+        if (replyOpen) {
+            Spacer(Modifier.height(4.dp))
+            OutlinedTextField(
+                value = replyBody,
+                onValueChange = onReplyBodyChange,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isBusy,
+                minLines = 2,
+                placeholder = { Text("回复…") },
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(
+                    onClick = onSubmitReply,
+                    enabled = replyBody.isNotBlank() && !isBusy,
+                ) {
+                    if (isBusy) {
+                        CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(6.dp))
+                    } else {
+                        Icon(Icons.AutoMirrored.Outlined.Send, null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text("发送")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InlineCommentRow(
+    comment: GitHubApi.ReviewComment,
+    isMine: Boolean,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Column(Modifier.fillMaxWidth()) {
         val author: String = comment.user?.login ?: "ghost"
-        Text(author, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(author, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+            if (isMine) {
+                Spacer(Modifier.width(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    IconButton(onClick = onEdit, modifier = Modifier.size(20.dp)) {
+                        Icon(Icons.Outlined.Edit, "编辑", modifier = Modifier.size(12.dp))
+                    }
+                    IconButton(onClick = onDelete, modifier = Modifier.size(20.dp)) {
+                        Icon(Icons.Outlined.Delete, "删除", modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        }
         Text(comment.body, style = MaterialTheme.typography.bodySmall)
     }
 }
