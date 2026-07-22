@@ -26,6 +26,12 @@ class PullRequestDetailViewModel @Inject constructor(
     private val _files = MutableStateFlow<List<GitHubApi.PullRequestFile>>(emptyList())
     val files: StateFlow<List<GitHubApi.PullRequestFile>> = _files
 
+    private val _reviewComments = MutableStateFlow<List<GitHubApi.ReviewComment>>(emptyList())
+    val reviewComments: StateFlow<List<GitHubApi.ReviewComment>> = _reviewComments
+
+    private val _isSendingLineComment = MutableStateFlow(false)
+    val isSendingLineComment: StateFlow<Boolean> = _isSendingLineComment.asStateFlow()
+
     private val _reviews = MutableStateFlow<List<GitHubApi.PullRequestReview>>(emptyList())
     val reviews: StateFlow<List<GitHubApi.PullRequestReview>> = _reviews
 
@@ -99,9 +105,48 @@ class PullRequestDetailViewModel @Inject constructor(
             }
             viewModelScope.launch {
                 try {
+                    _reviewComments.update { api.listPullRequestReviewComments(owner, repo, number) }
+                } catch (_: Exception) {}
+            }
+            viewModelScope.launch {
+                try {
                     _comments.update { api.getIssueComments(owner, repo, number) }
                     hydrateReactions(owner, repo)
                 } catch (_: Exception) {}
+            }
+        }
+    }
+
+    /**
+     * Post a line-level review comment anchored to a file + line on the PR diff.
+     * Optimistically appends to [reviewComments]; on failure rolls back + surfaces via [commentError].
+     */
+    fun postLineComment(path: String, line: Int, body: String, startLine: Int? = null) {
+        val owner = loadedOwner ?: return
+        val repo = loadedRepo ?: return
+        val number = loadedNumber ?: return
+        if (body.isBlank() || _isSendingLineComment.value) return
+        val commitId = _pr.value?.head?.sha
+        viewModelScope.launch {
+            _isSendingLineComment.update { true }
+            _commentError.update { null }
+            try {
+                val created = api.createPullRequestReviewComment(
+                    owner, repo, number,
+                    GitHubApi.ReviewCommentRequest(
+                        body = body,
+                        commitId = commitId,
+                        path = path,
+                        line = line,
+                        startLine = startLine,
+                    ),
+                )
+                _reviewComments.update { it + created }
+                _pr.update { pr -> pr?.copy(reviewComments = pr.reviewComments + 1) }
+            } catch (e: Exception) {
+                _commentError.update { e.localizedMessage ?: "行评论发送失败" }
+            } finally {
+                _isSendingLineComment.update { false }
             }
         }
     }

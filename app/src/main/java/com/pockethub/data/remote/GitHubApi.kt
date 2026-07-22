@@ -360,6 +360,71 @@ interface GitHubApi {
         @Body body: ReviewRequest,
     ): PullRequestReview
 
+    /**
+     * List review comments (line-level comments) on a PR — these are different from issue
+     * comments (general PR discussion): they are anchored to a specific file + line range.
+     */
+    @GET("repos/{owner}/{repo}/pulls/{pull_number}/comments")
+    suspend fun listPullRequestReviewComments(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("pull_number") pullNumber: Int,
+        @Query("per_page") perPage: Int = 100,
+        @Query("page") page: Int = 1,
+    ): List<ReviewComment>
+
+    /**
+     * Post a line-level review comment on a PR.
+     *
+     * Use [ReviewCommentRequest.line] (single-line) or [ReviewCommentRequest.startLine] + `line`
+     * (multi-line range). The full positional parameters are required by GitHub to anchor a
+     * comment on the file diff rather than the issue timeline.
+     */
+    @POST("repos/{owner}/{repo}/pulls/{pull_number}/comments")
+    suspend fun createPullRequestReviewComment(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("pull_number") pullNumber: Int,
+        @Body body: ReviewCommentRequest,
+    ): ReviewComment
+
+    @kotlinx.serialization.Serializable
+    data class ReviewComment(
+        val id: Long = 0,
+        @kotlinx.serialization.SerialName("node_id") val nodeId: String? = null,
+        val path: String = "",
+        val line: Int? = null,
+        @kotlinx.serialization.SerialName("start_line") val startLine: Int? = null,
+        @kotlinx.serialization.SerialName("original_line") val originalLine: Int? = null,
+        @kotlinx.serialization.SerialName("original_start_line") val originalStartLine: Int? = null,
+        @kotlinx.serialization.SerialName("in_reply_to_id") val inReplyToId: Long? = null,
+        val body: String = "",
+        val user: User? = null,
+        @kotlinx.serialization.SerialName("created_at") val createdAt: String? = null,
+        @kotlinx.serialization.SerialName("updated_at") val updatedAt: String? = null,
+        @kotlinx.serialization.SerialName("html_url") val htmlUrl: String? = null,
+        @kotlinx.serialization.SerialName("commit_id") val commitId: String? = null,
+    )
+
+    /**
+     * Body for [createPullRequestReviewComment].
+     *
+     * Fields follow the GitHub v3 doc:
+     *   https://docs.github.com/en/rest/pulls/comments#create-a-review-comment
+     * `subject_type` is "line" by default; `side` defaults to "RIGHT" (new file).
+     */
+    @kotlinx.serialization.Serializable
+    data class ReviewCommentRequest(
+        val body: String,
+        @kotlinx.serialization.SerialName("commit_id") val commitId: String? = null,
+        val path: String,
+        val line: Int,
+        @kotlinx.serialization.SerialName("start_line") val startLine: Int? = null,
+        val side: String = "RIGHT",
+        @kotlinx.serialization.SerialName("start_side") val startSide: String? = null,
+        @kotlinx.serialization.SerialName("subject_type") val subjectType: String = "line",
+    )
+
     @kotlinx.serialization.Serializable
     data class PullRequest(
         val id: Long = 0,

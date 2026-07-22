@@ -98,6 +98,8 @@ fun PullRequestDetailScreen(
     val files by vm.files.collectAsState()
     val reviews by vm.reviews.collectAsState()
     val comments by vm.comments.collectAsState()
+    val reviewComments by vm.reviewComments.collectAsState()
+    val isSendingLineComment by vm.isSendingLineComment.collectAsState()
     // Touch these so comment rows re-compose when viewer reactions arrive async.
     @Suppress("unused")
     val currentLogin by vm.currentLogin.collectAsState()
@@ -372,7 +374,15 @@ fun PullRequestDetailScreen(
                     HorizontalDivider()
                     Text(stringResource(R.string.pr_files_changed, files.size), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     files.forEach { file ->
-                        FileDiffItem(file)
+                        FileDiffItem(
+                            file = file,
+                            commitId = pr?.head?.sha,
+                            reviewComments = reviewComments,
+                            isSendingLineComment = isSendingLineComment,
+                            onPostLineComment = { path, commitId, line, body, _ ->
+                                vm.postLineComment(path, line, body)
+                            },
+                        )
                     }
                 }
 
@@ -682,7 +692,13 @@ private fun ReviewItem(
 }
 
 @Composable
-private fun FileDiffItem(file: GitHubApi.PullRequestFile) {
+private fun FileDiffItem(
+    file: GitHubApi.PullRequestFile,
+    commitId: String?,
+    reviewComments: List<GitHubApi.ReviewComment>,
+    isSendingLineComment: Boolean,
+    onPostLineComment: (filename: String, commitId: String?, line: Int, body: String, startLine: Int?) -> Unit,
+) {
     val statusColor = when (file.status) {
         "added" -> Color(0xFF2EA043)
         "removed" -> MaterialTheme.colorScheme.error
@@ -729,24 +745,16 @@ private fun FileDiffItem(file: GitHubApi.PullRequestFile) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        // Patch
+        // Patch — line-commentable
         if (!file.patch.isNullOrBlank()) {
             Spacer(Modifier.height(6.dp))
-            val hScroll = rememberScrollState()
-            Text(
-                text = file.patch,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    fontFamily = FontFamily.Monospace,
-                    lineHeight = MaterialTheme.typography.bodySmall.lineHeight,
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 300.dp)
-                    .verticalScroll(rememberScrollState())
-                    .horizontalScroll(hScroll)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(6.dp),
+            DiffPatchWithComment(
+                patch = file.patch,
+                filename = file.filename,
+                commitId = commitId,
+                reviewComments = reviewComments.filter { it.path == file.filename },
+                isSendingComment = isSendingLineComment,
+                onPostLineComment = onPostLineComment,
             )
         }
     }
