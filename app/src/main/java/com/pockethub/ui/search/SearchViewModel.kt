@@ -30,6 +30,17 @@ enum class SortOrder(val apiValue: String) {
     ASC("asc"),
 }
 
+/**
+ * Curated list of common programming languages shown as one-tap chips in the
+ * repos filter row. The user can still pick "Other…" and type a custom name
+ * for anything not listed here.
+ */
+val COMMON_LANGUAGES: List<String> = listOf(
+    "Kotlin", "Java", "Python", "JavaScript", "TypeScript", "Go", "Rust",
+    "C", "C++", "C#", "Swift", "Ruby", "PHP", "Dart", "Scala", "Shell",
+    "HTML", "CSS", "Vue", "Lua", "Elixir", "Haskell", "OCaml",
+)
+
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     private val api: GitHubApi,

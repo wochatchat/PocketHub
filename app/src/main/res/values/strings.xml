@@ -328,6 +328,9 @@
     <string name="order_asc">Asc</string>
     <string name="order_desc">Desc</string>
     <string name="language_filter_placeholder">Language (e.g. Kotlin, Python)…</string>
+    <string name="language_custom">Custom…</string>
+    <string name="language_custom_title">Filter by language</string>
+    <string name="language_custom_hint">Type any GitHub-recognized language name (case-insensitive), e.g. \"Kotlin\", \"Objective-C\", \"Jupyter Notebook\".</string>
     <string name="search_tab_users">Users</string>
     <string name="search_tab_code">Code</string>
     <string name="search_tab_issues">Issues</string>

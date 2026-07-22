@@ -30,6 +30,9 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Clear
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Merge
 import androidx.compose.material.icons.outlined.ErrorOutline
@@ -43,7 +46,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
@@ -224,16 +229,19 @@ fun SearchScreen(
 }
 
 /**
- * Repos-tab sort + language filter row. Sort is a 4-choice chip row (Best / Stars /
- * Forks / Updated). Language is a single-line OutlinedTextField — it gets appended
- * to the query as the `language:` qualifier on search.
+ * Repos-tab sort + language filter row. Sort is a 4-choice chip row (Best /
+ * Stars / Forks / Updated). Language uses curated one-tap chips plus an
+ * interactive "Custom…" filter — explicitly button-driven, not a search box.
+ * The chosen language is appended to the query as the `language:` qualifier.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RepoFilterRow(vm: SearchViewModel) {
     val sort by vm.repoSort.collectAsState()
     val order by vm.sortOrder.collectAsState()
-    var language by remember { mutableStateOf("") }
+    val language by vm.repoLanguage.collectAsState()
+    var showLanguagePicker by remember { mutableStateOf(false) }
+    var customQuery by remember { mutableStateOf("") }
 
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -290,27 +298,92 @@ private fun RepoFilterRow(vm: SearchViewModel) {
             }
         }
         Spacer(Modifier.height(6.dp))
-        OutlinedTextField(
-            value = language,
-            onValueChange = {
-                language = it
-                vm.applyRepoFilters(language = it.trim())
+
+        // Language row — curated chips + a "Clear" chip when active + "Custom…" chip.
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (language.isNotBlank()) {
+                item {
+                    FilterChip(
+                        selected = true,
+                        onClick = { vm.applyRepoFilters(language = "") },
+                        label = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(language)
+                                Spacer(Modifier.width(4.dp))
+                                Icon(Icons.Outlined.Close, null, Modifier.size(14.dp))
+                            }
+                        },
+                    )
+                }
+            }
+            COMMON_LANGUAGES.forEach { lang ->
+                item {
+                    FilterChip(
+                        selected = language.equals(lang, ignoreCase = true) && language.isNotBlank(),
+                        onClick = {
+                            // Toggle off if already selected.
+                            val next = if (language.equals(lang, ignoreCase = true)) "" else lang
+                            vm.applyRepoFilters(language = next)
+                        },
+                        label = { Text(lang) },
+                    )
+                }
+            }
+            item {
+                FilterChip(
+                    selected = false,
+                    onClick = {
+                        customQuery = ""
+                        showLanguagePicker = true
+                    },
+                    label = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.MoreHoriz, null, Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(stringResource(R.string.language_custom))
+                        }
+                    },
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+
+    if (showLanguagePicker) {
+        AlertDialog(
+            onDismissRequest = { showLanguagePicker = false },
+            title = { Text(stringResource(R.string.language_custom_title)) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = customQuery,
+                        onValueChange = { customQuery = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text(stringResource(R.string.language_filter_placeholder)) },
+                        singleLine = true,
+                        leadingIcon = { Icon(Icons.Outlined.Code, null) },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        stringResource(R.string.language_custom_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text(stringResource(R.string.language_filter_placeholder)) },
-            singleLine = true,
-            trailingIcon = {
-                if (language.isNotEmpty()) {
-                    IconButton(onClick = {
-                        language = ""
-                        vm.applyRepoFilters(language = "")
-                    }) {
-                        Icon(Icons.Outlined.Clear, contentDescription = null)
-                    }
+            confirmButton = {
+                TextButton(onClick = {
+                    val trimmed = customQuery.trim()
+                    if (trimmed.isNotBlank()) vm.applyRepoFilters(language = trimmed)
+                    showLanguagePicker = false
+                }) { Text(stringResource(R.string.action_apply)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLanguagePicker = false }) {
+                    Text(stringResource(R.string.action_cancel))
                 }
             },
         )
-        Spacer(Modifier.height(8.dp))
     }
 }
 

@@ -312,6 +312,9 @@
     <string name="order_asc">升序</string>
     <string name="order_desc">降序</string>
     <string name="language_filter_placeholder">语言 (如 Kotlin, Python)…</string>
+    <string name="language_custom">自定义…</string>
+    <string name="language_custom_title">按语言筛选</string>
+    <string name="language_custom_hint">输入 GitHub 支持的任意语言名 (不区分大小写), 例如 \"Kotlin\"、\"Objective-C\"、\"Jupyter Notebook\"。</string>
     <string name="search_tab_users">用户</string>
     <string name="search_tab_code">代码</string>
     <string name="search_tab_issues">议题</string>
