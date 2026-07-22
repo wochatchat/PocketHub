@@ -221,6 +221,21 @@
     <!-- User detail -->
     <string name="user_repositories">仓库</string>
     <string name="user_no_repos">暂无公开仓库</string>
+    <string name="user_activity">动态</string>
+    <string name="user_no_activity">暂无公开动态</string>
+    <string name="user_repos_chip">仓库</string>
+    <string name="user_activity_chip">动态</string>
+    <string name="event_pushed">推送 commit 到</string>
+    <string name="event_starred">星标</string>
+    <string name="event_forked">复刻</string>
+    <string name="event_created">创建了</string>
+    <string name="event_commented">评论了</string>
+    <string name="event_opened_issue">在仓库提了 issue</string>
+    <string name="event_pull_request">PR 变更于</string>
+    <string name="event_released">发布了新版本</string>
+    <string name="event_deleted">删除</string>
+    <string name="event_made_public">公开了</string>
+    <string name="event_ref_suffix">→ %1$s</string>
 
     <!-- Code browser -->
     <string name="cd_up">向上</string>

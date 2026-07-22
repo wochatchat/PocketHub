@@ -2,6 +2,7 @@ package com.pockethub.ui.user
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pockethub.data.model.FeedEvent
 import com.pockethub.data.model.Repository
 import com.pockethub.data.model.User
 import com.pockethub.data.remote.CachedRepository
@@ -25,6 +26,12 @@ class UserDetailViewModel @Inject constructor(
 
     private val _repos = MutableStateFlow<List<Repository>>(emptyList())
     val repos: StateFlow<List<Repository>> = _repos
+
+    private val _events = MutableStateFlow<List<FeedEvent>>(emptyList())
+    val events: StateFlow<List<FeedEvent>> = _events
+
+    private val _isLoadingEvents = MutableStateFlow(false)
+    val isLoadingEvents: StateFlow<Boolean> = _isLoadingEvents.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -67,6 +74,15 @@ class UserDetailViewModel @Inject constructor(
                         _repos.update { cache.getUserRepositories(login, sort = "updated") }
                     } catch (_: Exception) {
                         // Non-fatal
+                    }
+                }
+                // Load public activity feed in parallel
+                launch {
+                    _isLoadingEvents.update { true }
+                    try {
+                        _events.update { runCatching { api.getUserEvents(login) }.getOrDefault(emptyList()) }
+                    } finally {
+                        _isLoadingEvents.update { false }
                     }
                 }
                 // Determine whether this is the authenticated user's own profile,

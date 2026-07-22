@@ -236,6 +236,21 @@
     <!-- User detail -->
     <string name="user_repositories">Repositories</string>
     <string name="user_no_repos">No public repositories</string>
+    <string name="user_activity">Activity</string>
+    <string name="user_no_activity">No public activity</string>
+    <string name="user_repos_chip">Repos</string>
+    <string name="user_activity_chip">Activity</string>
+    <string name="event_pushed">Pushed</string>
+    <string name="event_starred">Starred</string>
+    <string name="event_forked">Forked</string>
+    <string name="event_created">Created</string>
+    <string name="event_commented">Commented on</string>
+    <string name="event_opened_issue">Opened issue in</string>
+    <string name="event_pull_request">PR opened/closed in</string>
+    <string name="event_released">Released in</string>
+    <string name="event_deleted">Deleted</string>
+    <string name="event_made_public">Made public</string>
+    <string name="event_ref_suffix">→ %1$s</string>
 
     <!-- Code browser -->
     <string name="cd_up">Up</string>
