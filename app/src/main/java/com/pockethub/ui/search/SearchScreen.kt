@@ -166,9 +166,12 @@ fun SearchScreen(
             }
         }
 
-        // Repos-tab filter row — sort chips + language input + order toggle.
-        if (tab == SearchTab.REPOS) {
-            RepoFilterRow(vm)
+        // Per-tab filter row.
+        when (tab) {
+            SearchTab.REPOS -> RepoFilterRow(vm)
+            SearchTab.USERS -> UsersFilterRow(vm)
+            SearchTab.CODE -> CodeFilterRow(vm)
+            SearchTab.ISSUES -> IssuesFilterRow(vm)
         }
 
         val hasResults = when (tab) {
@@ -275,26 +278,7 @@ private fun RepoFilterRow(vm: SearchViewModel) {
             }
             // Order toggle — only flavorful when a real sort is active.
             if (sort != RepoSort.BEST_MATCH) {
-                item {
-                    FilterChip(
-                        selected = order == SortOrder.ASC,
-                        onClick = {
-                            val next = if (order == SortOrder.ASC) SortOrder.DESC else SortOrder.ASC
-                            vm.applyRepoFilters(order = next)
-                        },
-                        label = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    if (order == SortOrder.ASC) Icons.Outlined.ArrowUpward else Icons.Outlined.ArrowDownward,
-                                    null,
-                                    modifier = Modifier.size(14.dp),
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(if (order == SortOrder.ASC) stringResource(R.string.order_asc) else stringResource(R.string.order_desc))
-                            }
-                        },
-                    )
-                }
+                item { OrderToggleChip(order = order, onToggle = { vm.applyRepoFilters(order = it) }) }
             }
         }
         Spacer(Modifier.height(6.dp))
@@ -485,4 +469,280 @@ private fun LazyListScope.issueItems(
             }
         }
     }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Per-tab filter rows (Users / Code / Issues). Share the same visual language as
+// RepoFilterRow: a single LazyRow of FilterChip + optional order toggle + a
+// "Custom…" chip for open-ended filters (language, extension).
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Users tab — sort by followers / repositories / joined, plus ASC/DESC toggle.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun UsersFilterRow(vm: SearchViewModel) {
+    val sort by vm.userSort.collectAsState()
+    val order by vm.userOrder.collectAsState()
+
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(
+                UserSort.BEST_MATCH to R.string.sort_best_match,
+                UserSort.FOLLOWERS to R.string.user_sort_followers,
+                UserSort.REPOSITORIES to R.string.user_sort_repositories,
+                UserSort.JOINED to R.string.user_sort_joined,
+            ).forEach { (s, labelRes) ->
+                item {
+                    FilterChip(
+                        selected = sort == s,
+                        onClick = { vm.applyUsersFilters(sort = s) },
+                        label = { Text(stringResource(labelRes)) },
+                    )
+                }
+            }
+            if (sort != UserSort.BEST_MATCH) {
+                item {
+                    OrderToggleChip(
+                        order = order,
+                        onToggle = { vm.applyUsersFilters(order = it) },
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+/**
+ * Code tab — language chips (reuses COMMON_LANGUAGES) + extension "Custom…"
+ * chip with a dialog where the user can type any extension or language name.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CodeFilterRow(vm: SearchViewModel) {
+    val language by vm.codeLanguage.collectAsState()
+    val extension by vm.codeExtension.collectAsState()
+    var showCustom by remember { mutableStateOf(false) }
+    var customMode by remember { mutableStateOf(CodeCustomMode.LANGUAGE) }
+    var customText by remember { mutableStateOf("") }
+
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        // Active filters first (Clear chips).
+        if (language.isNotBlank() || extension.isNotBlank()) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (language.isNotBlank()) {
+                    item {
+                        ActiveFilterChip(
+                            label = stringResource(R.string.language_label_fmt, language),
+                            onClear = { vm.applyCodeFilters(language = "") },
+                        )
+                    }
+                }
+                if (extension.isNotBlank()) {
+                    item {
+                        ActiveFilterChip(
+                            label = stringResource(R.string.extension_label_fmt, extension),
+                            onClear = { vm.applyCodeFilters(extension = "") },
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+        }
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            COMMON_LANGUAGES.forEach { lang ->
+                item {
+                    FilterChip(
+                        selected = language.equals(lang, ignoreCase = true),
+                        onClick = {
+                            val next = if (language.equals(lang, ignoreCase = true)) "" else lang
+                            vm.applyCodeFilters(language = next)
+                        },
+                        label = { Text(lang) },
+                    )
+                }
+            }
+            item {
+                FilterChip(
+                    selected = false,
+                    onClick = {
+                        customMode = CodeCustomMode.LANGUAGE
+                        customText = ""
+                        showCustom = true
+                    },
+                    label = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.MoreHoriz, null, Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(stringResource(R.string.language_custom))
+                        }
+                    },
+                )
+            }
+            item {
+                FilterChip(
+                    selected = false,
+                    onClick = {
+                        customMode = CodeCustomMode.EXTENSION
+                        customText = ""
+                        showCustom = true
+                    },
+                    label = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.MoreHoriz, null, Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(stringResource(R.string.extension_custom))
+                        }
+                    },
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+
+    if (showCustom) {
+        val titleRes = if (customMode == CodeCustomMode.LANGUAGE) R.string.language_custom_title
+            else R.string.extension_custom_title
+        val placeholderRes = if (customMode == CodeCustomMode.LANGUAGE) R.string.language_filter_placeholder
+            else R.string.extension_filter_placeholder
+        AlertDialog(
+            onDismissRequest = { showCustom = false },
+            title = { Text(stringResource(titleRes)) },
+            text = {
+                OutlinedTextField(
+                    value = customText,
+                    onValueChange = { customText = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text(stringResource(placeholderRes)) },
+                    singleLine = true,
+                    leadingIcon = { Icon(Icons.Outlined.Code, null) },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val trimmed = customText.trim()
+                    if (trimmed.isNotBlank()) {
+                        if (customMode == CodeCustomMode.LANGUAGE) vm.applyCodeFilters(language = trimmed)
+                        else vm.applyCodeFilters(extension = trimmed)
+                    }
+                    showCustom = false
+                }) { Text(stringResource(R.string.action_apply)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCustom = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+        )
+    }
+}
+
+private enum class CodeCustomMode { LANGUAGE, EXTENSION }
+
+/**
+ * Issues tab — type (all / issue / pr) + state (all / open / closed) + sort
+ * (created / updated / comments) + ASC/DESC toggle.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun IssuesFilterRow(vm: SearchViewModel) {
+    val type by vm.issueType.collectAsState()
+    val state by vm.issueState.collectAsState()
+    val sort by vm.issueSort.collectAsState()
+    val order by vm.issueOrder.collectAsState()
+
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(
+                IssueType.ALL to R.string.issue_type_all,
+                IssueType.ISSUE to R.string.issue_type_issue,
+                IssueType.PR to R.string.issue_type_pr,
+            ).forEach { (t, labelRes) ->
+                item {
+                    FilterChip(
+                        selected = type == t,
+                        onClick = { vm.applyIssuesFilters(type = t) },
+                        label = { Text(stringResource(labelRes)) },
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(
+                IssueState.ALL to R.string.issue_state_all,
+                IssueState.OPEN to R.string.issue_state_open,
+                IssueState.CLOSED to R.string.issue_state_closed,
+            ).forEach { (s, labelRes) ->
+                item {
+                    FilterChip(
+                        selected = state == s,
+                        onClick = { vm.applyIssuesFilters(state = s) },
+                        label = { Text(stringResource(labelRes)) },
+                    )
+                }
+            }
+            listOf(
+                IssueSort.CREATED to R.string.sort_created,
+                IssueSort.UPDATED to R.string.sort_updated,
+                IssueSort.COMMENTS to R.string.sort_comments,
+            ).forEach { (s, labelRes) ->
+                item {
+                    FilterChip(
+                        selected = sort == s,
+                        onClick = { vm.applyIssuesFilters(sort = s) },
+                        label = { Text(stringResource(labelRes)) },
+                    )
+                }
+            }
+            item { OrderToggleChip(order = order, onToggle = { vm.applyIssuesFilters(order = it) }) }
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+/**
+ * Reusable ASC/DESC toggle chip shown next to sort filters.
+ */
+@Composable
+private fun OrderToggleChip(order: SortOrder, onToggle: (SortOrder) -> Unit) {
+    FilterChip(
+        selected = order == SortOrder.ASC,
+        onClick = {
+            val next = if (order == SortOrder.ASC) SortOrder.DESC else SortOrder.ASC
+            onToggle(next)
+        },
+        label = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    if (order == SortOrder.ASC) Icons.Outlined.ArrowUpward else Icons.Outlined.ArrowDownward,
+                    null,
+                    modifier = Modifier.size(14.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(if (order == SortOrder.ASC) stringResource(R.string.order_asc) else stringResource(R.string.order_desc))
+            }
+        },
+    )
+}
+
+/**
+ * Pill that shows a currently-active filter with a close icon on the right —
+ * clicking it clears the filter.
+ */
+@Composable
+private fun ActiveFilterChip(label: String, onClear: () -> Unit) {
+    FilterChip(
+        selected = true,
+        onClick = onClear,
+        label = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(label)
+                Spacer(Modifier.width(4.dp))
+                Icon(Icons.Outlined.Close, null, Modifier.size(14.dp))
+            }
+        },
+    )
 }

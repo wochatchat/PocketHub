@@ -17,6 +17,11 @@ import javax.inject.Inject
 
 enum class SearchTab { REPOS, USERS, CODE, ISSUES }
 
+enum class SortOrder(val apiValue: String) {
+    DESC("desc"),
+    ASC("asc"),
+}
+
 /** Repo search sort options; "" = GitHub default ("best match"). */
 enum class RepoSort(val apiValue: String?) {
     BEST_MATCH(null),
@@ -25,9 +30,33 @@ enum class RepoSort(val apiValue: String?) {
     UPDATED("updated"),
 }
 
-enum class SortOrder(val apiValue: String) {
-    DESC("desc"),
-    ASC("asc"),
+/** User search sort options; "" = GitHub default ("best match"). */
+enum class UserSort(val apiValue: String?) {
+    BEST_MATCH(null),
+    FOLLOWERS("followers"),
+    REPOSITORIES("repositories"),
+    JOINED("joined"),
+}
+
+/** Issue search sort options (works on /search/issues). */
+enum class IssueSort(val apiValue: String) {
+    CREATED("created"),
+    UPDATED("updated"),
+    COMMENTS("comments"),
+}
+
+/** Issue / PR type filter for the Issues tab. */
+enum class IssueType(val qualifier: String) {
+    ALL(""),
+    ISSUE(" is:issue"),
+    PR(" is:pr"),
+}
+
+/** Issue state filter for the Issues tab. */
+enum class IssueState(val qualifier: String) {
+    ALL(""),
+    OPEN(" state:open"),
+    CLOSED(" state:closed"),
 }
 
 /**
@@ -54,6 +83,23 @@ class SearchViewModel @Inject constructor(
     var sortOrder = MutableStateFlow(SortOrder.DESC)
     /** Optional language filter — appended as `language:` qualifier in the q string. Empty = any. */
     var repoLanguage = MutableStateFlow("")
+
+    /** Users tab sort — applied as `sort` query param. */
+    var userSort = MutableStateFlow(UserSort.BEST_MATCH)
+    /** Users tab order — shared with repos tab. */
+    var userOrder = MutableStateFlow(SortOrder.DESC)
+
+    /** Code tab language filter — appended as `language:` qualifier. Empty = any. */
+    var codeLanguage = MutableStateFlow("")
+    /** Code tab extension filter — appended as `extension:xxx` qualifier. Empty = any. */
+    var codeExtension = MutableStateFlow("")
+
+    /** Issues tab filters — all qualifiers appended to q string. */
+    var issueSort = MutableStateFlow(IssueSort.UPDATED)
+    /** Issues tab order — shared with repos tab. */
+    var issueOrder = MutableStateFlow(SortOrder.DESC)
+    var issueType = MutableStateFlow(IssueType.ALL)
+    var issueState = MutableStateFlow(IssueState.ALL)
 
     private val _repos = MutableStateFlow<List<Repository>>(emptyList())
     val repos: StateFlow<List<Repository>> = _repos
@@ -107,17 +153,29 @@ class SearchViewModel @Inject constructor(
                         totalCounts[tab] = r.total_count
                     }
                     SearchTab.USERS -> {
-                        val r = api.searchUsers(q, page = 1)
+                        val r = api.searchUsers(
+                            query = q,
+                            page = 1,
+                            sort = userSort.value.apiValue,
+                            order = if (userSort.value.apiValue == null) null else userOrder.value.apiValue,
+                        )
                         _users.update { r.items }
                         totalCounts[tab] = r.total_count
                     }
                     SearchTab.CODE -> {
-                        val r = api.searchCode(q, page = 1)
+                        val composedQuery = composeCodeQuery(q, codeLanguage.value, codeExtension.value)
+                        val r = api.searchCode(composedQuery, page = 1)
                         _code.update { r.items }
                         totalCounts[tab] = r.total_count
                     }
                     SearchTab.ISSUES -> {
-                        val r = api.searchIssues(q, page = 1)
+                        val composedQuery = composeIssueQuery(q, issueType.value, issueState.value)
+                        val r = api.searchIssues(
+                            query = composedQuery,
+                            page = 1,
+                            sort = issueSort.value.apiValue,
+                            order = issueOrder.value.apiValue,
+                        )
                         _issues.update { r.items }
                         totalCounts[tab] = r.total_count
                     }
@@ -159,21 +217,33 @@ class SearchViewModel @Inject constructor(
                     }
                     SearchTab.USERS -> {
                         if (_users.value.size >= (totalCounts[tab] ?: Int.MAX_VALUE)) return@launch
-                        val r = api.searchUsers(q, page = nextPage)
+                        val r = api.searchUsers(
+                            query = q,
+                            page = nextPage,
+                            sort = userSort.value.apiValue,
+                            order = if (userSort.value.apiValue == null) null else userOrder.value.apiValue,
+                        )
                         if (r.items.isEmpty()) { totalCounts[tab] = _users.value.size; return@launch }
                         _users.update { it + r.items }
                         totalCounts[tab] = r.total_count
                     }
                     SearchTab.CODE -> {
                         if (_code.value.size >= (totalCounts[tab] ?: Int.MAX_VALUE)) return@launch
-                        val r = api.searchCode(q, page = nextPage)
+                        val composedQuery = composeCodeQuery(q, codeLanguage.value, codeExtension.value)
+                        val r = api.searchCode(composedQuery, page = nextPage)
                         if (r.items.isEmpty()) { totalCounts[tab] = _code.value.size; return@launch }
                         _code.update { it + r.items }
                         totalCounts[tab] = r.total_count
                     }
                     SearchTab.ISSUES -> {
                         if (_issues.value.size >= (totalCounts[tab] ?: Int.MAX_VALUE)) return@launch
-                        val r = api.searchIssues(q, page = nextPage)
+                        val composedQuery = composeIssueQuery(q, issueType.value, issueState.value)
+                        val r = api.searchIssues(
+                            query = composedQuery,
+                            page = nextPage,
+                            sort = issueSort.value.apiValue,
+                            order = issueOrder.value.apiValue,
+                        )
                         if (r.items.isEmpty()) { totalCounts[tab] = _issues.value.size; return@launch }
                         _issues.update { it + r.items }
                         totalCounts[tab] = r.total_count
@@ -182,7 +252,11 @@ class SearchViewModel @Inject constructor(
                 pages[tab] = nextPage
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
-                // Swallow pagination errors — the user can scroll again to retry.
+                // Restore the previous page counter so the next scroll attempts the
+                // same page again (otherwise we'd silently skip a page on retry).
+                // Don't surface as a hard error overlay — the user already has stale
+                // results visible; we keep the footer spinner off instead.
+                // (Hard failures are surfaced by the initial search(), not loadMore.)
             } finally {
                 _isLoadingMore.update { false }
             }
@@ -234,5 +308,58 @@ class SearchViewModel @Inject constructor(
         // GitHub supports `language:Kotlin` as a qualifier in q. Words and quoted
         // strings are left intact; just append the qualifier.
         return "$trimmed language:$language"
+    }
+
+    /** Apply users tab filters and re-search. */
+    fun applyUsersFilters(
+        sort: UserSort = userSort.value,
+        order: SortOrder = userOrder.value,
+    ) {
+        userSort.value = sort
+        userOrder.value = order
+        if (query.value.isNotBlank()) search()
+    }
+
+    /**
+     * Apply code tab filters and re-search. Language and extension are appended
+     * to the q string (language: / extension: qualifiers).
+     */
+    fun applyCodeFilters(
+        language: String = codeLanguage.value,
+        extension: String = codeExtension.value,
+    ) {
+        codeLanguage.value = language
+        codeExtension.value = extension
+        if (query.value.isNotBlank()) search()
+    }
+
+    /** Compose code search query — append `language:` and `extension:` qualifiers. */
+    private fun composeCodeQuery(rawQuery: String, language: String, extension: String): String {
+        val trimmed = rawQuery.trim()
+        val langPart = if (language.isBlank()) "" else " language:$language"
+        val extPart = if (extension.isBlank()) "" else " extension:$extension"
+        val composed = langPart + extPart
+        return if (composed.isBlank()) trimmed else "$trimmed$composed"
+    }
+
+    /** Apply issues tab filters and re-search. */
+    fun applyIssuesFilters(
+        sort: IssueSort = issueSort.value,
+        order: SortOrder = issueOrder.value,
+        type: IssueType = issueType.value,
+        state: IssueState = issueState.value,
+    ) {
+        issueSort.value = sort
+        issueOrder.value = order
+        issueType.value = type
+        issueState.value = state
+        if (query.value.isNotBlank()) search()
+    }
+
+    /** Compose issue search query — append `is:issue`/`is:pr` and `state:` qualifiers. */
+    private fun composeIssueQuery(rawQuery: String, type: IssueType, state: IssueState): String {
+        val trimmed = rawQuery.trim()
+        val composed = type.qualifier + state.qualifier
+        return if (composed.isBlank()) trimmed else "$trimmed$composed"
     }
 }
