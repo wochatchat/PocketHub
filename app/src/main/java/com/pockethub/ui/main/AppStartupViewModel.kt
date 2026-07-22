@@ -29,6 +29,7 @@ class AppStartupViewModel @Inject constructor(
     private val authInterceptor: AuthInterceptor,
     private val notifScheduler: NotifScheduler,
     private val settings: SettingsRepository,
+    private val sessionBus: SessionEventBus,
 ) : ViewModel() {
 
     private val _startRoute = MutableStateFlow<String?>(null)
@@ -56,6 +57,15 @@ class AppStartupViewModel @Inject constructor(
             // Schedule notification polling in sync with the user's saved setting
             val minutes = settings.notifPollMinutes.first()
             notifScheduler.schedule(minutes)
+        }
+
+        // AuthInterceptor fires TokenInvalid when any request returns 401 (token
+        // revoked/expired). Sign the user out once and route back to login, rather
+        // than every screen silently churning on dead credentials.
+        viewModelScope.launch {
+            sessionBus.events.collect { event ->
+                if (event is SessionEventBus.Event.TokenInvalid) signOut()
+            }
         }
     }
 

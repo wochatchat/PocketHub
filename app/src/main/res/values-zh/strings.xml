@@ -259,7 +259,7 @@
     <string name="section_privacy_security">隐私与安全</string>
     <string name="section_about">关于</string>
     <string name="token_storage">Token 存储</string>
-    <string name="token_storage_summary">Token 使用加密 Room 存储在设备本地，除调用 GitHub 外不会离开本机。</string>
+    <string name="token_storage_summary">Token 存储在本机应用私有的 Room 数据库中，除直接调用 GitHub 外不会离开本机。</string>
     <string name="analytics_telemetry">分析与遥测</string>
     <string name="analytics_telemetry_summary">PocketHub 不收集任何使用数据。</string>
     <string name="about_pockethub">关于 PocketHub</string>

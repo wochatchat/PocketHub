@@ -204,7 +204,12 @@ class RepoDetailViewModel @Inject constructor(
                     _isStarred.update { true }
                 }
                 cache.invalidateRepo(owner, repo)
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                // Surface the failure so the user knows the star isn't actually flipped
+                // (and isn't left believing the button worked while GitHub still shows
+                // the old state). _isStarred intentionally keeps its pre-toggle value.
+                _error.update { e.localizedMessage ?: "操作失败" }
+            }
         }
     }
 

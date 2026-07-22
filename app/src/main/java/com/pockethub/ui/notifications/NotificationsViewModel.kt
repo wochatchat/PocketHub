@@ -59,20 +59,35 @@ class NotificationsViewModel @Inject constructor(
     fun refresh() = load()
 
     fun markRead(threadId: String) {
-        // Optimistic local update so tapping a notification doesn't reflash the list.
+        // Snapshot for rollback before the optimistic update so a failed PATCH
+        // doesn't leave the local list showing the thread as read while GitHub still
+        // has it as unread (the next refresh would revert it and confuse the user).
+        val before = _notifications.value
         _notifications.update { list ->
             list.map { if (it.id == threadId) it.copy(unread = false) else it }
                 .filter { currentTab.value == NotifTab.READ || it.unread }
         }
         viewModelScope.launch {
-            try { api.markNotificationRead(threadId) } catch (_: Exception) {}
+            try {
+                api.markNotificationRead(threadId)
+            } catch (e: Exception) {
+                _notifications.value = before
+                _error.update { e.localizedMessage ?: "标记已读失败" }
+            }
         }
     }
 
     fun markAllRead() {
         viewModelScope.launch {
-            try { api.markAllNotificationsRead() } catch (_: Exception) {}
-            load(all = currentTab.value == NotifTab.READ)
+            try {
+                api.markAllNotificationsRead()
+                // Reload from cache so the local state reflects the server truth.
+                load(all = currentTab.value == NotifTab.READ)
+            } catch (e: Exception) {
+                // Server still says some are unread; reload rather than pretend it worked.
+                load(all = currentTab.value == NotifTab.READ)
+                _error.update { e.localizedMessage ?: "标记全部已读失败" }
+            }
         }
     }
 

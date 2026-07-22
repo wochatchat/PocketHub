@@ -12,6 +12,7 @@ import androidx.work.WorkerParameters
 import com.pockethub.R
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.flow.first
 import retrofit2.HttpException
 
 /**
@@ -30,6 +31,8 @@ class NotifPollWorker @AssistedInject constructor(
     private val api: GitHubApi,
     private val authInterceptor: AuthInterceptor,
     private val settings: SettingsRepository,
+    private val accounts: AccountRepository,
+    private val sessionBus: SessionEventBus,
 ) : CoroutineWorker(context, params) {
 
     companion object {
@@ -54,10 +57,27 @@ class NotifPollWorker @AssistedInject constructor(
             }
             Result.success()
         } catch (e: Exception) {
-            // Auth failures and other 4xx won't fix themselves — don't burn retries.
-            if (e is HttpException && e.code() in 400..499) Result.success()
-            else Result.retry()
+            if (e is HttpException && e.code() == 401) {
+                // Active token is dead/revoked. Drop it so the next app launch
+                // returns to login, and tell a running app to sign out via the bus.
+                handleTokenInvalid()
+                Result.success()
+            } else if (e is HttpException && e.code() in 400..499) {
+                Result.success()
+            } else {
+                Result.retry()
+            }
         }
+    }
+
+    private suspend fun handleTokenInvalid() {
+        val active = accounts.activeAccount.first()
+        if (active != null) accounts.removeAccount(active.id)
+        authInterceptor.token = ""
+        // If the app is in the foreground, its AppStartupViewModel is collecting this
+        // bus and will route back to login immediately. From background it's a no-op
+        // and the next launch's start-route logic takes over.
+        sessionBus.emit(SessionEventBus.Event.TokenInvalid)
     }
 
     private fun ensureChannel() {

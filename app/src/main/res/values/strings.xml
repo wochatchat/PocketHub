@@ -275,7 +275,7 @@
     <string name="section_privacy_security">Privacy &amp; Security</string>
     <string name="section_about">About</string>
     <string name="token_storage">Token storage</string>
-    <string name="token_storage_summary">Tokens are stored on-device using encrypted Room. They never leave this device except to call GitHub.</string>
+    <string name="token_storage_summary">Tokens are stored in this device\'s app-private Room database. They never leave this device except when calling GitHub directly.</string>
     <string name="analytics_telemetry">Analytics &amp; telemetry</string>
     <string name="analytics_telemetry_summary">PocketHub does not collect any usage analytics.</string>
     <string name="about_pockethub">About PocketHub</string>

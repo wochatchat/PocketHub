@@ -132,6 +132,11 @@ class PullRequestDetailViewModel @Inject constructor(
                         else -> "已评论"
                     }
                 }
+                // Refresh the PR so mergeable / merge_state / requested reviewers
+                // reflect the newly submitted review — same pattern as merge().
+                _pr.update { null }
+                loadedNumber = null
+                loadPullRequest(owner, repo, number)
             } catch (e: Exception) {
                 _reviewResult.update { e.localizedMessage ?: "Review 提交失败" }
             } finally {
