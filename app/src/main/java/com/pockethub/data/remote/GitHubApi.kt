@@ -138,6 +138,50 @@ interface GitHubApi {
         @Path("repo") repo: String,
     ): Response<Unit>
 
+    /**
+     * Watch the repo — sets the current user as subscribed (will receive notifications
+     * for releases / discussions / issue/PR activity depending on the `subscribed` flag).
+     * `ignored=true` mutes the repo entirely. Default [payload] leaves both flags
+     * untouched, which on GitHub means "watch all repo activity".
+     */
+    @PUT("repos/{owner}/{repo}/subscription")
+    suspend fun watch(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Body payload: WatchSubscriptionRequest = WatchSubscriptionRequest(),
+    ): Response<WatchSubscription>
+
+    /** Check if currently watched — 200 + subscription JSON or 404 when not subscribed. */
+    @GET("repos/{owner}/{repo}/subscription")
+    suspend fun getSubscription(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+    ): Response<WatchSubscription>
+
+    /** Unwatch — DELETE the subscription. */
+    @DELETE("repos/{owner}/{repo}/subscription")
+    suspend fun unwatch(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+    ): Response<Unit>
+
+    @kotlinx.serialization.Serializable
+    data class WatchSubscription(
+        val subscribed: Boolean = false,
+        val ignored: Boolean = false,
+        val reason: String? = null,
+        @kotlinx.serialization.SerialName("created_at") val createdAt: String? = null,
+        val url: String? = null,
+        @kotlinx.serialization.SerialName("repository_url") val repositoryUrl: String? = null,
+        @kotlinx.serialization.SerialName("thread_url") val threadUrl: String? = null,
+    )
+
+    @kotlinx.serialization.Serializable
+    data class WatchSubscriptionRequest(
+        val subscribed: Boolean = true,
+        val ignored: Boolean = false,
+    )
+
     /** Fork a repository — 202 Accepted, repo object returned when complete. */
     @POST("repos/{owner}/{repo}/forks")
     suspend fun forkRepository(

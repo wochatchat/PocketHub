@@ -32,6 +32,8 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.ForkRight
 import androidx.compose.material.icons.outlined.PlayArrow
@@ -218,6 +220,27 @@ fun RepoDetailScreen(
                             contentDescription = if (isStarred) stringResource(R.string.cd_unstar) else stringResource(R.string.cd_star),
                             tint = if (isStarred) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                    // Watch / Mute toggle — long-press the mute variant.
+                    val watchState by vm.watchState.collectAsState()
+                    IconButton(onClick = { vm.toggleWatch(owner, repo) }, enabled = watchState != WatchState.UNKNOWN) {
+                        when (watchState) {
+                            WatchState.WATCHING -> Icon(
+                                Icons.Outlined.Notifications,
+                                contentDescription = stringResource(R.string.cd_unwatch),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            WatchState.MUTED -> Icon(
+                                Icons.Outlined.NotificationsOff,
+                                contentDescription = stringResource(R.string.cd_muted),
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                            else -> Icon(
+                                Icons.Outlined.NotificationsOff,
+                                contentDescription = stringResource(R.string.cd_watch),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                     if (canDelete) {
                         IconButton(

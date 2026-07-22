@@ -157,6 +157,9 @@
     <!-- Repo detail -->
     <string name="cd_star">Star</string>
     <string name="cd_unstar">Unstar</string>
+    <string name="cd_watch">Watch</string>
+    <string name="cd_unwatch">Unwatch</string>
+    <string name="cd_muted">Muted</string>
     <string name="action_fork">Fork</string>
     <string name="tab_overview">Overview</string>
     <string name="tab_code">Code</string>

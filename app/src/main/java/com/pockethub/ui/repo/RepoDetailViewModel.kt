@@ -24,6 +24,17 @@ import javax.inject.Inject
 
 enum class RepoTab { OVERVIEW, CODE, ISSUES, PRS, RELEASES, COMMITS, WORKFLOWS }
 
+/**
+ * Three-state watch subscription on a repository — `NOT_WATCHING`, `WATCHING` and `MUTED`.
+ * `UNKNOWN` until [RepoDetailViewModel.checkWatch] resolves the subscription.
+ */
+enum class WatchState {
+    UNKNOWN,
+    NOT_WATCHING,
+    WATCHING,
+    MUTED,
+}
+
 /** Issue / PR list state filter. Maps to the GitHub `state` query param. */
 enum class IssueStateFilter(val apiValue: String) {
     OPEN("open"), CLOSED("closed"), ALL("all");
@@ -116,6 +127,10 @@ class RepoDetailViewModel @Inject constructor(
     private val _isStarred = MutableStateFlow(false)
     val isStarred: StateFlow<Boolean> = _isStarred.asStateFlow()
 
+    /** Whether the current user is watching (subscribed to) this repo's notifications. */
+    private val _watchState = MutableStateFlow<WatchState>(WatchState.UNKNOWN)
+    val watchState: StateFlow<WatchState> = _watchState.asStateFlow()
+
     private val _isForking = MutableStateFlow(false)
     val isForking: StateFlow<Boolean> = _isForking.asStateFlow()
 
@@ -162,6 +177,7 @@ class RepoDetailViewModel @Inject constructor(
                 history.recordVisit(owner, repo)
                 loadReadme(owner, repo)
                 checkStar(owner, repo)
+                checkWatch(owner, repo)
             } catch (e: Exception) {
                 _error.update { e.localizedMessage ?: "加载仓库失败" }
             } finally {
@@ -192,6 +208,73 @@ class RepoDetailViewModel @Inject constructor(
             _isStarred.update { false }
         }
     }
+
+    /** Resolves the current user's subscription status on this repo. */
+    private fun checkWatch(owner: String, repo: String) = viewModelScope.launch {
+        try {
+            val resp = api.getSubscription(owner, repo)
+            if (resp.isSuccessful) {
+                val sub = resp.body()
+                _watchState.update {
+                    when {
+                        sub?.ignored == true -> WatchState.MUTED
+                        sub?.subscribed == true -> WatchState.WATCHING
+                        else -> WatchState.NOT_WATCHING
+                    }
+                }
+            } else {
+                _watchState.update { WatchState.NOT_WATCHING }
+            }
+        } catch (_: Exception) {
+            _watchState.update { WatchState.UNKNOWN }
+        }
+    }
+
+    /**
+     * Cycle watch state: NOT_WATCHING → WATCHING → NOT_WATCHING.
+     * Muting is intentionally a separate action ([muteRepo]) since it is more
+     * destructive (stops all notifications, including @mentions); watches only
+     * stay on the main toggle path so the common case stays one tap.
+     */
+    fun toggleWatch(owner: String, repo: String) {
+        if (_isWatchToggling) return
+        val current = _watchState.value
+        if (current == WatchState.UNKNOWN) return
+        _isWatchToggling = true
+        viewModelScope.launch {
+            try {
+                if (current == WatchState.WATCHING) {
+                    api.unwatch(owner, repo)
+                    _watchState.update { WatchState.NOT_WATCHING }
+                } else {
+                    api.watch(owner, repo, GitHubApi.WatchSubscriptionRequest(subscribed = true, ignored = false))
+                    _watchState.update { WatchState.WATCHING }
+                }
+            } catch (e: Exception) {
+                _error.update { e.localizedMessage ?: "通知订阅切换失败" }
+            } finally {
+                _isWatchToggling = false
+            }
+        }
+    }
+
+    /** Mute the repo entirely from notifications. Toggle back via [toggleWatch]. */
+    fun muteRepo(owner: String, repo: String) {
+        if (_isWatchToggling) return
+        _isWatchToggling = true
+        viewModelScope.launch {
+            try {
+                api.watch(owner, repo, GitHubApi.WatchSubscriptionRequest(subscribed = false, ignored = true))
+                _watchState.update { WatchState.MUTED }
+            } catch (e: Exception) {
+                _error.update { e.localizedMessage ?: "静音失败" }
+            } finally {
+                _isWatchToggling = false
+            }
+        }
+    }
+
+    private var _isWatchToggling: Boolean = false
 
     fun toggleStar(owner: String, repo: String) {
         viewModelScope.launch {
