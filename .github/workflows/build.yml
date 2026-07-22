@@ -45,11 +45,41 @@ jobs:
           VERSION_NAME=$(grep '^versionName=' version.properties | cut -d= -f2)
           APK=$(ls apk/pockethub-${VERSION_NAME}.apk 2>/dev/null | head -1)
           [ -z "$APK" ] && { echo "No APK found, skipping release"; exit 0; }
+
+          # Build changelog from recent commits —
+          # Exclude the version-bump commit itself and any other chore:[skip ci] noise
+          # so the release notes surface feature / fix commits since the last release.
+          mapfile -t LOG_LINES < <(
+            git log --pretty=format:'%s' -n 60 \
+              --grep='chore: release' --invert-grep
+          )
+          CHANGELOG=""
+          for line in "${LOG_LINES[@]}"; do
+            # Skip merge commits and blank lines
+            [[ "$line" =~ ^Merge\  ]] && continue
+            [[ -z "$line" ]] && continue
+            CHANGELOG+="- $line
+          "
+          done
+          # Cap the changelog to keep release notes skimmable on the in-app update dialog.
+          CHANGELOG=$(printf '%s' "$CHANGELOG" | head -c 1800)
+
+          NOTES_FILE=$(mktemp)
+          {
+            echo "## PocketHub v${VERSION_NAME}"
+            echo
+            if [ -n "$CHANGELOG" ]; then
+              echo "$CHANGELOG" | head -40
+            else
+              echo "Auto-built release APK for PocketHub v${VERSION_NAME}."
+            fi
+          } > "$NOTES_FILE"
+
           # Replace existing release/tag if re-running on the same version.
           gh release delete "v${VERSION_NAME}" --yes --cleanup-tag 2>/dev/null || true
           gh release create "v${VERSION_NAME}" "$APK" \
             --title "PocketHub v${VERSION_NAME}" \
-            --notes "Auto-built release APK for PocketHub v${VERSION_NAME}."
+            --notes-file "$NOTES_FILE"
 
           # Prune old releases/tags, keep only the newest 2.
           # `gh release list` output columns: Title / Type / Tag / Published
