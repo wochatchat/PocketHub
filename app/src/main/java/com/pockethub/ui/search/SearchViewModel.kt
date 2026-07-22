@@ -6,8 +6,10 @@ import com.pockethub.data.model.Repository
 import com.pockethub.data.model.User
 import com.pockethub.data.remote.GitHubApi
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -32,29 +34,124 @@ class SearchViewModel @Inject constructor(
     val code: StateFlow<List<GitHubApi.CodeSearchItem>> = _code
 
     private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _isLoadingMore = MutableStateFlow(false)
+    val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+
+    /** The query that produced the currently displayed results ("" = nothing searched yet). */
+    private val _searchedQuery = MutableStateFlow("")
+    val searchedQuery: StateFlow<String> = _searchedQuery.asStateFlow()
+
+    // Pagination state is tracked per tab so switching back and forth doesn't lose the page.
+    private val pages = mutableMapOf<SearchTab, Int>()
+    private val totalCounts = mutableMapOf<SearchTab, Int>()
+    private var searchJob: Job? = null
 
     fun search() {
         val q = query.value.trim()
         if (q.isBlank()) return
-        viewModelScope.launch {
+        val tab = currentTab.value
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
             _isLoading.update { true }
+            _error.update { null }
             try {
-                when (currentTab.value) {
-                    SearchTab.REPOS -> _repos.update { api.searchRepositories(q).items }
-                    SearchTab.USERS -> _users.update { api.searchUsers(q).items }
-                    SearchTab.CODE  -> _code.update { api.searchCode(q).items }
+                when (tab) {
+                    SearchTab.REPOS -> {
+                        val r = api.searchRepositories(q, page = 1)
+                        _repos.update { r.items }
+                        totalCounts[tab] = r.total_count
+                    }
+                    SearchTab.USERS -> {
+                        val r = api.searchUsers(q, page = 1)
+                        _users.update { r.items }
+                        totalCounts[tab] = r.total_count
+                    }
+                    SearchTab.CODE -> {
+                        val r = api.searchCode(q, page = 1)
+                        _code.update { r.items }
+                        totalCounts[tab] = r.total_count
+                    }
                 }
-            } catch (_: Exception) {
-                // empty list on error
+                pages[tab] = 1
+                _searchedQuery.update { q }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                _error.update { e.localizedMessage ?: "Search failed" }
+                // Keep previous results visible — the error state only shows when there's
+                // nothing to display.
             } finally {
                 _isLoading.update { false }
             }
         }
     }
 
+    fun loadMore() {
+        val q = _searchedQuery.value
+        if (q.isBlank() || _isLoading.value || _isLoadingMore.value || _error.value != null) return
+        val tab = currentTab.value
+        val nextPage = (pages[tab] ?: 1) + 1
+        viewModelScope.launch {
+            _isLoadingMore.update { true }
+            try {
+                when (tab) {
+                    SearchTab.REPOS -> {
+                        if (_repos.value.size >= (totalCounts[tab] ?: Int.MAX_VALUE)) return@launch
+                        val r = api.searchRepositories(q, page = nextPage)
+                        if (r.items.isEmpty()) { totalCounts[tab] = _repos.value.size; return@launch }
+                        _repos.update { it + r.items }
+                        totalCounts[tab] = r.total_count
+                    }
+                    SearchTab.USERS -> {
+                        if (_users.value.size >= (totalCounts[tab] ?: Int.MAX_VALUE)) return@launch
+                        val r = api.searchUsers(q, page = nextPage)
+                        if (r.items.isEmpty()) { totalCounts[tab] = _users.value.size; return@launch }
+                        _users.update { it + r.items }
+                        totalCounts[tab] = r.total_count
+                    }
+                    SearchTab.CODE -> {
+                        if (_code.value.size >= (totalCounts[tab] ?: Int.MAX_VALUE)) return@launch
+                        val r = api.searchCode(q, page = nextPage)
+                        if (r.items.isEmpty()) { totalCounts[tab] = _code.value.size; return@launch }
+                        _code.update { it + r.items }
+                        totalCounts[tab] = r.total_count
+                    }
+                }
+                pages[tab] = nextPage
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                // Swallow pagination errors — the user can scroll again to retry.
+            } finally {
+                _isLoadingMore.update { false }
+            }
+        }
+    }
+
+    fun canLoadMore(tab: SearchTab): Boolean {
+        if (_searchedQuery.value.isBlank()) return false
+        val size = when (tab) {
+            SearchTab.REPOS -> _repos.value.size
+            SearchTab.USERS -> _users.value.size
+            SearchTab.CODE -> _code.value.size
+        }
+        return size > 0 && size < (totalCounts[tab] ?: Int.MAX_VALUE)
+    }
+
     fun switchTab(tab: SearchTab) {
+        if (currentTab.value == tab) return
         currentTab.value = tab
-        if (query.value.isNotBlank()) search()
+        // Only hit the network if this tab has no results for the current query yet;
+        // otherwise keep the previously fetched results (and their error state).
+        val hasResults = when (tab) {
+            SearchTab.REPOS -> _repos.value.isNotEmpty()
+            SearchTab.USERS -> _users.value.isNotEmpty()
+            SearchTab.CODE -> _code.value.isNotEmpty()
+        }
+        if (!hasResults) _error.update { null }
+        if (query.value.isNotBlank() && !hasResults) search()
     }
 }

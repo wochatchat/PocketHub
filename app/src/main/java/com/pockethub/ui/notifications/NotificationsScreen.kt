@@ -5,7 +5,6 @@ import com.pockethub.R
 import androidx.compose.ui.res.stringResource
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.CircleNotifications
@@ -43,7 +41,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -62,6 +59,7 @@ fun NotificationsScreen(
 ) {
     val notifications by vm.notifications.collectAsState()
     val isLoading by vm.isLoading.collectAsState()
+    val error by vm.error.collectAsState()
     val tab by vm.currentTab.collectAsState()
     val grouped = remember(notifications) { notifications.groupBy { it.repository?.fullName ?: "unknown" } }
 
@@ -94,6 +92,11 @@ fun NotificationsScreen(
 
             if (isLoading && notifications.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                return@Column
+            }
+
+            if (error != null && notifications.isEmpty()) {
+                com.pockethub.ui.components.ErrorState(message = error!!, onRetry = { vm.refresh() })
                 return@Column
             }
 
@@ -137,6 +140,17 @@ fun NotificationsScreen(
                                 // Tapping a notification implies it has been seen.
                                 if (notif.unread) vm.markRead(notif.id)
                             },
+                        )
+                    }
+                }
+                // Inline error banner when a refresh failed but stale data is visible.
+                if (error != null) {
+                    item(key = "error-banner") {
+                        Text(
+                            text = error!!,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                         )
                     }
                 }

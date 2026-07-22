@@ -203,6 +203,8 @@ fun ExploreScreen(
                             )
                         }
                     }
+                } else if (error != null && feed.isEmpty()) {
+                    item { ErrorState(message = error ?: "", onRetry = { vm.load() }) }
                 } else if (feed.isEmpty()) {
                     item { EmptyState(stringResource(R.string.feed_empty_title), stringResource(R.string.feed_empty_subtitle)) }
                 } else {

@@ -1,9 +1,13 @@
 package com.pockethub.ui
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.CompositionLocalProvider
@@ -13,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.staticCompositionLocalOf
 import coil.ImageLoader
@@ -20,7 +25,6 @@ import com.pockethub.data.remote.AccountRepository
 import com.pockethub.data.remote.AuthInterceptor
 import com.pockethub.data.remote.SettingsRepository
 import com.pockethub.ui.auth.LoginViewModel
-import com.pockethub.ui.main.AppStartupViewModel
 import com.pockethub.ui.main.PocketHubApp
 import com.pockethub.ui.settings.SettingsViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -40,9 +44,15 @@ class MainActivity : AppCompatActivity() {
     @Inject lateinit var settings: SettingsRepository
     @Inject lateinit var imageLoader: ImageLoader
 
+    // Android 13+ requires a runtime grant before the app can post system
+    // notifications (the background poller's alerts are silently dropped without it).
+    private val notifPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* no-op — setting stays accessible */ }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        requestNotificationPermissionIfNeeded()
         setContent {
             CompositionLocalProvider(LocalAppImageLoader provides imageLoader) {
                 val settingsVm: SettingsViewModel = hiltViewModel()
@@ -78,5 +88,14 @@ class MainActivity : AppCompatActivity() {
         if (data.host != "oauth") return
         val code = data.getQueryParameter("code") ?: return
         onCode(code)
+    }
+
+    /** Ask once for POST_NOTIFICATIONS on Android 13+ when not yet granted. */
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < 33) return
+        val granted = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.POST_NOTIFICATIONS,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!granted) notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 }

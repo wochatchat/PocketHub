@@ -48,9 +48,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.pockethub.data.model.Repository
-import java.text.SimpleDateFormat
-import java.util.Locale
-import java.util.TimeZone
 
 private val FILTERS = listOf(
     RepoFilter.ALL, RepoFilter.OWNER, RepoFilter.MEMBER,
@@ -76,6 +73,7 @@ fun ReposScreen(
 ) {
     val repos by vm.repos.collectAsState()
     val isLoading by vm.isLoading.collectAsState()
+    val error by vm.error.collectAsState()
     val tab by vm.currentTab.collectAsState()
     val filter by vm.currentFilter.collectAsState()
     val listState = rememberLazyListState()
@@ -83,12 +81,13 @@ fun ReposScreen(
     // Infinite scroll
     val shouldLoadMore by remember {
         derivedStateOf {
-            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            lastVisible >= listState.layoutInfo.totalItemsCount - 3
+            val info = listState.layoutInfo
+            val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+            info.totalItemsCount > 0 && lastVisible >= info.totalItemsCount - 3
         }
     }
     LaunchedEffect(shouldLoadMore) {
-        if (shouldLoadMore) vm.loadMore()
+        if (shouldLoadMore && error == null) vm.loadMore()
     }
 
     Column(modifier) {
@@ -100,32 +99,56 @@ fun ReposScreen(
                 shape = SegmentedButtonDefaults.itemShape(1, 2), label = { Text(stringResource(R.string.tab_starred)) })
         }
 
-        // Filter chips
-        LazyRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(FILTERS.size) { idx ->
-                FilterChip(
-                    selected = filter == FILTERS[idx],
-                    onClick = { vm.setFilter(FILTERS[idx]) },
-                    label = { Text(repoFilterLabel(FILTERS[idx]), style = MaterialTheme.typography.labelSmall) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    ),
-                )
+        // Filter chips — only meaningful for "My Repos" (the starred endpoint doesn't
+        // support type/visibility filters).
+        if (tab == RepoTab.MINE) {
+            LazyRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(FILTERS.size) { idx ->
+                    FilterChip(
+                        selected = filter == FILTERS[idx],
+                        onClick = { vm.setFilter(FILTERS[idx]) },
+                        label = { Text(repoFilterLabel(FILTERS[idx]), style = MaterialTheme.typography.labelSmall) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        ),
+                    )
+                }
             }
         }
 
         Spacer(Modifier.height(8.dp))
 
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(repos, key = { it.id }) { repo ->
-                RepoCard(
-                    repo = repo,
-                    onClick = { onNavigateToRepo(repo.owner.login, repo.name) },
-                    onNavigateToUser = onNavigateToUser,
-                )
-            }
-            if (isLoading) {
-                item { Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+        when {
+            // First-load spinner.
+            isLoading && repos.isEmpty() ->
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            // Error with nothing cached/stale to show.
+            error != null && repos.isEmpty() ->
+                com.pockethub.ui.components.ErrorState(message = error!!, onRetry = { vm.refresh() })
+            repos.isEmpty() ->
+                com.pockethub.ui.components.EmptyState(title = stringResource(R.string.no_repositories_found))
+            else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(repos, key = { it.id }) { repo ->
+                    RepoCard(
+                        repo = repo,
+                        onClick = { onNavigateToRepo(repo.owner.login, repo.name) },
+                        onNavigateToUser = onNavigateToUser,
+                    )
+                }
+                // Inline error banner when a page/refresh failed but stale data is visible.
+                if (error != null) {
+                    item(key = "error-banner") {
+                        Text(
+                            text = error!!,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        )
+                    }
+                }
+                if (isLoading) {
+                    item(key = "loading-footer") { Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+                }
             }
         }
     }
@@ -137,7 +160,6 @@ private fun RepoCard(
     onClick: () -> Unit,
     onNavigateToUser: (String) -> Unit = {},
 ) {
-    val dateFmt = remember { SimpleDateFormat("MMM d, yyyy", Locale.ENGLISH).apply { timeZone = TimeZone.getDefault() } }
     val ownerClick = Modifier.clickable { onNavigateToUser(repo.owner.login) }
     Column(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp),

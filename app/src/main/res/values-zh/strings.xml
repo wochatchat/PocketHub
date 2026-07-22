@@ -226,6 +226,9 @@
     <string name="search_tab_repos">仓库</string>
     <string name="search_tab_users">用户</string>
     <string name="search_tab_code">代码</string>
+    <string name="search_results_empty">没有找到“%1$s”相关的结果</string>
+    <string name="search_initial_hint">搜索仓库、用户和代码</string>
+    <string name="load_failed">加载失败</string>
 
     <!-- Settings -->
     <string name="settings">设置</string>

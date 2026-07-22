@@ -226,6 +226,9 @@
     <string name="search_tab_repos">Repos</string>
     <string name="search_tab_users">Users</string>
     <string name="search_tab_code">Code</string>
+    <string name="search_results_empty">No results for "%1$s"</string>
+    <string name="search_initial_hint">Search repositories, users and code</string>
+    <string name="load_failed">Load failed</string>
 
     <!-- Settings -->
     <string name="settings">Settings</string>

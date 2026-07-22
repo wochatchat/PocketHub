@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.OffsetDateTime
 import javax.inject.Inject
 
 enum class NotifTab { UNREAD, READ }
@@ -41,9 +42,8 @@ class NotificationsViewModel @Inject constructor(
             _error.update { null }
             try {
                 val result = cache.getNotifications(perPage = 80, all = showAll)
-                _notifications.update { result.filter { it.unread == !showAll } }
+                _notifications.update { result.filter { it.isEffectivelyUnread() == !showAll } }
             } catch (e: Exception) {
-                _notifications.update { emptyList() }
                 _error.update { e.localizedMessage ?: "加载通知失败" }
             } finally {
                 _isLoading.update { false }
@@ -55,6 +55,8 @@ class NotificationsViewModel @Inject constructor(
         currentTab.value = tab
         load(all = tab == NotifTab.READ)
     }
+
+    fun refresh() = load()
 
     fun markRead(threadId: String) {
         // Optimistic local update so tapping a notification doesn't reflash the list.
@@ -73,4 +75,19 @@ class NotificationsViewModel @Inject constructor(
             load(all = currentTab.value == NotifTab.READ)
         }
     }
+
+    /**
+     * GitHub's `all=true` list keeps `unread=true` for threads that were read and later
+     * got new activity; the reliable signal is `updated_at > last_read_at`.
+     */
+    private fun GitHubNotification.isEffectivelyUnread(): Boolean {
+        if (unread && lastReadAt == null) return true
+        val lastRead = parseIso(lastReadAt) ?: return unread
+        val updated = parseIso(updatedAt) ?: return false
+        return updated > lastRead
+    }
+
+    private fun parseIso(iso: String?): Long? = try {
+        iso?.let { OffsetDateTime.parse(it.trim().replace("Z", "+00:00")).toInstant().toEpochMilli() }
+    } catch (_: Exception) { null }
 }

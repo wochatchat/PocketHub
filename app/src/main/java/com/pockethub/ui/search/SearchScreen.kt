@@ -17,7 +17,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -39,6 +41,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -51,8 +54,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
-import com.pockethub.data.model.Repository
-import com.pockethub.data.model.User
+import com.pockethub.ui.components.EmptyState
+import com.pockethub.ui.components.ErrorState
+import com.pockethub.ui.components.LoadingFooter
 
 @Composable
 private fun searchTabLabel(tab: SearchTab): String = when (tab) {
@@ -88,6 +92,21 @@ fun SearchScreen(
     val users by vm.users.collectAsState()
     val code by vm.code.collectAsState()
     val isLoading by vm.isLoading.collectAsState()
+    val isLoadingMore by vm.isLoadingMore.collectAsState()
+    val error by vm.error.collectAsState()
+    val searchedQuery by vm.searchedQuery.collectAsState()
+
+    val listState = rememberLazyListState()
+    val shouldLoadMore by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+            info.totalItemsCount > 0 && lastVisible >= info.totalItemsCount - 3
+        }
+    }
+    LaunchedEffect(shouldLoadMore, tab) {
+        if (shouldLoadMore && vm.canLoadMore(tab)) vm.loadMore()
+    }
 
     Column {
         // Search bar
@@ -127,56 +146,114 @@ fun SearchScreen(
             }
         }
 
-        if (isLoading) {
+        val hasResults = when (tab) {
+            SearchTab.REPOS -> repos.isNotEmpty()
+            SearchTab.USERS -> users.isNotEmpty()
+            SearchTab.CODE -> code.isNotEmpty()
+        }
+
+        // Full-screen loading only when this tab has nothing to show yet; otherwise
+        // keep stale results visible with a footer spinner (no flicker).
+        if (isLoading && !hasResults) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             return@Column
         }
 
-        when (tab) {
-            SearchTab.REPOS -> LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(repos, key = { it.id }) { repo ->
-                    Row(Modifier.fillMaxWidth().clickable { onNavigateToRepo(repo.owner.login, repo.name) }.padding(vertical = 8.dp)) {
-                        AsyncImage(
-                            model = repo.owner.avatarUrl,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp).clip(CircleShape)
-                                .clickable { onNavigateToUser(repo.owner.login) },
+        when {
+            // Error with nothing to show — full error state with retry.
+            error != null && !hasResults -> {
+                ErrorState(message = error!!, onRetry = { vm.search() })
+            }
+            // Nothing searched yet — guidance.
+            searchedQuery.isBlank() -> {
+                EmptyState(title = stringResource(R.string.search_initial_hint))
+            }
+            // Successful search with no hits.
+            !hasResults -> {
+                EmptyState(title = stringResource(R.string.search_results_empty, searchedQuery))
+            }
+            else -> LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                when (tab) {
+                    SearchTab.REPOS -> repoItems(repos, onNavigateToRepo, onNavigateToUser)
+                    SearchTab.USERS -> userItems(users, onNavigateToUser)
+                    SearchTab.CODE -> codeItems(code, onNavigateToRepo)
+                }
+                // Inline error banner when a refresh failed but stale results are visible.
+                if (error != null) {
+                    item(key = "error-banner") {
+                        Text(
+                            text = error!!,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                         )
-                        Spacer(Modifier.width(8.dp))
-                        Column {
-                            Text("${repo.owner.login}/${repo.name}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            if (!repo.description.isNullOrBlank()) Text(repo.description!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
                     }
                 }
-            }
-            SearchTab.USERS -> LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(users, key = { it.login }) { user ->
-                    Row(
-                        Modifier.fillMaxWidth()
-                            .clickable { onNavigateToUser(user.login) }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        AsyncImage(model = user.avatarUrl, contentDescription = null, modifier = Modifier.size(24.dp).clip(CircleShape))
-                        Spacer(Modifier.width(8.dp))
-                        Column {
-                            Text(user.name ?: "@${user.login}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                            Text("@${user.login}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
+                if (isLoading || isLoadingMore) {
+                    item(key = "loading-footer") { LoadingFooter() }
                 }
             }
-            SearchTab.CODE -> LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(code) { item ->
-                    Column(Modifier.fillMaxWidth().clickable {
-                        item.repository?.let { onNavigateToRepo(it.owner.login, it.name) }
-                    }.padding(vertical = 8.dp)) {
-                        Text(item.path, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        item.repository?.let { Text("${it.owner.login}/${it.name}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    }
-                }
+        }
+    }
+}
+
+private fun LazyListScope.repoItems(
+    repos: List<com.pockethub.data.model.Repository>,
+    onNavigateToRepo: (String, String) -> Unit,
+    onNavigateToUser: (String) -> Unit,
+) {
+    items(repos, key = { it.id }) { repo ->
+        Row(Modifier.fillMaxWidth().clickable { onNavigateToRepo(repo.owner.login, repo.name) }.padding(vertical = 8.dp)) {
+            AsyncImage(
+                model = repo.owner.avatarUrl,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp).clip(CircleShape)
+                    .clickable { onNavigateToUser(repo.owner.login) },
+            )
+            Spacer(Modifier.width(8.dp))
+            Column {
+                Text("${repo.owner.login}/${repo.name}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (!repo.description.isNullOrBlank()) Text(repo.description!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+        }
+    }
+}
+
+private fun LazyListScope.userItems(
+    users: List<com.pockethub.data.model.User>,
+    onNavigateToUser: (String) -> Unit,
+) {
+    items(users, key = { it.login }) { user ->
+        Row(
+            Modifier.fillMaxWidth()
+                .clickable { onNavigateToUser(user.login) }
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AsyncImage(model = user.avatarUrl, contentDescription = null, modifier = Modifier.size(24.dp).clip(CircleShape))
+            Spacer(Modifier.width(8.dp))
+            Column {
+                Text(user.name ?: "@${user.login}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                Text("@${user.login}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+private fun LazyListScope.codeItems(
+    code: List<com.pockethub.data.remote.GitHubApi.CodeSearchItem>,
+    onNavigateToRepo: (String, String) -> Unit,
+) {
+    items(code, key = { it.htmlUrl.ifBlank { it.path } }) { item ->
+        Column(Modifier.fillMaxWidth().clickable {
+            item.repository?.let { onNavigateToRepo(it.owner.login, it.name) }
+        }.padding(vertical = 8.dp)) {
+            Text(item.path, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            item.repository?.let { Text("${it.owner.login}/${it.name}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }

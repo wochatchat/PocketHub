@@ -8,20 +8,20 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.pockethub.R
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import java.util.concurrent.TimeUnit
+import retrofit2.HttpException
 
 /**
  * Background worker that polls the GitHub notifications endpoint at the user-configured
  * interval and posts system notifications for new unread items.
  *
  * Managed by [NotifScheduler] — callers should never instantiate this directly.
+ *
+ * Dedup: thread IDs that have already been surfaced are persisted in
+ * [SettingsRepository] so the same unread notification doesn't re-alert on every poll.
  */
 @HiltWorker
 class NotifPollWorker @AssistedInject constructor(
@@ -29,6 +29,7 @@ class NotifPollWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val api: GitHubApi,
     private val authInterceptor: AuthInterceptor,
+    private val settings: SettingsRepository,
 ) : CoroutineWorker(context, params) {
 
     companion object {
@@ -43,13 +44,19 @@ class NotifPollWorker @AssistedInject constructor(
         return try {
             val notifs = api.getNotifications(perPage = 50, all = false)
             val unread = notifs.filter { it.unread }
-            if (unread.isNotEmpty()) {
+            // Only alert for threads we haven't surfaced before.
+            val alreadyNotified = settings.getNotifiedIds()
+            val fresh = unread.filter { it.id !in alreadyNotified }
+            if (fresh.isNotEmpty()) {
                 ensureChannel()
-                postNotification(unread)
+                postNotification(fresh)
+                settings.addNotifiedIds(fresh.map { it.id })
             }
             Result.success()
-        } catch (_: Exception) {
-            Result.retry()
+        } catch (e: Exception) {
+            // Auth failures and other 4xx won't fix themselves — don't burn retries.
+            if (e is HttpException && e.code() in 400..499) Result.success()
+            else Result.retry()
         }
     }
 

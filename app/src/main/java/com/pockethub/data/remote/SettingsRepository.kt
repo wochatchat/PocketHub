@@ -10,6 +10,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.pockethub.ui.theme.ThemeMode
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -32,6 +33,7 @@ class SettingsRepository @Inject constructor(
         val CUSTOM_CLIENT_ID = stringPreferencesKey("custom_client_id")
         val CUSTOM_CLIENT_SECRET = stringPreferencesKey("custom_client_secret")
         val NOTIF_POLL_MINUTES = intPreferencesKey("notif_poll_minutes")
+        val NOTIFIED_IDS = stringPreferencesKey("notified_ids")
         val TRANSLATE_TARGET = stringPreferencesKey("translate_target")
         val STORE_LAST_REFRESH = intPreferencesKey("store_last_refresh_epoch_min")
     }
@@ -102,5 +104,31 @@ class SettingsRepository @Inject constructor(
         context.dataStore.edit { prefs ->
             prefs[Keys.NOTIF_POLL_MINUTES] = minutes.coerceAtLeast(0)
         }
+    }
+
+    // ── System-notification dedup ─────────────────────────
+    /**
+     * IDs of notification threads the background poller has already surfaced as a
+     * system notification. Stored as a comma-separated string; capped so it can't
+     * grow without bound.
+     */
+    suspend fun getNotifiedIds(): Set<String> {
+        val raw = context.dataStore.data.map { it[Keys.NOTIFIED_IDS].orEmpty() }.first()
+        return raw.split(',').filter { it.isNotBlank() }.toSet()
+    }
+
+    /** Merge [ids] into the already-notified set, keeping at most [KEEP] entries. */
+    suspend fun addNotifiedIds(ids: Collection<String>) {
+        if (ids.isEmpty()) return
+        context.dataStore.edit { prefs ->
+            val existing = prefs[Keys.NOTIFIED_IDS].orEmpty()
+                .split(',').filter { it.isNotBlank() }
+            val merged = (existing + ids).distinct().takeLast(KEEP)
+            prefs[Keys.NOTIFIED_IDS] = merged.joinToString(",")
+        }
+    }
+
+    private companion object {
+        const val KEEP = 200
     }
 }

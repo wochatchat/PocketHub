@@ -23,6 +23,8 @@ data class Repository(
     @SerialName("watchers_count") val watchers: Int = 0,
     @SerialName("forks_count") val forks: Int = 0,
     @SerialName("open_issues_count") val openIssues: Int = 0,
+    /** True when this repository is a fork of another. */
+    val fork: Boolean = false,
 
     // Language
     val language: String? = null,

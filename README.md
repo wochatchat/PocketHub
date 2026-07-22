@@ -19,17 +19,17 @@ A well-crafted open-source GitHub client for Android, built with Kotlin + Jetpac
 Global search is available from the top bar.
 
 ### Repository Detail
-Tabs: Overview (README) · Code (file tree) · Issues · PRs · Releases · Actions · Wiki · Projects
-*(Releases / Actions / Wiki / Projects are placeholder tabs for V2.)*
+Tabs: Overview (README) · Code (file tree) · Issues · PRs · Commits · Releases · Actions
+*(Wiki / Projects are not yet available — planned for V2.)*
 
 ### Theming
 - **Dark (Linear-inspired)** — default, compact, calm accent
 - **Light (GitHub Primer-inspired)** — airy, warm cards
 
 ### Offline
-- Room local cache on all fetched data
-- Cache-first display + silent background refresh
-- Local retry queue for failed operations
+- Room local cache on the main read paths (repos, issues, releases, trending, feed)
+- Cache-first display with per-entry TTL
+- Background system alerts for new unread notifications (WorkManager, deduplicated)
 
 ### Multi-account
 - Sign in with multiple GitHub accounts simultaneously

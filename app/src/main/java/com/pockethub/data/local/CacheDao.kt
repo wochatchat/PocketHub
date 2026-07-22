@@ -23,6 +23,10 @@ interface CacheDao {
     @Query("DELETE FROM cached_items WHERE cachedAt < :maxAge")
     suspend fun evictOlderThan(maxAge: Long): Int
 
+    /** Delete all entries whose key contains [substring] (e.g. "owner/repo"). */
+    @Query("DELETE FROM cached_items WHERE `key` LIKE '%' || :substring || '%'")
+    suspend fun evictContaining(substring: String): Int
+
     @Query("DELETE FROM cached_items")
     suspend fun clearAll(): Int
 

@@ -16,6 +16,8 @@ import javax.inject.Inject
 enum class RepoTab { MINE, STARRED }
 enum class RepoFilter { ALL, OWNER, MEMBER, PUBLIC, PRIVATE, FORKS }
 
+private const val PER_PAGE = 30
+
 @HiltViewModel
 class ReposViewModel @Inject constructor(
     private val cache: CachedRepository,
@@ -34,6 +36,7 @@ class ReposViewModel @Inject constructor(
     var currentTab = MutableStateFlow(RepoTab.MINE)
     var currentFilter = MutableStateFlow(RepoFilter.ALL)
     var currentPage = 1
+        private set
     private var canLoadMore = true
 
     init {
@@ -61,6 +64,7 @@ class ReposViewModel @Inject constructor(
     }
 
     private fun load(append: Boolean = false) {
+        val page = currentPage
         viewModelScope.launch {
             _isLoading.update { true }
             _error.update { null }
@@ -78,17 +82,28 @@ class ReposViewModel @Inject constructor(
                             RepoFilter.PRIVATE -> "private"
                             else -> null
                         }
-                        cache.getMyRepositories(page = currentPage, type = type, visibility = vis)
+                        cache.getMyRepositories(page = page, type = type, visibility = vis)
                     }
                     RepoTab.STARRED -> {
-                        cache.getStarredRepositories(page = currentPage)
+                        cache.getStarredRepositories(page = page)
                     }
                 }
-                _repos.update { if (append) it + result else result }
-                canLoadMore = result.isNotEmpty()
+                // Client-side filtering for filters the API can't express.
+                val filtered = when (currentFilter.value) {
+                    RepoFilter.FORKS -> result.filter { it.fork }
+                    else -> result
+                }
+                _repos.update { if (append) it + filtered else filtered }
+                // A short page means we've hit the end; FORKS filtering shrinks pages
+                // client-side so keep paging while the raw page was full.
+                canLoadMore = if (currentFilter.value == RepoFilter.FORKS)
+                    result.size >= PER_PAGE
+                else
+                    filtered.size >= PER_PAGE
             } catch (e: Exception) {
                 _error.update { e.localizedMessage ?: "加载失败" }
-                if (!append) _repos.update { emptyList() }
+                // Roll back the page counter so the next loadMore retries this page.
+                if (append && currentPage == page) currentPage--
             } finally {
                 _isLoading.update { false }
             }

@@ -112,15 +112,9 @@ class ExploreViewModel @Inject constructor(
             _feedAvailable.update { false }
             return
         }
-        try {
-            val events = cache.getReceivedEvents(login, perPage = 30)
-            _feed.update { events }
-            _feedAvailable.update { true }
-        } catch (e: Exception) {
-            _feed.update { emptyList() }
-            _feedAvailable.update { true }
-            throw e
-        }
+        _feedAvailable.update { true }
+        val events = cache.getReceivedEvents(login, perPage = 30)
+        _feed.update { events }
     }
 
     fun clearError() { _error.update { null } }

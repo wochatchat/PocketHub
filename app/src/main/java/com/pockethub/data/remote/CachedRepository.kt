@@ -113,9 +113,11 @@ class CachedRepository @Inject constructor(
 
     // ── Cache invalidation ──────────────────────────────
 
-    /** Clear all cached items for a specific repo (e.g. after starring/unstarring). */
+    /** Clear cached entries for a specific repo (e.g. after starring/unstarring). */
     suspend fun invalidateRepo(owner: String, repo: String) {
-        cacheDao.evictOlderThan(Long.MAX_VALUE) // nuke everything — simple for now
+        cacheDao.evictContaining("$owner/$repo")
+        // Starred list changes when (un)starring — drop those pages too.
+        cacheDao.evictContaining("repos:starred:")
     }
 
     /** Evict items older than [maxAge]. Called periodically or on manual refresh. */
