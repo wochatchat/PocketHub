@@ -35,6 +35,7 @@
     <string name="action_new_issue">New issue</string>
     <string name="action_create_issue">Create issue</string>
     <string name="action_back">Back</string>
+    <string name="action_apply">Apply</string>
 
     <!-- Update -->
     <string name="update_check_now">Check for updates</string>
@@ -99,7 +100,35 @@
     <string name="feed_empty_subtitle">Activity from people you follow will appear here.</string>
     <string name="no_repositories_found">No repositories found</string>
     <string name="no_repositories_subtitle">Try a different language or time window.</string>
+    <string name="no_discover_items_subtitle">Pick a different source, language or time window, then pull down to refresh.</string>
     <string name="feed_someone">someone</string>
+    <string name="feed_source_label">Source: %1$s</string>
+    <string name="feed_source_change">Change</string>
+    <string name="feed_pull_to_refresh_hint">Pull down to refresh</string>
+    <string name="feed_item_star_delta">↑ %1$s momentum in the past %2$s</string>
+    <string name="feed_signal_hn">On Hacker News</string>
+    <string name="feed_signal_reddit">On /r/%1$s</string>
+    <string name="feed_signal_score">%1$s points</string>
+    <string name="feed_signal_by">by %1$s</string>
+
+    <!-- Feed sources (settings page) -->
+    <string name="feed_sources">Explore information sources</string>
+    <string name="feed_sources_intro">Pick the data source backing each Explore tab. Some sources let you override the base URL to point at a self-hosted instance of the same API shape.</string>
+    <string name="feed_sources_reset">Reset to default</string>
+    <string name="feed_source_custom_url">Custom base URL</string>
+    <string name="feed_source_custom_url_hint">Unsaved — tap Apply to commit.</string>
+    <string name="source_name_github_search">GitHub Search API</string>
+    <string name="source_name_github_trending_api">GitHub Trending API (community)</string>
+    <string name="source_name_oss_insight">OSS Insight</string>
+    <string name="source_name_hn_showhn">Hacker News · Show HN</string>
+    <string name="source_name_reddit_top">Reddit (Dev subreddits)</string>
+    <string name="source_name_github_events">GitHub Activity Events</string>
+    <string name="source_desc_github_search">Official REST search over recent, non-archived repos. Stable and token-cached — recommended as the everyday lookup.</string>
+    <string name="source_desc_github_trending_api">Community HTML-scraping proxy matching github.com/trending. No reliable public host — fill a self-hosted URL below to use it.</string>
+    <string name="source_desc_oss_insight">Aggregated by OSS Insight from BigQuery GitHub Archive — surfaces the fastest growing stars this period.</string>
+    <string name="source_desc_hn_showhn">Recent Show HN stories filtered down to those that link to a github.com repository.</string>
+    <string name="source_desc_reddit_top">Weekly top posts from r/programming, r/androiddev and r/MachineLearning filtered to GitHub repositories. No reliable shared default — fill a self-hosted URL below.</string>
+    <string name="source_desc_github_events">GitHub\'s received_events endpoint — the only practical source for the Following feed.</string>
 
     <!-- Feed event verbs -->
     <string name="feed_push_verb">pushed %1$d commits</string>
@@ -311,6 +340,7 @@
     <string name="theme_light">Light (Primer-inspired)</string>
     <string name="theme_system">Follow system</string>
     <string name="section_notifications">Notifications</string>
+    <string name="section_explore">Explore</string>
     <string name="polling_cadence">Polling cadence</string>
     <string name="system_notification_settings">System notification settings</string>
     <string name="system_notification_settings_summary">Open Android settings to manage PocketHub notifications</string>

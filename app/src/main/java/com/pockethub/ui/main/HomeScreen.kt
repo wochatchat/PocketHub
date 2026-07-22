@@ -62,6 +62,7 @@ private data class BottomNavItem(
 fun HomeScreen(
     onNavigateToSearch: () -> Unit,
     onNavigateToSettings: () -> Unit,
+    onNavigateToFeedSources: () -> Unit,
     onNavigateToRepo: (String, String) -> Unit,
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToNotifications: () -> Unit,
@@ -166,7 +167,12 @@ fun HomeScreen(
         },
     ) { innerPadding ->
         when (selectedTab) {
-            0 -> ExploreScreen(modifier = Modifier.padding(innerPadding), onNavigateToRepo = onNavigateToRepo, onNavigateToUser = onNavigateToUser)
+            0 -> ExploreScreen(
+                modifier = Modifier.padding(innerPadding),
+                onNavigateToRepo = onNavigateToRepo,
+                onNavigateToUser = onNavigateToUser,
+                onNavigateToFeedSources = onNavigateToFeedSources,
+            )
             else -> ReposScreen(
                 modifier = Modifier.padding(innerPadding),
                 onNavigateToRepo = onNavigateToRepo,

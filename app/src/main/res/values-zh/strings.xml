@@ -35,6 +35,7 @@
     <string name="action_new_issue">提 issue</string>
     <string name="action_create_issue">创建 issue</string>
     <string name="action_back">返回</string>
+    <string name="action_apply">应用</string>
     <string name="create_issue_title">提 issue</string>
     <string name="hint_issue_title">标题</string>
     <string name="hint_issue_body">正文（可选）</string>
@@ -84,7 +85,35 @@
     <string name="feed_empty_subtitle">你关注的人有新活动时会显示在这里。</string>
     <string name="no_repositories_found">未找到仓库</string>
     <string name="no_repositories_subtitle">试试其他语言或时间范围。</string>
+    <string name="no_discover_items_subtitle">换个信息源、语言或时间范围，再下拉刷新试试。</string>
     <string name="feed_someone">某人</string>
+    <string name="feed_source_label">来源：%1$s</string>
+    <string name="feed_source_change">更改</string>
+    <string name="feed_pull_to_refresh_hint">下拉可刷新</string>
+    <string name="feed_item_star_delta">过去 %2$s 内 ↑ %1$s 热度</string>
+    <string name="feed_signal_hn">来自 Hacker News</string>
+    <string name="feed_signal_reddit">来自 /r/%1$s</string>
+    <string name="feed_signal_score">%1$s 点</string>
+    <string name="feed_signal_by">作者 %1$s</string>
+
+    <!-- Feed sources (settings page) -->
+    <string name="feed_sources">发现页信息源</string>
+    <string name="feed_sources_intro">为发现页的三个 tab 选择数据源。部分来源支持自定义 Base URL，可指向你自己部署的同协议实例。</string>
+    <string name="feed_sources_reset">恢复默认</string>
+    <string name="feed_source_custom_url">自定义 Base URL</string>
+    <string name="feed_source_custom_url_hint">未保存 — 点应用以提交修改。</string>
+    <string name="source_name_github_search">GitHub Search API</string>
+    <string name="source_name_github_trending_api">GitHub Trending API（社区版）</string>
+    <string name="source_name_oss_insight">OSS Insight</string>
+    <string name="source_name_hn_showhn">Hacker News · Show HN</string>
+    <string name="source_name_reddit_top">Reddit（开发者板块）</string>
+    <string name="source_name_github_events">GitHub 活动事件</string>
+    <string name="source_desc_github_search">GitHub 官方 REST 搜索，按截止时间过滤最近活跃、未归档的项目。稳定且走 token 缓存 — 日常推荐。</string>
+    <string name="source_desc_github_trending_api">社区 HTML 解析代理，结果与 github.com/trending 一致。没有稳定公共域名 — 需在下方填自部署 URL。</string>
+    <string name="source_desc_oss_insight">由 OSS Insight 基于大查询聚合 GitHub Archive 数据 — 取本周期新增 star 最快的项目。</string>
+    <string name="source_desc_hn_showhn">最近的 Show HN 帖子，筛选出指向 github.com 仓库的链接。</string>
+    <string name="source_desc_reddit_top">/r/programming、/r/androiddev、/r/MachineLearning 本周热帖中包含 GitHub 仓库的内容。没有稳定公共域名 — 需在下方填自部署 URL。</string>
+    <string name="source_desc_github_events">GitHub received_events 接口 — 关注动态唯一实际可用的来源。</string>
 
     <!-- Feed event verbs -->
     <string name="feed_push_verb">推送了 %1$d 个提交</string>
@@ -295,6 +324,7 @@
     <string name="theme_light">浅色（Primer 风格）</string>
     <string name="theme_system">跟随系统</string>
     <string name="section_notifications">通知</string>
+    <string name="section_explore">发现</string>
     <string name="polling_cadence">轮询频率</string>
     <string name="system_notification_settings">系统通知设置</string>
     <string name="system_notification_settings_summary">打开 Android 设置管理 PocketHub 通知</string>

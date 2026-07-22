@@ -90,6 +90,23 @@ class CachedRepository @Inject constructor(
         }
     }
 
+    /**
+     * Same as [searchTrending] but bypasses the in-room cache entirely. The
+     * Explore pull-to-refresh path calls this so a downward swipe always hits
+     * the network and refreshes immediately even when the cached entry is
+     * still within its TTL.
+     */
+    @OptIn(ExperimentalSerializationApi::class)
+    suspend fun searchTrendingFresh(query: String, sort: String = "stars", perPage: Int = 20): GitHubApi.SearchRepoResult {
+        val result = api.searchTrending(query = query, sort = sort, perPage = perPage)
+        try {
+            val serialized = json.encodeToString(serializer<GitHubApi.SearchRepoResult>(), result)
+            val key = "trending:$query:$sort:$perPage"
+            cacheDao.put(CachedItemEntity(key = key, json = serialized))
+        } catch (_: Exception) { /* non-fatal */ }
+        return result
+    }
+
     suspend fun getReceivedEvents(login: String, perPage: Int = 30): List<FeedEvent> {
         val key = "feed:$login:$perPage"
         return cacheFirst(key, FIVE_MIN) {

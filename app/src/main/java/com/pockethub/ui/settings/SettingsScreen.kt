@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Logout
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.SystemUpdate
@@ -86,6 +87,7 @@ import java.io.File
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    onNavigateToFeedSources: () -> Unit = {},
     onSignOut: () -> Unit = {},
     vm: SettingsViewModel = hiltViewModel(),
 ) {
@@ -180,6 +182,15 @@ fun SettingsScreen(
                 headlineContent = { Text(stringResource(R.string.system_notification_settings)) },
                 supportingContent = { Text(stringResource(R.string.system_notification_settings_summary)) },
                 modifier = Modifier.clickable { openAppNotificationSettings(context) },
+            )
+            HorizontalDivider()
+
+            SectionHeader(stringResource(R.string.section_explore))
+            ListItem(
+                leadingContent = { Icon(Icons.Outlined.Public, contentDescription = null) },
+                headlineContent = { Text(stringResource(R.string.feed_sources)) },
+                supportingContent = { Text(stringResource(R.string.feed_sources_intro)) },
+                modifier = Modifier.clickable { onNavigateToFeedSources() },
             )
             HorizontalDivider()
 

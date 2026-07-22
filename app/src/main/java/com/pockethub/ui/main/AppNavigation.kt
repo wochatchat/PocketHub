@@ -48,6 +48,7 @@ object Routes {
     // Detail destinations
     const val SEARCH = "search?query={query}"
     const val SETTINGS = "settings"
+    const val FEED_SOURCES = "feed_sources"
     const val REPO_DETAIL = "repo/{owner}/{repo}"
     const val CREATE_ISSUE = "create_issue/{owner}/{repo}"
     const val ISSUE_DETAIL = "repo/{owner}/{repo}/issues/{number}"
@@ -143,6 +144,7 @@ fun PocketHubApp(
                         activeAvatarUrl = activeAccount?.avatarUrl,
                         onNavigateToSearch = { navController.navigate(Routes.search()) },
                         onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
+                        onNavigateToFeedSources = { navController.navigate(Routes.FEED_SOURCES) },
                         onNavigateToRepo = { owner, repo -> navController.navigate(Routes.repoDetail(owner, repo)) },
                         onNavigateToUser = { login -> navController.navigate(Routes.userDetail(login)) },
                         onNavigateToNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
@@ -193,7 +195,14 @@ fun PocketHubApp(
                 composable(Routes.SETTINGS) {
                     SettingsScreen(
                         onBack = { navController.popBackStack() },
+                        onNavigateToFeedSources = { navController.navigate(Routes.FEED_SOURCES) },
                         onSignOut = { appVm.signOut() },
+                    )
+                }
+
+                composable(Routes.FEED_SOURCES) {
+                    com.pockethub.ui.settings.FeedSourcesScreen(
+                        onBack = { navController.popBackStack() },
                     )
                 }
 
