@@ -14,6 +14,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/** Aggregated CI status for the PR head SHA. Rendered as a one-line banner. */
+sealed interface CheckSummary {
+    /** No check runs returned by GitHub — usually means CI is not set up on this repo. */
+    data object NONE : CheckSummary
+    data class Passed(val passed: Int, val total: Int) : CheckSummary
+    data class Failed(val failed: Int, val total: Int) : CheckSummary
+    data class Pending(val pending: Int, val total: Int) : CheckSummary
+}
+
 @HiltViewModel
 class PullRequestDetailViewModel @Inject constructor(
     private val api: GitHubApi,
@@ -167,15 +176,6 @@ class PullRequestDetailViewModel @Inject constructor(
     private val FAILED_CONCLUSIONS = setOf("failure", "cancelled", "timed_out", "action_required")
     /** Conclusions that are non-passing but also non-failing (skipped/neutral/stale). */
     private val NEUTRAL_CONCLUSIONS = setOf("neutral", "skipped", "stale")
-
-    /** Aggregated CI status for the PR head SHA. Rendered as a one-line banner. */
-    sealed interface CheckSummary {
-        /** No check runs returned by GitHub — usually means CI is not set up on this repo. */
-        data object NONE : CheckSummary
-        data class Passed(val passed: Int, val total: Int) : CheckSummary
-        data class Failed(val failed: Int, val total: Int) : CheckSummary
-        data class Pending(val pending: Int, val total: Int) : CheckSummary
-    }
 
     /**
      * Post a line-level review comment anchored to a file + line on the PR diff.

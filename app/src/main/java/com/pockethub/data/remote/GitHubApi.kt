@@ -561,11 +561,11 @@ interface GitHubApi {
     data class ReviewRequest(
         val body: String? = null,
         val event: String, // "APPROVE" | "REQUEST_CHANGES" | "COMMENT"
-        @kotlinx.serialization.SerialName("comments") val comments: List<ReviewComment> = emptyList(),
+        @kotlinx.serialization.SerialName("comments") val comments: List<ReviewInlineComment> = emptyList(),
     )
 
     @kotlinx.serialization.Serializable
-    data class ReviewComment(
+    data class ReviewInlineComment(
         val path: String? = null,
         val position: Int? = null,
         val body: String = "",

@@ -83,6 +83,8 @@ import kotlinx.coroutines.launch
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import java.text.DateFormat
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -784,7 +786,7 @@ private fun formatDate(s: String): String = try {
  */
 @Composable
 private fun ChecksCard(
-    summary: com.pockethub.ui.repo.CheckSummary,
+    summary: CheckSummary,
     runs: List<GitHubApi.CheckRun>,
     onRefresh: () -> Unit,
 ) {
