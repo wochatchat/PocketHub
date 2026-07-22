@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** A parsed GitHub issue template (`.github/ISSUE_TEMPLATE/*.md` or `*.yml`). */
+/** A parsed GitHub issue template (an `.md` or `.yml` file under `.github/ISSUE_TEMPLATE`). */
 data class IssueTemplate(
     val fileName: String,
     val name: String,
