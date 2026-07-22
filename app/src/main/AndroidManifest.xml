@@ -36,6 +36,19 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="pockethub" android:host="oauth" />
             </intent-filter>
+            <!-- App-internal deep links (pockethub://notifications, etc.) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="pockethub" android:host="notifications" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="pockethub" android:host="settings" />
+            </intent-filter>
         </activity>
         <!-- FileProvider for downloaded assets (apk install, file open). -->
         <provider

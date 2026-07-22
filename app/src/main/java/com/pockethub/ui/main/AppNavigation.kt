@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import android.net.Uri
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -27,6 +28,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
 import com.pockethub.data.remote.AccountRepository
 import com.pockethub.data.remote.AuthInterceptor
 import com.pockethub.ui.auth.LoginScreen
@@ -41,11 +43,9 @@ object Routes {
     const val LOGIN = "login"
     const val HOME = "home"
 
-    // Top-level destinations reachable from home's top corners.
     const val PROFILE = "profile"
     const val NOTIFICATIONS = "notifications"
 
-    // Detail destinations
     const val SEARCH = "search?query={query}"
     const val SETTINGS = "settings"
     const val FEED_SOURCES = "feed_sources"
@@ -67,9 +67,24 @@ object Routes {
     fun prDetail(owner: String, repo: String, number: Int) = "repo/$owner/$repo/pulls/$number"
     fun commitDetail(owner: String, repo: String, sha: String) = "repo/$owner/$repo/commits/$sha"
     fun workflowRunDetail(owner: String, repo: String, runId: Long) = "repo/$owner/$repo/actions/runs/$runId"
+
     fun search(query: String = "") = "search?query=${java.net.URLEncoder.encode(query, "UTF-8")}"
     fun userDetail(login: String) = "user/$login"
+
+    // ── Deep-link URI mappings (scheme pockethub://) ────────────────────────
+    // Used by intent-filters in AndroidManifest and NavHost deepLinks to land
+    // directly on a screen when the app is opened via the launcher icon from a
+    // notification or shared GitHub link.
+    const val DEEP_LINK_SCHEME = "pockethub"
+    const val DEEP_LINK_NOTIFICATIONS = "pockethub://notifications"
+    const val DEEP_LINK_SETTINGS = "pockethub://settings"
+    const val DEEP_LINK_REPO = "pockethub://repo/{owner}/{repo}"
+    const val DEEP_LINK_ISSUE = "pockethub://repo/{owner}/{repo}/issues/{number}"
+    const val DEEP_LINK_PR = "pockethub://repo/{owner}/{repo}/pulls/{number}"
+    const val DEEP_LINK_COMMIT = "pockethub://repo/{owner}/{repo}/commits/{sha}"
+    const val DEEP_LINK_USER = "pockethub://user/{login}"
 }
+
 
 /**
  * Root composable that decides between login and main content.
@@ -80,6 +95,8 @@ object Routes {
 @Composable
 fun PocketHubApp(
     themeMode: ThemeMode,
+    deepLinkUri: Uri? = null,
+    onDeepLinkConsumed: () -> Unit = {},
 ) {
     val navController = rememberNavController()
 
@@ -112,6 +129,30 @@ fun PocketHubApp(
             }
             appVm.clearSignedOut()
         }
+    }
+
+    // Handle pockethub:// deep links forwarded by MainActivity. We only navigate
+    // when the user is actually logged in (Home is the current destination) — if
+    // not, we discard the link so we don't drop the user into a screen they
+    // can't leave to log in first.
+    androidx.compose.runtime.LaunchedEffect(deepLinkUri, startRoute) {
+        val uri = deepLinkUri ?: return@LaunchedEffect
+        if (startRoute != Routes.HOME) {
+            // User not ready — drop the link to avoid landing on a guarded screen.
+            onDeepLinkConsumed()
+            return@LaunchedEffect
+        }
+        // Build the Compose Navigation route from the URI so the NavController
+        // routes to the matching composable. We strip the scheme:// prefix and
+        // treat the rest as the route pattern (which already matches because
+        // Routes.DEEP_LINK_* mirrors the Routes.*_DETAIL patterns).
+        val route = uri.host + uri.path?.let { if (it.isBlank()) "" else it }
+        if (route.isNotBlank()) {
+            navController.navigate(route) {
+                launchSingleTop = true
+            }
+        }
+        onDeepLinkConsumed()
     }
 
     // After login success: the token has already been persisted in the LoginViewModel;
@@ -174,7 +215,10 @@ fun PocketHubApp(
                     )
                 }
 
-                composable(Routes.NOTIFICATIONS) {
+                composable(
+                    Routes.NOTIFICATIONS,
+                    deepLinks = listOf(navDeepLink { uriPattern = Routes.DEEP_LINK_NOTIFICATIONS }),
+                ) {
                     com.pockethub.ui.notifications.NotificationsScreen(
                         modifier = Modifier.fillMaxSize(),
                         onNavigateToRepo = { owner, repo -> navController.navigate(Routes.repoDetail(owner, repo)) },
@@ -201,7 +245,10 @@ fun PocketHubApp(
                     )
                 }
 
-                composable(Routes.SETTINGS) {
+                composable(
+                    Routes.SETTINGS,
+                    deepLinks = listOf(navDeepLink { uriPattern = Routes.DEEP_LINK_SETTINGS }),
+                ) {
                     SettingsScreen(
                         onBack = { navController.popBackStack() },
                         onNavigateToFeedSources = { navController.navigate(Routes.FEED_SOURCES) },
@@ -218,6 +265,7 @@ fun PocketHubApp(
                 composable(
                     Routes.REPO_DETAIL,
                     arguments = listOf(navArgument("owner") { type = NavType.StringType }, navArgument("repo") { type = NavType.StringType }),
+                    deepLinks = listOf(navDeepLink { uriPattern = Routes.DEEP_LINK_REPO }),
                 ) { backStackEntry ->
                     val owner = backStackEntry.arguments?.getString("owner") ?: return@composable
                     val repo = backStackEntry.arguments?.getString("repo") ?: return@composable
@@ -244,6 +292,7 @@ fun PocketHubApp(
                         navArgument("repo") { type = NavType.StringType },
                         navArgument("number") { type = NavType.IntType },
                     ),
+                    deepLinks = listOf(navDeepLink { uriPattern = Routes.DEEP_LINK_ISSUE }),
                 ) { backStackEntry ->
                     val owner = backStackEntry.arguments?.getString("owner") ?: return@composable
                     val repo = backStackEntry.arguments?.getString("repo") ?: return@composable
@@ -265,6 +314,7 @@ fun PocketHubApp(
                         navArgument("repo") { type = NavType.StringType },
                         navArgument("number") { type = NavType.IntType },
                     ),
+                    deepLinks = listOf(navDeepLink { uriPattern = Routes.DEEP_LINK_PR }),
                 ) { backStackEntry ->
                     val owner = backStackEntry.arguments?.getString("owner") ?: return@composable
                     val repo = backStackEntry.arguments?.getString("repo") ?: return@composable
@@ -326,6 +376,7 @@ fun PocketHubApp(
                         navArgument("repo") { type = NavType.StringType },
                         navArgument("sha") { type = NavType.StringType },
                     ),
+                    deepLinks = listOf(navDeepLink { uriPattern = Routes.DEEP_LINK_COMMIT }),
                 ) { backStackEntry ->
                     val owner = backStackEntry.arguments?.getString("owner") ?: return@composable
                     val repo = backStackEntry.arguments?.getString("repo") ?: return@composable
@@ -361,6 +412,7 @@ fun PocketHubApp(
                 composable(
                     Routes.USER_DETAIL,
                     arguments = listOf(navArgument("login") { type = NavType.StringType }),
+                    deepLinks = listOf(navDeepLink { uriPattern = Routes.DEEP_LINK_USER }),
                 ) { backStackEntry ->
                     val login = backStackEntry.arguments?.getString("login") ?: return@composable
                     com.pockethub.ui.user.UserDetailScreen(

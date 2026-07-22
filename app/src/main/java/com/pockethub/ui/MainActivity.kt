@@ -59,10 +59,19 @@ class MainActivity : AppCompatActivity() {
                 val themeMode by settingsVm.themeMode.collectAsState()
                 val loginVm: LoginViewModel = hiltViewModel()
 
-                // Process OAuth callback if launched via the pockethub://oauth/callback deep link.
+                // Process OAuth callback if launched via the pockethub://oauth/callback deep link,
+                // or other deep links (pockethub://notifications, etc.) that should land on the
+                // matching Compose destination.
                 val oauthCode = remember { mutableStateOf<String?>(null) }
+                val deepLinkUri = remember { mutableStateOf<Uri?>(null) }
                 LaunchedEffect(intent) {
-                    handleOAuthCallback(intent) { code -> oauthCode.value = code }
+                    val data: Uri? = intent?.data
+                    if (data != null && data.scheme == "pockethub" && data.host == "oauth") {
+                        handleOAuthCallback(intent) { code -> oauthCode.value = code }
+                    } else if (data != null && data.scheme == "pockethub") {
+                        // Non-OAuth pockethub:// deep link — forward to the NavHost for routing.
+                        deepLinkUri.value = data
+                    }
                 }
                 LaunchedEffect(oauthCode.value) {
                     oauthCode.value?.let { code ->
@@ -71,7 +80,11 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
 
-                PocketHubApp(themeMode = themeMode)
+                PocketHubApp(
+                    themeMode = themeMode,
+                    deepLinkUri = deepLinkUri.value,
+                    onDeepLinkConsumed = { deepLinkUri.value = null },
+                )
             }
         }
     }

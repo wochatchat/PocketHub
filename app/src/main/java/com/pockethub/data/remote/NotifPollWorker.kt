@@ -101,10 +101,15 @@ class NotifPollWorker @AssistedInject constructor(
         val repoCount = grouped.size
         val totalCount = unread.size
 
-        // Tap action → open app to notifications screen
-        val intent = context.packageManager
-            .getLaunchIntentForPackage(context.packageName)
-            ?: Intent()
+        // Tap action → open app directly on the notifications screen via the
+        // pockethub://notifications deep link (registered in AndroidManifest and
+        // the NavHost). This drops the user on NotificationsScreen instead of
+        // the launcher home.
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            data = android.net.Uri.parse("pockethub://notifications")
+            setPackage(context.packageName)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
         val pending = PendingIntent.getActivity(
             context, 0, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
