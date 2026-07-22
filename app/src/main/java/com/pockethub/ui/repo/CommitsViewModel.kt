@@ -59,7 +59,7 @@ class CommitsViewModel @Inject constructor(
                 _commits.update { if (append) it + result else result }
                 canLoadMore = result.size >= 30
             } catch (e: Exception) {
-                _error.update { e.localizedMessage ?: "加载提交失败" }
+                _error.update { e.localizedMessage ?: "Failed to load commits" }
                 if (!append) _commits.update { emptyList() }
             } finally {
                 _isLoading.update { false }

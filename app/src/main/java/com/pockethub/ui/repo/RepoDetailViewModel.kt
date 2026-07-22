@@ -194,7 +194,7 @@ class RepoDetailViewModel @Inject constructor(
                 checkStar(owner, repo)
                 checkWatch(owner, repo)
             } catch (e: Exception) {
-                _error.update { e.localizedMessage ?: "加载仓库失败" }
+                _error.update { e.localizedMessage ?: "Failed to load repo" }
             } finally {
                 _isLoading.update { false }
             }
@@ -292,7 +292,7 @@ class RepoDetailViewModel @Inject constructor(
                     _watchState.update { WatchState.WATCHING }
                 }
             } catch (e: Exception) {
-                _error.update { e.localizedMessage ?: "通知订阅切换失败" }
+                _error.update { e.localizedMessage ?: "Failed to toggle subscription" }
             } finally {
                 _isWatchToggling = false
             }
@@ -308,7 +308,7 @@ class RepoDetailViewModel @Inject constructor(
                 api.watch(owner, repo, GitHubApi.WatchSubscriptionRequest(subscribed = false, ignored = true))
                 _watchState.update { WatchState.MUTED }
             } catch (e: Exception) {
-                _error.update { e.localizedMessage ?: "静音失败" }
+                _error.update { e.localizedMessage ?: "Failed to mute" }
             } finally {
                 _isWatchToggling = false
             }
@@ -329,7 +329,7 @@ class RepoDetailViewModel @Inject constructor(
                 }
                 cache.invalidateRepo(owner, repo)
             } catch (e: Exception) {
-                _error.update { e.localizedMessage ?: "操作失败" }
+                _error.update { e.localizedMessage ?: "Operation failed" }
             }
         }
     }
@@ -388,7 +388,7 @@ class RepoDetailViewModel @Inject constructor(
                     _issues.update { emptyList() }
                     _pulls.update { emptyList() }
                 }
-                _error.update { e.localizedMessage ?: "加载 Issues 失败" }
+                _error.update { e.localizedMessage ?: "Failed to load issues" }
             } finally {
                 if (append) _isLoadingMoreIssues.update { false }
             }
@@ -401,7 +401,7 @@ class RepoDetailViewModel @Inject constructor(
                 _releases.update { cache.getReleases(owner, repo) }
             } catch (e: Exception) {
                 _releases.update { emptyList() }
-                _error.update { e.localizedMessage ?: "加载 Releases 失败" }
+                _error.update { e.localizedMessage ?: "Failed to load releases" }
             }
         }
     }
@@ -413,7 +413,7 @@ class RepoDetailViewModel @Inject constructor(
                 _workflowRuns.update { resp.runs }
             } catch (e: Exception) {
                 _workflowRuns.update { emptyList() }
-                _error.update { e.localizedMessage ?: "加载 Workflows 失败" }
+                _error.update { e.localizedMessage ?: "Failed to load workflows" }
             }
         }
     }
@@ -428,7 +428,7 @@ class RepoDetailViewModel @Inject constructor(
                 _workflows.update { resp.workflows.filter { it.state == "active" && it.deletedAt == null } }
             } catch (e: Exception) {
                 _workflows.update { emptyList() }
-                _dispatchMessage.update { e.localizedMessage ?: "加载工作流失败" }
+                _dispatchMessage.update { e.localizedMessage ?: "Failed to load workflow" }
             } finally {
                 _isLoadingWorkflows.update { false }
             }
@@ -444,19 +444,19 @@ class RepoDetailViewModel @Inject constructor(
             try {
                 val resp = api.dispatchWorkflow(owner, repo, workflowId, GitHubApi.WorkflowDispatchRequest(ref = ref))
                 if (resp.isSuccessful) {
-                    _dispatchMessage.update { "已触发：将在几秒后出现新一次运行" }
+                    _dispatchMessage.update { "Triggered: a new run will appear shortly" }
                 } else {
                     val err = resp.errorBody()?.string()
                     val reason = when (resp.code()) {
-                        403 -> "无权限：需要对此仓库有 write 权限"
-                        404 -> "工作流或仓库不存在或无 Actions 权限"
-                        422 -> "触发失败：该 workflow 可能没有声明 `on: workflow_dispatch`，或 ref 不存在"
-                        else -> "触发失败 (${resp.code()}): ${err?.take(200)}"
+                        403 -> "Forbidden: needs write access to this repo"
+                        404 -> "Workflow or repo not found, or no Actions access"
+                        422 -> "Trigger failed: the workflow may not declare `on: workflow_dispatch`, or the ref doesn't exist"
+                        else -> "Trigger failed (${resp.code()}): ${err?.take(200)}"
                     }
                     _dispatchMessage.update { reason }
                 }
             } catch (e: Exception) {
-                _dispatchMessage.update { e.localizedMessage ?: "触发工作流失败" }
+                _dispatchMessage.update { e.localizedMessage ?: "Failed to trigger workflow" }
             } finally {
                 _isDispatching.update { false }
             }
@@ -474,9 +474,9 @@ class RepoDetailViewModel @Inject constructor(
             try {
                 val resp = api.forkRepository(owner, repo)
                 if (resp.isSuccessful) {
-                    _forkMessage.update { "已 fork 到当前账号" }
+                    _forkMessage.update { "Forked to current account" }
                 } else {
-                    _forkMessage.update { "Fork 失败: ${resp.code()}" }
+                    _forkMessage.update { "Fork failed: ${resp.code()}" }
                 }
             } catch (e: Exception) {
                 _forkMessage.update { e.localizedMessage ?: "Fork 失败" }
@@ -507,14 +507,14 @@ class RepoDetailViewModel @Inject constructor(
                 } else {
                     val err = resp.errorBody()?.string()
                     val reason = when (resp.code()) {
-                        403 -> "无权限：仅仓库所有者或管理员可删除，且令牌需含 delete_repo 权限"
-                        404 -> "仓库不存在或无访问权限"
-                        else -> "删除失败 (${resp.code()}): ${err?.take(200)}"
+                        403 -> "Forbidden: only the repo owner or admin can delete, and the token needs the delete_repo scope"
+                        404 -> "Repo not found or no access"
+                        else -> "Delete failed (${resp.code()}): ${err?.take(200)}"
                     }
                     _deleteMessage.update { reason }
                 }
             } catch (e: Exception) {
-                _deleteMessage.update { e.localizedMessage ?: "删除失败" }
+                _deleteMessage.update { e.localizedMessage ?: "Delete failed" }
             } finally {
                 _isDeleting.update { false }
             }
@@ -556,7 +556,7 @@ class RepoDetailViewModel @Inject constructor(
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e // don't swallow real coroutine cancellation
             } catch (e: Exception) {
-                _translateMessage.update { e.message ?: "翻译失败，请检查网络或稍后重试" }
+                _translateMessage.update { e.message ?: "Translation failed — check your network or try again later" }
             } finally {
                 _isTranslating.update { false }
             }

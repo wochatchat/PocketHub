@@ -100,7 +100,7 @@ class UserDetailViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                _error.update { e.localizedMessage ?: "加载用户失败" }
+                _error.update { e.localizedMessage ?: "Failed to load user" }
             } finally {
                 _isLoading.update { false }
             }

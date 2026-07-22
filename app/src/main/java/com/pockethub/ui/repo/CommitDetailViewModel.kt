@@ -36,7 +36,7 @@ class CommitDetailViewModel @Inject constructor(
             try {
                 _commit.update { api.getCommit(owner, repo, sha) }
             } catch (e: Exception) {
-                _error.update { e.localizedMessage ?: "加载提交详情失败" }
+                _error.update { e.localizedMessage ?: "Failed to load commit" }
             } finally {
                 _isLoading.update { false }
             }

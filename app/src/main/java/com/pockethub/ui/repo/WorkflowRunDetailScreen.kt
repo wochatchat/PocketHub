@@ -202,7 +202,7 @@ fun WorkflowRunDetailScreen(
 
             if (jobs.isEmpty() && error != null) {
                 item {
-                    Text(error ?: "无 jobs", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(error ?: "No jobs", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
                 items(jobs, key = { it.id }) { job ->
@@ -244,7 +244,7 @@ private fun RunHeaderCard(run: GitHubApi.WorkflowRun?, dateFmt: DateFormat) {
         )
         r.createdAt?.let {
             Text(
-                "触发于 ${dateFmt.format(parseIso(it))}",
+                "Triggered ${dateFmt.format(parseIso(it))}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -287,7 +287,7 @@ private fun JobCard(
             Spacer(Modifier.width(10.dp))
             job.startedAt?.let {
                 Text(
-                    "起 ${dateFmt.format(parseIso(it))}",
+                    "Started ${dateFmt.format(parseIso(it))}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -296,7 +296,7 @@ private fun JobCard(
             val durationMins = jobDurationMinutes(job)
             if (durationMins > 0) {
                 Text(
-                    "用时 ${"%.1f".format(durationMins)} min",
+                    "Duration ${"%.1f".format(durationMins)} min",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -305,7 +305,7 @@ private fun JobCard(
         if (expanded) {
             Spacer(Modifier.height(4.dp))
             if (job.steps.isEmpty()) {
-                Text("无 steps 元数据", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("No step metadata", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     job.steps.forEach { step ->

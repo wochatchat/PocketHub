@@ -65,7 +65,7 @@ class IssueDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true; _error.value = null
             try { _issue.value = api.getIssue(owner, repo, number) }
-            catch (e: Exception) { _error.value = e.localizedMessage ?: "加载 Issue 失败" }
+            catch (e: Exception) { _error.value = e.localizedMessage ?: "Failed to load issue" }
             finally { _isLoading.value = false }
         }
         viewModelScope.launch {
@@ -103,7 +103,7 @@ class IssueDetailViewModel @Inject constructor(
             try {
                 val comment = api.createIssueComment(owner, repo, number, GitHubApi.CommentRequest(body))
                 _comments.update { it + comment }; _issue.update { it?.copy(comments = it.comments + 1) }; onSuccess()
-            } catch (e: Exception) { _actionMessage.value = e.localizedMessage ?: "评论发送失败" }
+            } catch (e: Exception) { _actionMessage.value = e.localizedMessage ?: "Failed to post comment" }
             finally { _isSendingComment.value = false }
         }
     }
@@ -116,8 +116,8 @@ class IssueDetailViewModel @Inject constructor(
             try {
                 val updated = api.editIssueComment(owner, repo, commentId, GitHubApi.CommentRequest(newBody))
                 _comments.update { list -> list.map { if (it.id == commentId) updated else it } }
-                _actionMessage.value = "评论已更新"
-            } catch (e: Exception) { _actionMessage.value = e.localizedMessage ?: "评论更新失败" }
+                _actionMessage.value = "Comment updated"
+            } catch (e: Exception) { _actionMessage.value = e.localizedMessage ?: "Failed to update comment" }
             finally { _busyComments.update { it - commentId } }
         }
     }
@@ -132,7 +132,7 @@ class IssueDetailViewModel @Inject constructor(
                 _comments.update { list -> list.filter { it.id != commentId } }
                 _issue.update { it?.copy(comments = (it.comments - 1).coerceAtLeast(0)) }
                 _viewerReactions.update { it - commentId }
-            } catch (e: Exception) { _actionMessage.value = e.localizedMessage ?: "评论删除失败" }
+            } catch (e: Exception) { _actionMessage.value = e.localizedMessage ?: "Failed to delete comment" }
             finally { _busyComments.update { it - commentId } }
         }
     }
@@ -164,7 +164,7 @@ class IssueDetailViewModel @Inject constructor(
                 _comments.update { list -> list.map { if (it.id == commentId) increment(it, content) else it } }
             }
         } catch (e: Exception) {
-            _actionMessage.value = e.localizedMessage ?: "反应操作失败"
+            _actionMessage.value = e.localizedMessage ?: "Failed to toggle reaction"
         } finally {
             _busyComments.update { it - commentId }
         }

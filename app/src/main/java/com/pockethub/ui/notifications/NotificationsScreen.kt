@@ -200,7 +200,7 @@ fun NotificationsScreen(
                             onCopy = {
                                 val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                 cm.setPrimaryClip(ClipData.newPlainText("notification", notif.subject.title))
-                                scope.launch { snackbarHostState.showSnackbar("已复制") }
+                                scope.launch { snackbarHostState.showSnackbar("Copied") }
                             },
                             onClick = {
                                 val owner = repoFullName.substringBefore('/')

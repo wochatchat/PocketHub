@@ -90,10 +90,10 @@ class LoginViewModel @Inject constructor(
             if (clientId.isBlank()) {
                 _ui.update {
                     it.copy(
-                        error = "OAuth Client ID 尚未配置。\n\n" +
-                            "开发者请去 GitHub Settings → Developer settings → OAuth Apps 创建一个 " +
-                            "OAuth App，把 Client ID 复制到 PocketHub Settings → Custom OAuth Client。\n\n" +
-                            "或者直接用 Personal Access Token 登录（最快）。"
+                        error = "OAuth Client ID is not configured.\n\n" +
+                            "To create one, go to GitHub Settings → Developer settings → OAuth Apps, " +
+                            "create a new OAuth App, then copy the Client ID into PocketHub Settings → Custom OAuth Client.\n\n" +
+                            "Or simply sign in with a Personal Access Token (fastest)."
                     )
                 }
                 return@launch
@@ -125,8 +125,8 @@ class LoginViewModel @Inject constructor(
                     _ui.update {
                         it.copy(
                             isLoading = false,
-                            error = "OAuth Client ID/Secret 未配置，无法完成 token 交换。\n" +
-                                "请去 Settings → Custom OAuth Client 填入你的 OAuth App 信息。"
+                            error = "OAuth Client ID/Secret not configured — cannot complete the token exchange.\n" +
+                                "Please go to Settings → Custom OAuth Client and enter your OAuth App details."
                         )
                     }
                     return@launch

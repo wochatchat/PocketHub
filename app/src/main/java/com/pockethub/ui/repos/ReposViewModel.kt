@@ -101,7 +101,7 @@ class ReposViewModel @Inject constructor(
                 else
                     filtered.size >= PER_PAGE
             } catch (e: Exception) {
-                _error.update { e.localizedMessage ?: "加载失败" }
+                _error.update { e.localizedMessage ?: "Failed to load" }
                 // Roll back the page counter so the next loadMore retries this page.
                 if (append && currentPage == page) currentPage--
             } finally {

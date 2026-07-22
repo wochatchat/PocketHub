@@ -89,7 +89,7 @@ class ProfileViewModel @Inject constructor(
                 // Auto-load the default work tab once we know the active login.
                 loadWorkList(_workTab.value, force = false)
             } catch (e: Exception) {
-                _error.update { e.localizedMessage ?: "加载个人资料失败" }
+                _error.update { e.localizedMessage ?: "Failed to load profile" }
             } finally {
                 _isLoading.update { false }
             }
@@ -119,7 +119,7 @@ class ProfileViewModel @Inject constructor(
                 val result = api.searchIssues(q, sort = "updated", order = "desc", perPage = 30)
                 _workItems.value = result.items
             } catch (e: Exception) {
-                _workError.value = e.localizedMessage ?: "加载工作列表失败"
+                _workError.value = e.localizedMessage ?: "Failed to load work list"
                 _workItems.value = emptyList()
             } finally {
                 _isLoadingWork.update { false }

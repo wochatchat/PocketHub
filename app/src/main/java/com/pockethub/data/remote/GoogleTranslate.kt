@@ -62,7 +62,7 @@ object GoogleTranslate {
                     }
                 }
             } catch (e: TimeoutCancellationException) {
-                throw IOException("翻译超时，请检查网络后重试")
+                throw IOException("Translation timed out — check your network and retry")
             }
         }
     }
@@ -108,7 +108,7 @@ object GoogleTranslate {
                 val body = conn.inputStream.bufferedReader().use { it.readText() }
                 parseTranslationResponse(body)
             } else {
-                throw IOException("翻译服务返回 HTTP $code")
+                throw IOException("Translate service returned HTTP $code")
             }
         } finally {
             conn.disconnect()

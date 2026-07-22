@@ -166,7 +166,7 @@ fun RepoDetailScreen(
 
     LaunchedEffect(deleteSuccess) {
         if (deleteSuccess) {
-            Toast.makeText(context, "仓库已删除", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Repo deleted", Toast.LENGTH_SHORT).show()
             vm.consumeDeleteSuccess()
             onBack()
         }
@@ -190,7 +190,7 @@ fun RepoDetailScreen(
             dispatchMessage?.let {
                 snackbarHostState.showSnackbar(it)
                 vm.clearDispatchMessage()
-                if (it.startsWith("已触发")) {
+                if (it.startsWith("Triggered")) {
                     showDispatchDialog = false
                     // Refresh run list after a short delay so the newly dispatched run appears.
                     kotlinx.coroutines.delay(2000)

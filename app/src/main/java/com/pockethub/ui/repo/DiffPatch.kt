@@ -238,7 +238,7 @@ fun DiffPatchWithComment(
                     OutlinedTextField(
                         value = draftBody,
                         onValueChange = { draftBody = it },
-                        placeholder = { Text("评论这一行…") },
+                        placeholder = { Text("Comment on this line…") },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !isSendingComment,
                         minLines = 2,
@@ -260,7 +260,7 @@ fun DiffPatchWithComment(
                                 Icon(Icons.AutoMirrored.Outlined.Send, null, modifier = Modifier.size(14.dp))
                                 Spacer(Modifier.width(6.dp))
                             }
-                            Text("发送")
+                            Text("Send")
                         }
                     }
                 }
@@ -300,7 +300,7 @@ private fun InlineCommentThread(
     ) {
         if (isResolved) {
             Text(
-                text = "已解决",
+                text = "Resolved",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary,
@@ -323,7 +323,7 @@ private fun InlineCommentThread(
             TextButton(onClick = onReplyToggle, enabled = !isBusy) {
                 Icon(Icons.AutoMirrored.Outlined.Reply, null, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(2.dp))
-                Text("回复", style = MaterialTheme.typography.labelSmall)
+                Text("Reply", style = MaterialTheme.typography.labelSmall)
             }
             if (canResolve) {
                 TextButton(onClick = if (isResolved) onUnresolve else onResolve, enabled = !isBusy) {
@@ -334,7 +334,7 @@ private fun InlineCommentThread(
                     )
                     Spacer(Modifier.width(2.dp))
                     Text(
-                        if (isResolved) "取消已解决" else "标记已解决",
+                        if (isResolved) "Unmark resolved" else "Mark resolved",
                         style = MaterialTheme.typography.labelSmall,
                         color = if (isResolved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -351,7 +351,7 @@ private fun InlineCommentThread(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isBusy,
                 minLines = 2,
-                placeholder = { Text("回复…") },
+                placeholder = { Text("Reply…") },
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton(
@@ -365,7 +365,7 @@ private fun InlineCommentThread(
                         Icon(Icons.AutoMirrored.Outlined.Send, null, modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(6.dp))
                     }
-                    Text("发送")
+                    Text("Send")
                 }
             }
         }
@@ -387,10 +387,10 @@ private fun InlineCommentRow(
                 Spacer(Modifier.width(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     IconButton(onClick = onEdit, modifier = Modifier.size(20.dp)) {
-                        Icon(Icons.Outlined.Edit, "编辑", modifier = Modifier.size(12.dp))
+                        Icon(Icons.Outlined.Edit, "Edit", modifier = Modifier.size(12.dp))
                     }
                     IconButton(onClick = onDelete, modifier = Modifier.size(20.dp)) {
-                        Icon(Icons.Outlined.Delete, "删除", modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.error)
+                        Icon(Icons.Outlined.Delete, "Delete", modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.error)
                     }
                 }
             }

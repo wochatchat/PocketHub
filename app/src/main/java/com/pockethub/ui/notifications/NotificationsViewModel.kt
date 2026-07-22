@@ -63,7 +63,7 @@ class NotificationsViewModel @Inject constructor(
                 val result = cache.getNotifications(perPage = 80, all = showAll)
                 _notifications.update { result.filter { it.isEffectivelyUnread() == !showAll } }
             } catch (e: Exception) {
-                _error.update { e.localizedMessage ?: "加载通知失败" }
+                _error.update { e.localizedMessage ?: "Failed to load notifications" }
             } finally {
                 _isLoading.update { false }
             }
@@ -96,7 +96,7 @@ class NotificationsViewModel @Inject constructor(
                 api.markNotificationRead(threadId)
             } catch (e: Exception) {
                 _notifications.value = before
-                _error.update { e.localizedMessage ?: "标记已读失败" }
+                _error.update { e.localizedMessage ?: "Failed to mark read" }
             }
         }
     }
@@ -109,11 +109,11 @@ class NotificationsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 api.unsubscribeThread(threadId)
-                _actionMessage.update { "已取消订阅此话题" }
+                _actionMessage.update { "Unsubscribed from this thread" }
             } catch (e: Exception) {
                 // Unsubscribe failed — restore the thread so the user can retry.
                 _notifications.value = before
-                _actionMessage.update { e.localizedMessage ?: "取消订阅失败" }
+                _actionMessage.update { e.localizedMessage ?: "Failed to unsubscribe" }
             }
         }
     }
@@ -127,7 +127,7 @@ class NotificationsViewModel @Inject constructor(
             } catch (e: Exception) {
                 // Server still says some are unread; reload rather than pretend it worked.
                 load(all = currentTab.value == NotifTab.READ)
-                _error.update { e.localizedMessage ?: "标记全部已读失败" }
+                _error.update { e.localizedMessage ?: "Failed to mark all as read" }
             }
         }
     }

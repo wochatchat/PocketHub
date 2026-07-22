@@ -164,7 +164,7 @@ class CreateIssueViewModel @Inject constructor(
                 )
                 _result.value = Result.success(issue)
             } catch (e: Exception) {
-                _actionError.value = e.localizedMessage ?: "创建失败"
+                _actionError.value = e.localizedMessage ?: "Failed to create"
             } finally {
                 _isSending.value = false
             }

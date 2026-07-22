@@ -121,7 +121,7 @@ class PullRequestDetailViewModel @Inject constructor(
             try {
                 _pr.update { api.getPullRequest(owner, repo, number) }
             } catch (e: Exception) {
-                _error.update { e.localizedMessage ?: "加载 PR 失败" }
+                _error.update { e.localizedMessage ?: "Failed to load PR" }
             } finally {
                 _isLoading.update { false }
             }
@@ -231,7 +231,7 @@ class PullRequestDetailViewModel @Inject constructor(
                 _reviewComments.update { it + created }
                 _pr.update { pr -> pr?.copy(reviewComments = pr.reviewComments + 1) }
             } catch (e: Exception) {
-                _commentError.update { e.localizedMessage ?: "行评论发送失败" }
+                _commentError.update { e.localizedMessage ?: "Failed to post inline comment" }
             } finally {
                 _isSendingLineComment.update { false }
             }
@@ -261,7 +261,7 @@ class PullRequestDetailViewModel @Inject constructor(
                 )
                 _reviewComments.update { it + created }
             } catch (e: Exception) {
-                _inlineCommentError.update { e.localizedMessage ?: "回复失败" }
+                _inlineCommentError.update { e.localizedMessage ?: "Failed to reply" }
             } finally {
                 _busyReviewComments.update { it - rootCommentId }
             }
@@ -287,7 +287,7 @@ class PullRequestDetailViewModel @Inject constructor(
                 _reviewComments.update { list -> list.map { if (it.id == commentId) updated else it } }
             } catch (e: Exception) {
                 _reviewComments.update { snapshot }
-                _inlineCommentError.update { e.localizedMessage ?: "评论更新失败" }
+                _inlineCommentError.update { e.localizedMessage ?: "Failed to update comment" }
             } finally {
                 _busyReviewComments.update { it - commentId }
             }
@@ -316,14 +316,14 @@ class PullRequestDetailViewModel @Inject constructor(
                         else list.filterNot { it.id == commentId }
                     }
                     if (resp.code() == 404) {
-                        _inlineCommentError.update { "该评论已不存在" }
+                        _inlineCommentError.update { "This comment no longer exists" }
                     }
                 } else {
-                    _inlineCommentError.update { "删除失败 (${resp.code()})" }
+                    _inlineCommentError.update { "Delete failed (${resp.code()})" }
                 }
             } catch (e: Exception) {
                 _reviewComments.update { snapshot }
-                _inlineCommentError.update { e.localizedMessage ?: "评论删除失败" }
+                _inlineCommentError.update { e.localizedMessage ?: "Failed to delete comment" }
             } finally {
                 _busyReviewComments.update { it - commentId }
             }
@@ -355,7 +355,7 @@ class PullRequestDetailViewModel @Inject constructor(
                 runThreadMutation(RESOLVE_MUTATION, threadId)
                 _threadState.update { map -> map[rootCommentId]?.let { info -> map + (rootCommentId to info.copy(isResolved = true)) } ?: map }
             } catch (e: Exception) {
-                _inlineCommentError.update { e.localizedMessage ?: "标记为已解决失败" }
+                _inlineCommentError.update { e.localizedMessage ?: "Failed to mark as resolved" }
             } finally {
                 _busyReviewComments.update { it - rootCommentId }
             }
@@ -384,7 +384,7 @@ class PullRequestDetailViewModel @Inject constructor(
                 runThreadMutation(UNRESOLVE_MUTATION, threadId)
                 _threadState.update { map -> map[rootCommentId]?.let { info -> map + (rootCommentId to info.copy(isResolved = false)) } ?: map }
             } catch (e: Exception) {
-                _inlineCommentError.update { e.localizedMessage ?: "取消标记失败" }
+                _inlineCommentError.update { e.localizedMessage ?: "Failed to unmark resolved" }
             } finally {
                 _busyReviewComments.update { it - rootCommentId }
             }
@@ -428,7 +428,7 @@ class PullRequestDetailViewModel @Inject constructor(
         )
         val errs = resp.errors
         if (!errs.isNullOrEmpty()) {
-            _inlineCommentError.update { errs.firstOrNull()?.message ?: "拉取 thread 状态失败" }
+            _inlineCommentError.update { errs.firstOrNull()?.message ?: "Failed to fetch thread status" }
             return
         }
         val data = resp.data ?: return
@@ -472,16 +472,16 @@ class PullRequestDetailViewModel @Inject constructor(
                 val response = api.mergePullRequest(owner, repo, number, GitHubApi.MergeRequest(merge_method = method))
                 val result = response.body()
                 if (response.isSuccessful && result?.merged == true) {
-                    _mergeResult.update { "已合并" }
+                    _mergeResult.update { "Merged" }
                     // Refresh PR to show merged state
                     _pr.update { null }
                     loadedNumber = null
                     loadPullRequest(owner, repo, number)
                 } else {
-                    _mergeResult.update { result?.message ?: "合并失败 (${response.code()})" }
+                    _mergeResult.update { result?.message ?: "Merge failed (${response.code()})" }
                 }
             } catch (e: Exception) {
-                _mergeResult.update { e.localizedMessage ?: "合并失败" }
+                _mergeResult.update { e.localizedMessage ?: "Merge failed" }
             } finally {
                 _isMerging.update { false }
             }
@@ -501,9 +501,9 @@ class PullRequestDetailViewModel @Inject constructor(
                 _reviews.update { it + review }
                 _reviewResult.update {
                     when (event) {
-                        "APPROVE" -> "已批准"
-                        "REQUEST_CHANGES" -> "已请求修改"
-                        else -> "已评论"
+                        "APPROVE" -> "Approved"
+                        "REQUEST_CHANGES" -> "Changes requested"
+                        else -> "Reviewed"
                     }
                 }
                 // Refresh the PR so mergeable / merge_state / requested reviewers
@@ -533,7 +533,7 @@ class PullRequestDetailViewModel @Inject constructor(
                 _pr.update { pr -> pr?.copy(comments = pr.comments + 1) }
                 onSuccess()
             } catch (e: Exception) {
-                _commentError.update { e.localizedMessage ?: "评论发送失败" }
+                _commentError.update { e.localizedMessage ?: "Failed to post comment" }
             } finally {
                 _isSendingComment.update { false }
             }
@@ -551,7 +551,7 @@ class PullRequestDetailViewModel @Inject constructor(
                 val updated = api.editIssueComment(owner, repo, commentId, GitHubApi.CommentRequest(newBody))
                 _comments.update { list -> list.map { if (it.id == commentId) updated else it } }
             } catch (e: Exception) {
-                _commentError.update { e.localizedMessage ?: "评论更新失败" }
+                _commentError.update { e.localizedMessage ?: "Failed to update comment" }
             } finally {
                 _busyComments.update { it - commentId }
             }
@@ -571,7 +571,7 @@ class PullRequestDetailViewModel @Inject constructor(
                 _pr.update { pr -> pr?.copy(comments = (pr.comments - 1).coerceAtLeast(0)) }
                 _viewerReactions.update { it - commentId }
             } catch (e: Exception) {
-                _commentError.update { e.localizedMessage ?: "评论删除失败" }
+                _commentError.update { e.localizedMessage ?: "Failed to delete comment" }
             } finally {
                 _busyComments.update { it - commentId }
             }
@@ -596,7 +596,7 @@ class PullRequestDetailViewModel @Inject constructor(
                     _comments.update { list -> list.map { if (it.id == commentId) increment(it, content) else it } }
                 }
             } catch (e: Exception) {
-                _commentError.update { e.localizedMessage ?: "反应操作失败" }
+                _commentError.update { e.localizedMessage ?: "Failed to toggle reaction" }
             } finally {
                 _busyComments.update { it - commentId }
             }

@@ -67,7 +67,7 @@ class WorkflowRunDetailViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                _error.update { e.localizedMessage ?: "加载 Workflow Run 失败" }
+                _error.update { e.localizedMessage ?: "Failed to load workflow run" }
             } finally {
                 _isLoading.update { false }
             }
@@ -76,9 +76,9 @@ class WorkflowRunDetailViewModel @Inject constructor(
                 runCatching { api.getWorkflowRunJobs(owner, repo, runId) }
                     .onSuccess { resp ->
                         _jobs.update { resp.jobs }
-                        if (resp.jobs.isEmpty()) _error.update { "没有 jobs" }
+                        if (resp.jobs.isEmpty()) _error.update { "No jobs" }
                     }
-                    .onFailure { e -> _error.update { e.localizedMessage ?: "加载 jobs 失败" } }
+                    .onFailure { e -> _error.update { e.localizedMessage ?: "Failed to load jobs" } }
             }
         }
     }
@@ -92,12 +92,12 @@ class WorkflowRunDetailViewModel @Inject constructor(
             runCatching { api.cancelWorkflowRun(owner, repo, runId) }
                 .onSuccess { resp ->
                     _actionMessage.update {
-                        if (resp.isSuccessful || resp.code() == 409) "已请求取消"
-                        else "取消失败 (${resp.code()})"
+                        if (resp.isSuccessful || resp.code() == 409) "Cancellation requested"
+                        else "Cancel failed (${resp.code()})"
                     }
                     if (resp.isSuccessful) loadRunForced(owner, repo, runId)
                 }
-                .onFailure { e -> _actionMessage.update { e.localizedMessage ?: "取消失败" } }
+                .onFailure { e -> _actionMessage.update { e.localizedMessage ?: "Cancellation failed" } }
         }
     }
 
@@ -110,12 +110,12 @@ class WorkflowRunDetailViewModel @Inject constructor(
             runCatching { api.rerunWorkflowRun(owner, repo, runId) }
                 .onSuccess { resp ->
                     _actionMessage.update {
-                        if (resp.isSuccessful) "已触发重新运行"
-                        else "重新运行失败 (${resp.code()})"
+                        if (resp.isSuccessful) "Re-run triggered"
+                        else "Re-run failed (${resp.code()})"
                     }
                     if (resp.isSuccessful) loadRunForced(owner, repo, runId)
                 }
-                .onFailure { e -> _actionMessage.update { e.localizedMessage ?: "重新运行失败" } }
+                .onFailure { e -> _actionMessage.update { e.localizedMessage ?: "Re-run failed" } }
         }
     }
 

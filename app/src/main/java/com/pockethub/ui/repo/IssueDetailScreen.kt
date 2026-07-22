@@ -330,7 +330,7 @@ fun IssueDetailScreen(
                             onCopy = {
                                 val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                 cm.setPrimaryClip(ClipData.newPlainText("comment", state.comment.body))
-                                scope.launch { snackbarHostState.showSnackbar("已复制") }
+                                scope.launch { snackbarHostState.showSnackbar("Copied") }
                             },
                             onEdit = { editingCommentId = state.comment.id; editingBody = state.comment.body },
                             onDelete = { pendingDeleteId = state.comment.id },
