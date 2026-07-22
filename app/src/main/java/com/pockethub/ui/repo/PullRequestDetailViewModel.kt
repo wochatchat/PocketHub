@@ -114,7 +114,67 @@ class PullRequestDetailViewModel @Inject constructor(
                     hydrateReactions(owner, repo)
                 } catch (_: Exception) {}
             }
+            // Load CI checks for the PR head SHA so users see whether the PR is
+            // mergeable from a checks perspective (parallel with files/reviews).
+            viewModelScope.launch {
+                val sha = _pr.value?.head?.sha
+                if (!sha.isNullOrBlank()) {
+                    runCatching { api.listCheckRuns(owner, repo, sha) }.onSuccess { resp ->
+                        _checkRuns.update { resp.runs }
+                        _checkSummary.update { summarize(resp.runs) }
+                    }
+                }
+            }
         }
+    }
+
+    private val _checkRuns = MutableStateFlow<List<GitHubApi.CheckRun>>(emptyList())
+    val checkRuns: StateFlow<List<GitHubApi.CheckRun>> = _checkRuns
+
+    /** Aggregated PR checks status — a single line shown above the files section. */
+    private val _checkSummary = MutableStateFlow<CheckSummary>(CheckSummary.NONE)
+    val checkSummary: StateFlow<CheckSummary> = _checkSummary
+
+    /** Manually re-fetch check runs. Used when the user pulls to refresh CI status. */
+    fun refreshCheckRuns(owner: String, repo: String) {
+        val sha = _pr.value?.head?.sha ?: return
+        viewModelScope.launch {
+            runCatching { api.listCheckRuns(owner, repo, sha) }.onSuccess { resp ->
+                _checkRuns.update { resp.runs }
+                _checkSummary.update { summarize(resp.runs) }
+            }
+        }
+    }
+
+    /** Computes the headline status from a list of check runs. */
+    private fun summarize(runs: List<GitHubApi.CheckRun>): CheckSummary {
+        if (runs.isEmpty()) return CheckSummary.NONE
+        val total = runs.size
+        val passed = runs.count { it.status == "completed" && it.conclusion == "success" }
+        val failed = runs.count { it.status == "completed" && it.conclusion in FAILED_CONCLUSIONS }
+        val neutral = runs.count { it.status == "completed" && it.conclusion in NEUTRAL_CONCLUSIONS }
+        val pending = total - passed - failed - neutral
+
+        return when {
+            failed > 0 -> CheckSummary.Failed(failed = failed, total = total)
+            pending > 0 -> CheckSummary.Pending(pending = pending, total = total)
+            passed + neutral == total -> CheckSummary.Passed(passed = passed, total = total)
+            else -> CheckSummary.Pending(pending = total - passed - neutral, total = total)
+        }
+    }
+
+    /** Conclusions that should appear red on the PR check summary. */
+    private val FAILED_CONCLUSIONS = setOf("failure", "cancelled", "timed_out", "action_required")
+    /** Conclusions that are non-passing but also non-failing (skipped/neutral/stale). */
+    private val NEUTRAL_CONCLUSIONS = setOf("neutral", "skipped", "stale")
+
+    /** Aggregated CI status for the PR head SHA. Rendered as a one-line banner. */
+    sealed interface CheckSummary {
+        /** No check runs returned by GitHub — usually means CI is not set up on this repo. */
+        data object NONE : CheckSummary
+        data class Passed(val passed: Int, val total: Int) : CheckSummary
+        data class Failed(val failed: Int, val total: Int) : CheckSummary
+        data class Pending(val pending: Int, val total: Int) : CheckSummary
     }
 
     /**

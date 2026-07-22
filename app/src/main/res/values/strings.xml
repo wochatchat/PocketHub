@@ -348,6 +348,17 @@
     <string name="pr_state_merged">Merged</string>
     <string name="pr_opened_at">opened %1$s</string>
     <string name="pr_files_summary">%1$d files · +%2$d / -%3$d</string>
+
+    <!-- PR Checks -->
+    <string name="checks_passed">Checks: %1$d/%2$d passed</string>
+    <string name="checks_failed">Checks: %1$d failed / %2$d</string>
+    <string name="checks_pending">Checks: %1$d pending / %2$d</string>
+    <string name="action_refresh_checks">Refresh checks</string>
+    <string name="check_state_success">success</string>
+    <string name="check_state_failed">failed</string>
+    <string name="check_state_skipped">skipped</string>
+    <string name="check_state_in_progress">running</string>
+    <string name="check_state_queued">queued</string>
     <string name="pr_files_changed">Files changed (%1$d)</string>
     <string name="pr_reviews">Reviews (%1$d)</string>
     <string name="pr_no_reviews">No reviews yet</string>

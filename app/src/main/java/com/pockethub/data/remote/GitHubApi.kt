@@ -758,6 +758,46 @@ interface GitHubApi {
         @Query("branch") branch: String? = null,
     ): WorkflowRunsResponse
 
+    /**
+     * List check runs for a given commit ref — the canonical source for "PR checks"
+     * (the PR header on GitHub web shows exactly this aggregate). Includes GitHub
+     * Actions plus all third-party CI apps.
+     */
+    @GET("repos/{owner}/{repo}/commits/{ref}/check-runs")
+    suspend fun listCheckRuns(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("ref") ref: String,
+        @Query("per_page") perPage: Int = 100,
+        @Query("page") page: Int = 1,
+        @Query("filter") filter: String = "latest",
+    ): CheckRunsResponse
+
+    @kotlinx.serialization.Serializable
+    data class CheckRunsResponse(
+        @kotlinx.serialization.SerialName("total_count") val totalCount: Int = 0,
+        val runs: List<CheckRun> = emptyList(),
+    )
+
+    @kotlinx.serialization.Serializable
+    data class CheckRun(
+        val id: Long = 0,
+        val name: String = "",
+        val status: String? = null,              // queued | in_progress | completed
+        val conclusion: String? = null,          // success | failure | neutral | cancelled | skipped | timed_out | action_required | stale
+        @kotlinx.serialization.SerialName("started_at") val startedAt: String? = null,
+        @kotlinx.serialization.SerialName("completed_at") val completedAt: String? = null,
+        @kotlinx.serialization.SerialName("html_url") val htmlUrl: String? = null,
+        @kotlinx.serialization.SerialName("details_url") val detailsUrl: String? = null,
+        val app: CheckApp? = null,
+    )
+
+    @kotlinx.serialization.Serializable
+    data class CheckApp(
+        val name: String = "",
+        @kotlinx.serialization.SerialName("slug") val slug: String? = null,
+    )
+
     /** List workflows (definitions) for a repo. */
     @GET("repos/{owner}/{repo}/actions/workflows")
     suspend fun getWorkflows(

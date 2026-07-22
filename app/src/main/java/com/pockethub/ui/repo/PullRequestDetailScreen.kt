@@ -37,6 +37,7 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Comment
 import androidx.compose.material.icons.outlined.Merge
+import androidx.compose.material.icons.outlined.Pending
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -100,6 +101,8 @@ fun PullRequestDetailScreen(
     val comments by vm.comments.collectAsState()
     val reviewComments by vm.reviewComments.collectAsState()
     val isSendingLineComment by vm.isSendingLineComment.collectAsState()
+    val checkRuns by vm.checkRuns.collectAsState()
+    val checkSummary by vm.checkSummary.collectAsState()
     // Touch these so comment rows re-compose when viewer reactions arrive async.
     @Suppress("unused")
     val currentLogin by vm.currentLogin.collectAsState()
@@ -339,6 +342,13 @@ fun PullRequestDetailScreen(
                         }
                     }
                 }
+
+                // Checks summary — one-line banner showing CI status for the PR head SHA.
+                ChecksCard(
+                    summary = checkSummary,
+                    runs = checkRuns,
+                    onRefresh = { vm.refreshCheckRuns(owner, repo) },
+                )
 
                 // Requested reviewers
                 if (data.requestedReviewers.isNotEmpty()) {
@@ -763,6 +773,94 @@ private fun FileDiffItem(
 private fun formatDate(s: String): String = try {
     DateFormat.getDateInstance(DateFormat.MEDIUM).format(java.time.OffsetDateTime.parse(s))
 } catch (_: Exception) { s.take(10) }
+
+/**
+ * Single-line CI checks summary shown above labels / reviewers on PR detail.
+ *
+ * Renders Passed (all checks green) / Failed (any red) / Pending (queued or
+ * running) / None (no checks configured). Tapping the trailing Refresh icon
+ * refetches the check runs for the PR head SHA. When failed or pending, an
+ * expandable list of individual checks is rendered below.
+ */
+@Composable
+private fun ChecksCard(
+    summary: com.pockethub.ui.repo.CheckSummary,
+    runs: List<GitHubApi.CheckRun>,
+    onRefresh: () -> Unit,
+) {
+    if (runs.isEmpty() && summary is CheckSummary.NONE) return
+
+    var expanded by remember { mutableStateOf(false) }
+
+    val (icon, tint, label) = when (summary) {
+        is CheckSummary.Passed ->
+            Triple(Icons.Outlined.CheckCircle, MaterialTheme.colorScheme.primary,
+                stringResource(R.string.checks_passed, summary.passed, summary.total))
+        is CheckSummary.Failed ->
+            Triple(Icons.Outlined.Close, MaterialTheme.colorScheme.error,
+                stringResource(R.string.checks_failed, summary.failed, summary.total))
+        is CheckSummary.Pending ->
+            Triple(Icons.Outlined.Pending, MaterialTheme.colorScheme.tertiary,
+                stringResource(R.string.checks_pending, summary.pending, summary.total))
+        CheckSummary.NONE -> return
+    }
+
+    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .clickable {
+                    // Failed / Pending checks expand on tap so the user can see what failed.
+                    if (summary is CheckSummary.Failed || summary is CheckSummary.Pending) {
+                        expanded = !expanded
+                    }
+                }
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                .padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = tint)
+            Spacer(Modifier.width(8.dp))
+            Text(label, style = MaterialTheme.typography.labelMedium, color = tint, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            // Refresh manually refreshes regardless of expansion state.
+            IconButton(onClick = onRefresh, modifier = Modifier.size(24.dp)) {
+                Icon(Icons.Outlined.Refresh, contentDescription = stringResource(R.string.action_refresh_checks), tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+            }
+        }
+
+        if (expanded) {
+            Spacer(Modifier.height(6.dp))
+            runs.forEach { run ->
+                val runTint = when {
+                    run.status == "completed" && run.conclusion == "success" -> MaterialTheme.colorScheme.primary
+                    run.status == "completed" && run.conclusion in setOf("failure", "cancelled", "timed_out") -> MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    val (runIcon, stateLabel) = when {
+                        run.status == "completed" && run.conclusion == "success" -> Icons.Outlined.CheckCircle to stringResource(R.string.check_state_success)
+                        run.status == "completed" && run.conclusion in setOf("failure", "cancelled", "timed_out") -> Icons.Outlined.Close to stringResource(R.string.check_state_failed)
+                        run.status == "completed" && run.conclusion in setOf("neutral", "skipped", "stale") -> Icons.Outlined.CheckCircle to stringResource(R.string.check_state_skipped)
+                        run.status == "in_progress" -> Icons.Outlined.Pending to stringResource(R.string.check_state_in_progress)
+                        else -> Icons.Outlined.Pending to stringResource(R.string.check_state_queued)
+                    }
+                    Icon(runIcon, null, modifier = Modifier.size(14.dp), tint = runTint)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "${run.app?.name ?: "—"} / ${run.name}",
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(stateLabel, style = MaterialTheme.typography.labelSmall, color = runTint)
+                }
+            }
+        }
+    }
+}
 
 /** Parse an ISO-8601 timestamp into a Date for SimpleDateFormat. */
 private fun parseIso(iso: String): java.util.Date {

@@ -332,6 +332,17 @@
     <string name="pr_state_merged">已合并</string>
     <string name="pr_opened_at">%1$s 创建</string>
     <string name="pr_files_summary">%1$d 个文件 · +%2$d / -%3$d</string>
+
+    <!-- PR Checks -->
+    <string name="checks_passed">检查：%1$d/%2$d 通过</string>
+    <string name="checks_failed">检查：%1$d 失败 / 共 %2$d</string>
+    <string name="checks_pending">检查：%1$d 进行中 / 共 %2$d</string>
+    <string name="action_refresh_checks">刷新检查</string>
+    <string name="check_state_success">通过</string>
+    <string name="check_state_failed">失败</string>
+    <string name="check_state_skipped">跳过</string>
+    <string name="check_state_in_progress">进行中</string>
+    <string name="check_state_queued">排队中</string>
     <string name="pr_files_changed">文件变更 (%1$d)</string>
     <string name="pr_reviews">Review (%1$d)</string>
     <string name="pr_no_reviews">暂无 Review</string>
