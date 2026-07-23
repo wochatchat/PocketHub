@@ -439,6 +439,8 @@
     <!-- Pull Request detail -->
     <string name="pr_state_merged">Merged</string>
     <string name="pr_opened_at">opened %1$s</string>
+    <string name="pr_close_action">Close pull request</string>
+    <string name="pr_reopen_action">Reopen pull request</string>
     <string name="pr_files_summary">%1$d files · +%2$d / -%3$d</string>
 
     <!-- PR Checks -->

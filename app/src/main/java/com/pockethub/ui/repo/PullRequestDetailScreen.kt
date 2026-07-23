@@ -136,6 +136,8 @@ fun PullRequestDetailScreen(
     val reviewResult by vm.reviewResult.collectAsState()
     val isSendingComment by vm.isSendingComment.collectAsState()
     val commentError by vm.commentError.collectAsState()
+    val isTogglingState by vm.isTogglingState.collectAsState()
+    val actionMessage by vm.actionMessage.collectAsState()
     val dateFmt = remember { DateFormat.getDateInstance(DateFormat.MEDIUM) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -196,6 +198,12 @@ fun PullRequestDetailScreen(
         inlineCommentError?.let {
             snackbarHostState.showSnackbar(it)
             vm.clearInlineCommentError()
+        }
+    }
+    LaunchedEffect(actionMessage) {
+        actionMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            vm.clearActionMessage()
         }
     }
 
@@ -317,6 +325,37 @@ fun PullRequestDetailScreen(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                }
+
+                // Close / Reopen PR — mirrors GitHub web's primary affordance above
+                // the PR description. Merged PRs cannot be toggled. While the toggle is
+                // in flight, show a small spinner in place of the button label.
+                if (!data.merged) {
+                    val isOpen = data.state == "open"
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Button(
+                            onClick = { vm.togglePrState(owner, repo, prNumber) },
+                            enabled = !isTogglingState,
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                containerColor = if (isOpen) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                            ),
+                        ) {
+                            if (isTogglingState) {
+                                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                            } else {
+                                Icon(
+                                    if (isOpen) Icons.Outlined.Close else Icons.AutoMirrored.Outlined.OpenInNew,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    stringResource(if (isOpen) R.string.pr_close_action else R.string.pr_reopen_action),
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                )
+                            }
+                        }
                     }
                 }
 

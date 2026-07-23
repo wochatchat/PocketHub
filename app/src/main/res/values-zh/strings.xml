@@ -423,6 +423,8 @@
     <!-- Pull Request detail -->
     <string name="pr_state_merged">已合并</string>
     <string name="pr_opened_at">%1$s 创建</string>
+    <string name="pr_close_action">关闭 pull request</string>
+    <string name="pr_reopen_action">重新打开 pull request</string>
     <string name="pr_files_summary">%1$d 个文件 · +%2$d / -%3$d</string>
 
     <!-- PR Checks -->

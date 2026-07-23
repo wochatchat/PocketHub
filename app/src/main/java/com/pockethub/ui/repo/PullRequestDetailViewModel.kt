@@ -103,6 +103,16 @@ class PullRequestDetailViewModel @Inject constructor(
     private val _commentError = MutableStateFlow<String?>(null)
     val commentError: StateFlow<String?> = _commentError
 
+    /** True while a close / reopen request is in flight. */
+    private val _isTogglingState = MutableStateFlow(false)
+    val isTogglingState: StateFlow<Boolean> = _isTogglingState.asStateFlow()
+
+    /** Last close/reopen PR status feedback (success / failure). */
+    private val _actionMessage = MutableStateFlow<String?>(null)
+    val actionMessage: StateFlow<String?> = _actionMessage
+
+    fun clearActionMessage() { _actionMessage.update { null } }
+
     private val _viewerReactions = MutableStateFlow<Map<Long, Map<String, Long>>>(emptyMap())
     val viewerReactions: StateFlow<Map<Long, Map<String, Long>>> = _viewerReactions
 
@@ -564,6 +574,36 @@ class PullRequestDetailViewModel @Inject constructor(
                 _mergeResult.update { e.localizedMessage ?: "Merge failed" }
             } finally {
                 _isMerging.update { false }
+            }
+        }
+    }
+
+    /**
+     * Close / reopen the PR. Mirror of GitHub web's "Close pull request" / "Reopen"
+     * controls: PATCH the pulls endpoint with the toggled `state`. Refreshes the PR
+     * on success so header / merge banner update. Merged PRs cannot be closed or
+     * reopened; the UI should hide this affordance when `pr.merged == true`.
+     */
+    fun togglePrState(owner: String, repo: String, number: Int) {
+        val current = _pr.value
+        // Guard against re-entry and incompatible states (already-merged / loading).
+        if (_isTogglingState.value) return
+        if (current?.merged == true) return
+        val newState = if (current?.state == "open") "closed" else "open"
+        viewModelScope.launch {
+            _isTogglingState.update { true }
+            _actionMessage.update { null }
+            try {
+                val updated = api.updatePullRequest(owner, repo, number, GitHubApi.PullUpdateRequest(state = newState))
+                _pr.update { updated }
+                _actionMessage.update {
+                    if (newState == "closed") "Pull request closed" else "Pull request reopened"
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                _actionMessage.update { e.localizedMessage ?: "Failed to update PR state" }
+            } finally {
+                _isTogglingState.update { false }
             }
         }
     }

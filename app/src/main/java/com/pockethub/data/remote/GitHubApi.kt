@@ -368,6 +368,24 @@ interface GitHubApi {
         @Path("pull_number") pullNumber: Int,
     ): PullRequest
 
+    /**
+     * Update a pull request. Used to close (`state="closed"`) or reopen
+     * (`state="open"`) a PR. GitHub's PATCH pulls endpoint also accepts
+     * `title` / `body` etc., but only `state` is needed for our use.
+     */
+    @PATCH("repos/{owner}/{repo}/pulls/{pull_number}")
+    suspend fun updatePullRequest(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("pull_number") pullNumber: Int,
+        @Body body: PullUpdateRequest,
+    ): PullRequest
+
+    @kotlinx.serialization.Serializable
+    data class PullUpdateRequest(
+        val state: String, // "open" | "closed"
+    )
+
     /** List files changed in a pull request. */
     @GET("repos/{owner}/{repo}/pulls/{pull_number}/files")
     suspend fun getPullRequestFiles(
