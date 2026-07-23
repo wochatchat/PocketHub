@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -48,12 +49,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -93,6 +100,10 @@ fun ProfileScreen(
     val isLoadingEvents by vm.isLoadingEvents.collectAsState()
     val hasMoreRepos by vm.hasMoreRepos.collectAsState()
     val isLoadingMoreRepos by vm.isLoadingMoreRepos.collectAsState()
+
+    // 0 = repos, 1 = activity — mirrors UserDetailScreen so the layout & toggle UX
+    // is identical when moving between your own profile and another user's.
+    var sectionTab by remember { mutableIntStateOf(0) }
 
     Scaffold(
         topBar = {
@@ -139,91 +150,112 @@ fun ProfileScreen(
                 onOpenPR = onNavigateToPR,
             ) }
 
-            // My recent public activity feed.
+            // Repos / Activity segmented switch — keeps the profile layout visually
+            // identical to UserDetailScreen so toggling between "all repos" and "feed"
+            // lives behind one control instead of being a long scroll.
             item {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp)) {
-                    Icon(Icons.Outlined.History, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.profile_activity), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                }
-            }
-            if (isLoadingEvents && events.isEmpty()) {
-                item {
-                    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+                Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                        listOf(R.string.user_repos_chip, R.string.user_activity_chip).forEachIndexed { idx, label ->
+                            SegmentedButton(
+                                selected = sectionTab == idx,
+                                onClick = { sectionTab = idx },
+                                shape = SegmentedButtonDefaults.itemShape(idx, 2),
+                            ) {
+                                Text(stringResource(label), style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp)) {
+                        Icon(
+                            if (sectionTab == 0) Icons.Outlined.Folder else Icons.Outlined.History,
+                            null,
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            stringResource(if (sectionTab == 0) R.string.user_repositories else R.string.user_activity),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
                     }
                 }
-            } else if (events.isEmpty()) {
-                item {
-                    Text(
-                        stringResource(R.string.user_no_activity),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                    )
+            }
+
+            // Repos (segmented 0) — paginated list of all the user's repositories.
+            if (sectionTab == 0) {
+                if (isLoadingRepos && topRepos.isEmpty()) {
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                } else if (topRepos.isEmpty()) {
+                    item {
+                        Text(
+                            stringResource(R.string.profile_no_repos_yet),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        )
+                    }
+                } else {
+                    items(topRepos, key = { it.id }) { repo ->
+                        RepoMiniCard(
+                            repo = repo,
+                            onClick = { onNavigateToRepo(repo.owner.login, repo.name) },
+                        )
+                    }
+                    if (isLoadingMoreRepos) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            }
+                        }
+                    } else if (hasMoreRepos) {
+                        item {
+                            Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.Center) {
+                                TextButton(onClick = { vm.loadMoreRepos() }) {
+                                    Text(stringResource(R.string.load_more_repos))
+                                }
+                            }
+                        }
+                    }
                 }
             } else {
-                items(events, key = { it.id }) { ev ->
-                    com.pockethub.ui.components.ActivityCard(
-                        event = ev,
-                        onNavigateToRepo = { full ->
-                            val parts = full.split("/", limit = 2)
-                            if (parts.size == 2) onNavigateToRepo(parts[0], parts[1])
-                        },
-                    )
+                // Activity (segmented 1) — recent public events from the signed-in user.
+                if (isLoadingEvents && events.isEmpty()) {
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                } else if (events.isEmpty()) {
+                    item {
+                        Text(
+                            stringResource(R.string.user_no_activity),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        )
+                    }
+                } else {
+                    items(events, key = { it.id }) { ev ->
+                        com.pockethub.ui.components.ActivityCard(
+                            event = ev,
+                            onNavigateToRepo = { full ->
+                                val parts = full.split("/", limit = 2)
+                                if (parts.size == 2) onNavigateToRepo(parts[0], parts[1])
+                            },
+                        )
+                    }
                 }
             }
 
             // Contact / extra info
             item { AdditionalInfo(user) }
-
-            // All repositories (paginated)
-            item {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp)) {
-                    Icon(Icons.Outlined.Folder, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.top_repositories), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                }
-            }
-
-            if (isLoadingRepos && topRepos.isEmpty()) {
-                item {
-                    Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                }
-            } else if (topRepos.isEmpty()) {
-                item {
-                    Text(
-                        stringResource(R.string.profile_no_repos_yet),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                    )
-                }
-            } else {
-                items(topRepos, key = { it.id }) { repo ->
-                    RepoMiniCard(
-                        repo = repo,
-                        onClick = { onNavigateToRepo(repo.owner.login, repo.name) },
-                    )
-                }
-                if (isLoadingMoreRepos) {
-                    item {
-                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        }
-                    }
-                } else if (hasMoreRepos) {
-                    item {
-                        Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.Center) {
-                            TextButton(onClick = { vm.loadMoreRepos() }) {
-                                Text(stringResource(R.string.load_more_repos))
-                            }
-                        }
-                    }
-                }
-            }
 
             // Multi-account section
             if (allAccounts.size > 1) {
@@ -479,7 +511,10 @@ private fun WorkListCard(
                 )
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            ) {
                 com.pockethub.ui.profile.ProfileViewModel.WorkTab.entries.forEach { t ->
                     FilterChip(
                         selected = tab == t,
