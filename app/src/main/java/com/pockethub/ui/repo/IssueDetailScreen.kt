@@ -460,7 +460,7 @@ private fun IssueEditDialog(
     var title by remember(issue.id) { mutableStateOf(issue.title) }
     var body by remember(issue.id) { mutableStateOf(issue.body.orEmpty()) }
     var labels by remember(issue.id) { mutableStateOf(issue.labels.map { it.name }.toSet()) }
-    var assigneesText by remember(issue.id) { mutableStateOf(issue.assignees.joinToString(",") { it.login }) }
+    var assignees by remember(issue.id) { mutableStateOf(issue.assignees.map { it.login }.toMutableSet()) }
     var milestone by remember(issue.id) { mutableStateOf(issue.milestone?.number) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -471,7 +471,7 @@ private fun IssueEditDialog(
                 OutlinedTextField(body, { body = it }, label = { Text(stringResource(R.string.hint_issue_body)) }, enabled = !isSaving, modifier = Modifier.fillMaxWidth(), minLines = 4)
                 if (availableLabels.isNotEmpty()) {
                     Text(stringResource(R.string.issue_labels), style = MaterialTheme.typography.labelLarge)
-                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
                         availableLabels.forEach { label ->
                             androidx.compose.material3.FilterChip(selected = label.name in labels, onClick = {
                                 labels = if (label.name in labels) labels - label.name else labels + label.name
@@ -479,17 +479,25 @@ private fun IssueEditDialog(
                         }
                     }
                 }
-                OutlinedTextField(assigneesText, { assigneesText = it }, label = { Text(stringResource(R.string.issue_assignees_hint)) }, supportingText = { Text(stringResource(R.string.issue_assignees_help)) }, enabled = !isSaving, modifier = Modifier.fillMaxWidth())
+                com.pockethub.ui.components.ChipListEditor(
+                    title = stringResource(R.string.assignees_section_title),
+                    items = assignees.toList(),
+                    inputHint = stringResource(R.string.assignee_input_hint),
+                    emptyText = stringResource(R.string.no_assignees),
+                    enabled = !isSaving,
+                    onAdd = { assignees = (assignees + it.removePrefix("@").trim()).toMutableSet() },
+                    onRemove = { assignees = (assignees - it).toMutableSet() },
+                )
                 if (milestones.isNotEmpty()) {
                     Text(stringResource(R.string.issue_milestone), style = MaterialTheme.typography.labelLarge)
-                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
                         androidx.compose.material3.FilterChip(selected = milestone == null, onClick = { milestone = null }, label = { Text(stringResource(R.string.issue_no_milestone)) }, enabled = !isSaving)
                         milestones.forEach { item -> androidx.compose.material3.FilterChip(selected = milestone == item.number, onClick = { milestone = item.number }, label = { Text(item.title) }, enabled = !isSaving) }
                     }
                 }
             }
         },
-        confirmButton = { Button(onClick = { onSave(title.trim(), body, labels.toList(), assigneesText.split(',').map { it.trim().removePrefix("@") }.filter { it.isNotBlank() }, milestone) }, enabled = title.isNotBlank() && !isSaving) { if (isSaving) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.action_save)) } },
+        confirmButton = { Button(onClick = { onSave(title.trim(), body, labels.toList(), assignees.toList(), milestone) }, enabled = title.isNotBlank() && !isSaving) { if (isSaving) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.action_save)) } },
         dismissButton = { TextButton(onClick = onDismiss, enabled = !isSaving) { Text(stringResource(R.string.action_cancel)) } },
     )
 }

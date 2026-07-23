@@ -1,14 +1,13 @@
 package com.pockethub.ui.repo
 
 import com.pockethub.R
+import com.pockethub.ui.components.ChipListEditor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,7 +33,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -308,88 +306,3 @@ private fun IssueEditor(
     }
 }
 
-/**
- * Section editor for a free-form string list (labels / assignees) backed by the
- * ViewModel. Chips are added via an OutlinedTextField + Add button; each chip has
- * a close affordance that calls [onRemove]. Empty state shows a muted hint so the
- * section doesn't visually collapse when there's nothing to display.
- */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun ChipListEditor(
-    title: String,
-    items: List<String>,
-    inputHint: String,
-    emptyText: String,
-    enabled: Boolean,
-    onAdd: (String) -> Unit,
-    onRemove: (String) -> Unit,
-) {
-    Column(Modifier.fillMaxWidth()) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Spacer(Modifier.height(6.dp))
-        if (items.isEmpty()) {
-            Text(
-                emptyText,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                items.forEach { item ->
-                    InputChip(
-                        selected = false,
-                        onClick = {},
-                        label = { Text(item) },
-                        trailingIcon = {
-                            Icon(
-                                Icons.Outlined.Close,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(InputChipDefaults.IconSize)
-                                    .clickable { onRemove(item) },
-                            )
-                        },
-                        enabled = enabled,
-                    )
-                }
-            }
-        }
-        Spacer(Modifier.height(6.dp))
-        var input by remember { mutableStateOf("") }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            OutlinedTextField(
-                value = input,
-                onValueChange = { input = it },
-                label = { Text(inputHint) },
-                singleLine = true,
-                enabled = enabled,
-                modifier = Modifier.weight(1f),
-            )
-            Spacer(Modifier.width(8.dp))
-            TextButton(
-                onClick = {
-                    onAdd(input)
-                    input = ""
-                },
-                enabled = enabled && input.isNotBlank(),
-            ) {
-                Text(stringResource(R.string.add))
-            }
-        }
-    }
-}
-
-private object InputChipDefaults {
-    val IconSize = 18.dp
-}
