@@ -338,6 +338,37 @@ fun IssueDetailScreen(
                             onRemoveReaction = { content -> vm.toggleReaction(state.comment.id, content) },
                         )
                     }
+                    // Load-more row — appears only when the link header says more
+                    // pages exist. Lets the user pull in older comments incrementally
+                    // instead of being silently truncated at 50.
+                    val hasMore by vm.hasMoreComments.collectAsState()
+                    val isLoadingMore by vm.isLoadingMoreComments.collectAsState()
+                    val commentsError by vm.commentsError.collectAsState()
+                    if (hasMore) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (isLoadingMore) {
+                                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                            } else {
+                                TextButton(onClick = { vm.loadMoreComments() }) {
+                                    Text(stringResource(R.string.load_more_comments))
+                                }
+                            }
+                        }
+                    }
+                    if (commentsError != null) {
+                        Text(
+                            commentsError!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        )
+                    }
                 }
 
                 Spacer(Modifier.height(16.dp))

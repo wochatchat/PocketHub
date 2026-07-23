@@ -227,6 +227,7 @@
     <string name="issue_meta">#%1$d · %2$d 条评论</string>
     <string name="comments_title">评论 (%1$d)</string>
     <string name="no_comments_yet">暂无评论</string>
+    <string name="load_more_comments">加载更多评论…</string>
     <string name="no_description">_暂无描述_</string>
     <string name="no_content">_无内容_</string>
     <string name="unknown">未知</string>

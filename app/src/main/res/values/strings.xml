@@ -242,6 +242,7 @@
     <string name="issue_meta">#%1$d · %2$d comments</string>
     <string name="comments_title">Comments (%1$d)</string>
     <string name="no_comments_yet">No comments yet</string>
+    <string name="load_more_comments">Load more comments…</string>
     <string name="no_description">_No description provided._</string>
     <string name="no_content">_No content_</string>
     <string name="unknown">unknown</string>

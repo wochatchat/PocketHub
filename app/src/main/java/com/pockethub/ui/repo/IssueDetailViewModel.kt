@@ -49,7 +49,18 @@ class IssueDetailViewModel @Inject constructor(
     val busyComments: StateFlow<Set<Long>> = _busyComments
 
     private val _currentLogin = MutableStateFlow<String?>(null)
-    val currentLogin: StateFlow<String?> = _currentLogin.asStateFlow()
+    val currentLogin: StateFlow<String?> = _currentLogin
+
+    // ── Comment pagination ────────────────────────────────────────────────
+    // GitHub's /issues/{n}/comments endpoint can't tell us total_count, so we
+    // page through it manually and infer "more available" from the Link header.
+    private val _commentsPage = MutableStateFlow(1)
+    private val _hasMoreComments = MutableStateFlow(false)
+    val hasMoreComments: StateFlow<Boolean> = _hasMoreComments.asStateFlow()
+    private val _isLoadingMoreComments = MutableStateFlow(false)
+    val isLoadingMoreComments: StateFlow<Boolean> = _isLoadingMoreComments.asStateFlow()
+    private val _commentsError = MutableStateFlow<String?>(null)
+    val commentsError: StateFlow<String?> = _commentsError.asStateFlow()
 
     private var loadedOwner: String? = null
     private var loadedRepo: String? = null
@@ -68,12 +79,59 @@ class IssueDetailViewModel @Inject constructor(
             catch (e: Exception) { _error.value = e.localizedMessage ?: "Failed to load issue" }
             finally { _isLoading.value = false }
         }
+        // Load comments via the paginated helper (covers page-1 fresh fetch).
+        loadComments(firstPage = true)
+        viewModelScope.launch { hydrateReactions(owner, repo) }
+    }
+
+    /**
+     * Fetch a fresh first page (clearing any prior state) or append the next
+     * page. Both share the same Response-based fetch — pagination metadata is
+     * read from the Link header since the endpoint returns no total_count.
+     */
+    fun loadComments(firstPage: Boolean) {
+        val owner = loadedOwner ?: return
+        val repo = loadedRepo ?: return
+        val number = loadedNumber ?: return
+        if (!firstPage && _isLoadingMoreComments.value) return
         viewModelScope.launch {
-            runCatching { api.getIssueComments(owner, repo, number) }.onSuccess {
-                _comments.value = it
+            if (firstPage) _comments.value = emptyList()
+            else _isLoadingMoreComments.value = true
+            _commentsError.value = null
+            val nextPage = if (firstPage) 1 else (_commentsPage.value + 1)
+            try {
+                val resp = api.getIssueComments(owner, repo, number, page = nextPage)
+                val items = resp.body().orEmpty()
+                if (firstPage) {
+                    _comments.value = items
+                    _commentsPage.value = 1
+                } else {
+                    if (items.isEmpty()) {
+                        _hasMoreComments.value = false
+                        return@launch
+                    }
+                    _comments.value = _comments.value + items
+                    _commentsPage.value = nextPage
+                }
+                _hasMoreComments.value = resp.headers()["link"]?.let { hasNext(it) } ?: false
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                _commentsError.value = e.localizedMessage ?: "Failed to load comments"
+            } finally {
+                _isLoadingMoreComments.value = false
             }
         }
-        viewModelScope.launch { hydrateReactions(owner, repo) }
+    }
+
+    /**
+     * Append the next page of issue comments. Public alias Soy[loadComments].
+     * Kept for clarity at the call-site (mirrors repo search's `loadMore()`).
+     */
+    fun loadMoreComments() = loadComments(firstPage = false)
+
+    /** Inspect a GitHub Link header to determine whether a `rel="next"` URL is present. */
+    private fun hasNext(linkHeader: String): Boolean {
+        return linkHeader.contains("rel=\"next\"")
     }
 
     private suspend fun hydrateReactions(owner: String, repo: String) {

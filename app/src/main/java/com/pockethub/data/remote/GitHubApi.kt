@@ -281,7 +281,9 @@ interface GitHubApi {
         @Path("number") number: Int,
     ): Issue
 
-    /** Comments on an issue or PR. */
+    /** Comments on an issue or PR. Returns a Response so callers can read the
+     *  `link` header to detect whether more pages exist (the GitHub API doesn't
+     *  return total_count for this endpoint). */
     @GET("repos/{owner}/{repo}/issues/{number}/comments")
     suspend fun getIssueComments(
         @Path("owner") owner: String,
@@ -289,7 +291,7 @@ interface GitHubApi {
         @Path("number") number: Int,
         @Query("per_page") perPage: Int = 50,
         @Query("page") page: Int = 1,
-    ): List<IssueComment>
+    ): Response<List<IssueComment>>
 
     @kotlinx.serialization.Serializable
     data class IssueComment(

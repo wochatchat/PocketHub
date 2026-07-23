@@ -146,7 +146,8 @@ class PullRequestDetailViewModel @Inject constructor(
             }
             viewModelScope.launch {
                 try {
-                    _comments.update { api.getIssueComments(owner, repo, number) }
+                    val resp = api.getIssueComments(owner, repo, number)
+                    _comments.update { resp.body().orEmpty() }
                     hydrateReactions(owner, repo)
                 } catch (_: Exception) {}
             }
