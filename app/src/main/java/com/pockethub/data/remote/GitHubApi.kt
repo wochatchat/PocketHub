@@ -363,6 +363,7 @@ interface GitHubApi {
         @Path("owner") owner: String,
         @Path("repo") repo: String,
         @Path("comment_id") commentId: Long,
+        @Query("per_page") perPage: Int = 100,
     ): List<ReactionResponse>
 
     /** Delete a reaction on an issue / PR comment. */
