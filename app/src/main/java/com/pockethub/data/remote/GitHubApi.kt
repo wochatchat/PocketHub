@@ -702,6 +702,47 @@ interface GitHubApi {
         @Path("ref") ref: String,
     ): CommitDetail
 
+    /** Comments on a commit (section / line-level via positional fields). */
+    @GET("repos/{owner}/{repo}/commits/{ref}/comments")
+    suspend fun getCommitComments(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("ref") ref: String,
+        @Query("per_page") perPage: Int = 100,
+    ): List<CommitComment>
+
+    /** Add a comment to a commit. Body-only (no path/line) posts a top-level
+     *  commit comment on GitHub web's commit page. */
+    @POST("repos/{owner}/{repo}/commits/{ref}/comments")
+    suspend fun createCommitComment(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("ref") ref: String,
+        @Body body: CommitCommentCreate,
+    ): CommitComment
+
+    @kotlinx.serialization.Serializable
+    data class CommitCommentCreate(
+        val body: String,
+        // Optional positional fields — omitted for top-level comments.
+        val path: String? = null,
+        val position: Int? = null,
+        val line: Int? = null,
+    )
+
+    @kotlinx.serialization.Serializable
+    data class CommitComment(
+        val id: Long = 0,
+        @kotlinx.serialization.SerialName("html_url") val htmlUrl: String? = null,
+        val body: String = "",
+        val path: String? = null,
+        val position: Int? = null,
+        val line: Int? = null,
+        val user: User? = null,
+        @kotlinx.serialization.SerialName("created_at") val createdAt: String? = null,
+        @kotlinx.serialization.SerialName("updated_at") val updatedAt: String? = null,
+    )
+
     @kotlinx.serialization.Serializable
     data class Commit(
         val sha: String = "",

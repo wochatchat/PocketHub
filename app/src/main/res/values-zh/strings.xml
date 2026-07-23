@@ -266,6 +266,10 @@
     <string name="commit_author_subtitle">%1$s · %2$s</string>
     <string name="commit_files_changed">%1$d 个文件变更</string>
     <string name="commit_additions_deletions">+%1$d / -%2$d</string>
+    <string name="commit_comments">评论 (%1$d)</string>
+    <string name="commit_no_comments">还没有评论 — 来留个言吧</string>
+    <string name="commit_comment_placeholder">在此提交留言…</string>
+    <string name="commit_comment_send">评论</string>
     <string name="commit_no_more">没有更多提交了</string>
     <string name="commit_detail">提交详情</string>
     <string name="commit_stats">统计</string>

@@ -28,15 +28,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Remove
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -47,6 +53,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -81,10 +88,30 @@ fun CommitDetailScreen(
     val commit by vm.commit.collectAsState()
     val isLoading by vm.isLoading.collectAsState()
     val error by vm.error.collectAsState()
+    val comments by vm.comments.collectAsState()
+    val commentsError by vm.commentsError.collectAsState()
+    val isSendingComment by vm.isSendingComment.collectAsState()
+    val commentError by vm.commentError.collectAsState()
+    val actionMessage by vm.actionMessage.collectAsState()
     val context = LocalContext.current
     val dateFmt = remember { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, Locale.getDefault()) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(owner, repo, sha) { vm.load(owner, repo, sha) }
+
+    // Surface snackbar whenever the action message or comment error changes.
+    LaunchedEffect(actionMessage) {
+        actionMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            vm.clearActionMessage()
+        }
+    }
+    LaunchedEffect(commentError) {
+        commentError?.let {
+            snackbarHostState.showSnackbar(it)
+            vm.clearCommentError()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -111,6 +138,7 @@ fun CommitDetailScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         if (isLoading && commit == null) {
             Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -217,6 +245,70 @@ fun CommitDetailScreen(
             // Changed files
             items(data.files, key = { it.sha + it.filename }) { file ->
                 CommitFileCard(file)
+            }
+
+            // Commit comments section (GitHub web "Comments on this commit")
+            item(key = "comments_header") {
+                Column(Modifier.padding(horizontal = 16.dp)) {
+                    Text(
+                        stringResource(R.string.commit_comments, comments.size),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    HorizontalDivider()
+                }
+            }
+
+            if (commentsError != null) {
+                item(key = "comments_error") {
+                    Column(
+                        Modifier
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(stringResource(R.string.loading_failed), style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            commentsError ?: "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        TextButton(onClick = { vm.retryComments(owner, repo, sha) }) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.action_retry))
+                            }
+                        }
+                    }
+                }
+            } else if (comments.isEmpty()) {
+                item(key = "comments_empty") {
+                    Text(
+                        stringResource(R.string.commit_no_comments),
+                        Modifier
+                            .padding(horizontal = 16.dp)
+                            .padding(vertical = 16.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            } else {
+                items(comments, key = { it.id }) { comment ->
+                    CommitCommentItem(comment, dateFmt, onNavigateToUser)
+                }
+            }
+
+            // Comment composer
+            item(key = "comment_composer") {
+                CommitCommentComposer(
+                    isSending = isSendingComment,
+                    onSubmit = { body -> vm.postComment(owner, repo, sha, body) },
+                )
             }
 
             item { Spacer(Modifier.height(24.dp)) }
@@ -334,3 +426,105 @@ private fun parseIsoDateTime(iso: String): Date = runCatching {
         timeZone = java.util.TimeZone.getTimeZone("UTC")
     }.parse(iso)
 }.getOrDefault(Date())
+
+@Composable
+private fun CommitCommentItem(
+    comment: GitHubApi.CommitComment,
+    dateFmt: DateFormat,
+    onNavigateToUser: (String) -> Unit,
+) {
+    Column(
+        Modifier
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            val login = comment.user?.login
+            if (comment.user?.avatarUrl != null) {
+                AsyncImage(
+                    model = comment.user.avatarUrl,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .then(if (login != null) Modifier.clickable { onNavigateToUser(login) } else Modifier),
+                )
+                Spacer(Modifier.width(8.dp))
+            }
+            Text(
+                login ?: stringResource(R.string.unknown),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Medium,
+                modifier = if (login != null) Modifier.clickable { onNavigateToUser(login) } else Modifier,
+            )
+            Spacer(Modifier.width(8.dp))
+            comment.createdAt?.let { dateStr ->
+                Text(
+                    dateFmt.format(parseIsoDateTime(dateStr)),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Text(
+            comment.body,
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
+}
+
+@Composable
+private fun CommitCommentComposer(
+    isSending: Boolean,
+    onSubmit: (String) -> Unit,
+) {
+    var text by remember { mutableStateOf("") }
+    Column(
+        Modifier
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it },
+            placeholder = { Text(stringResource(R.string.commit_comment_placeholder)) },
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 2,
+            enabled = !isSending,
+        )
+        Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = {
+                    if (text.isNotBlank() && !isSending) {
+                        onSubmit(text.trim())
+                        text = ""
+                    }
+                },
+                enabled = text.isNotBlank() && !isSending,
+            ) {
+                if (isSending) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                } else {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.Send,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(stringResource(R.string.commit_comment_send))
+            }
+        }
+    }
+}

@@ -56,10 +56,10 @@ GitHub 代码归属与默认推送目标
 
 PocketHub 项目构建/打包验证习惯
 - Date: 2026-07-23
-- Context: Agent 在长时间 Android 开发流程中确认的验收方式
+- Context: Agent 在长时间 Android 开发流程中确认的验收方式；2026-07-23 用户调整验证策略
 - Category: 构建编译
 - Instructions:
-  - 改完 Kotlin 后用 `./gradlew :app:compileDebugKotlin` 快速验证编译；通过后再 `./gradlew :app:assembleDebug` 出 APK 确认无打包期错误
+  - 改完 Kotlin 后用 `./gradlew :app:compileDebugKotlin` 快速验证编译错误即可；通过即可提交推送，不再每次跑 `./gradlew :app:assembleDebug` 出 APK
   - 编译命令需 `timeout 600` 包装以避免长时阻塞
   - `./gradlew` 命令要以 /workspace 为 workdir
 

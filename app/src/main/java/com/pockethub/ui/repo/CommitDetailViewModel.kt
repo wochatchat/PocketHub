@@ -25,6 +25,21 @@ class CommitDetailViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    private val _comments = MutableStateFlow<List<GitHubApi.CommitComment>>(emptyList())
+    val comments: StateFlow<List<GitHubApi.CommitComment>> = _comments.asStateFlow()
+
+    private val _commentsError = MutableStateFlow<String?>(null)
+    val commentsError: StateFlow<String?> = _commentsError.asStateFlow()
+
+    private val _isSendingComment = MutableStateFlow(false)
+    val isSendingComment: StateFlow<Boolean> = _isSendingComment.asStateFlow()
+
+    private val _commentError = MutableStateFlow<String?>(null)
+    val commentError: StateFlow<String?> = _commentError.asStateFlow()
+
+    private val _actionMessage = MutableStateFlow<String?>(null)
+    val actionMessage: StateFlow<String?> = _actionMessage
+
     private var loadedSha: String? = null
 
     fun load(owner: String, repo: String, sha: String) {
@@ -36,15 +51,57 @@ class CommitDetailViewModel @Inject constructor(
             try {
                 _commit.update { api.getCommit(owner, repo, sha) }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 _error.update { e.localizedMessage ?: "Failed to load commit" }
             } finally {
                 _isLoading.update { false }
             }
         }
+        // Load commit comments in parallel — independent of the commit itself.
+        loadComments(owner, repo, sha)
     }
 
     fun retry(owner: String, repo: String, sha: String) {
         loadedSha = null
         load(owner, repo, sha)
     }
+
+    fun loadComments(owner: String, repo: String, sha: String) {
+        viewModelScope.launch {
+            _commentsError.update { null }
+            try {
+                _comments.update { api.getCommitComments(owner, repo, sha) }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                _commentsError.update { e.localizedMessage ?: "Failed to load commit comments" }
+            }
+        }
+    }
+
+    /**
+     * Post a top-level commit comment (no positional info). Mirrors GitHub web's
+     * "Comment on this commit" footer — used to leave a general remark about the
+     * whole commit, not tied to a specific file line.
+     */
+    fun postComment(owner: String, repo: String, sha: String, body: String) {
+        if (body.isBlank() || _isSendingComment.value) return
+        viewModelScope.launch {
+            _isSendingComment.update { true }
+            _commentError.update { null }
+            try {
+                val created = api.createCommitComment(owner, repo, sha, GitHubApi.CommitCommentCreate(body = body))
+                _comments.update { it + created }
+                _actionMessage.update { "Comment added" }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                _commentError.update { e.localizedMessage ?: "Failed to post comment" }
+            } finally {
+                _isSendingComment.update { false }
+            }
+        }
+    }
+
+    fun clearActionMessage() { _actionMessage.update { null } }
+    fun clearCommentError() { _commentError.update { null } }
+    fun retryComments(owner: String, repo: String, sha: String) = loadComments(owner, repo, sha)
 }
