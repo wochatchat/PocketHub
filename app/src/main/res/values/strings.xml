@@ -113,7 +113,7 @@
     <string name="feed_someone">someone</string>
     <string name="feed_source_label">Source: %1$s</string>
     <string name="feed_source_change">Change</string>
-    <string name="feed_pull_to_refresh_hint">Pull down to refresh</string>
+    <string name="feed_pull_to_refresh_hint">Double-tap the tab to refresh</string>
     <string name="feed_item_star_delta">↑ %1$s momentum in the past %2$s</string>
     <string name="feed_signal_hn">On Hacker News</string>
     <string name="feed_signal_reddit">On /r/%1$s</string>

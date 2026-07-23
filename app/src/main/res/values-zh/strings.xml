@@ -98,7 +98,7 @@
     <string name="feed_someone">某人</string>
     <string name="feed_source_label">来源：%1$s</string>
     <string name="feed_source_change">更改</string>
-    <string name="feed_pull_to_refresh_hint">下拉可刷新</string>
+    <string name="feed_pull_to_refresh_hint">双击底部 Tab 可刷新</string>
     <string name="feed_item_star_delta">过去 %2$s 内 ↑ %1$s 热度</string>
     <string name="feed_signal_hn">来自 Hacker News</string>
     <string name="feed_signal_reddit">来自 /r/%1$s</string>

@@ -96,6 +96,16 @@ fun HomeScreen(
     var query by rememberSaveable { mutableStateOf("") }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
+    // Double-tap-to-refresh on a bottom-nav tab — instead of pull-to-refresh on
+    // the explore tab (which clashes with row horizontal scroll and lazy list
+    // vertical scroll), the user double-taps the already-selected tab to trigger
+    // a refresh. See [DeepNavTabGesture.pickRound].
+    var lastTabClickAtMillis by rememberSaveable { mutableStateOf(0L) }
+    var lastClickedTab by rememberSaveable { mutableIntStateOf(0) }
+    // Bumps whenever a refresh is requested by double-tapping. Screens read it via
+    // their refreshTrigger param and react with LaunchedEffect.
+    var exploreRefreshTrigger by rememberSaveable { mutableIntStateOf(0) }
+
     // Notifications badge — the NotificationsViewModel is cheap to pull a single
     // unread-notifications page from; we just need the count for the badge dot.
     val notifVm: NotificationsViewModel = hiltViewModel()
@@ -215,7 +225,21 @@ fun HomeScreen(
                     val selected = selectedTab == index
                     NavigationBarItem(
                         selected = selected,
-                        onClick = { selectedTab = index },
+                        onClick = {
+                            val now = System.currentTimeMillis()
+                            // Double-tap on the already-selected tab triggers a refresh.
+                            if (selected && lastClickedTab == index && now - lastTabClickAtMillis < 400) {
+                                when (index) {
+                                    0 -> exploreRefreshTrigger++
+                                    // Add more tabs here as refresh-aware screens appear.
+                                }
+                                lastTabClickAtMillis = 0L
+                            } else {
+                                lastTabClickAtMillis = now
+                                lastClickedTab = index
+                                selectedTab = index
+                            }
+                        },
                         icon = {
                             Icon(
                                 imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
@@ -245,6 +269,7 @@ fun HomeScreen(
                 onNavigateToRepo = onNavigateToRepo,
                 onNavigateToUser = onNavigateToUser,
                 onNavigateToFeedSources = onNavigateToFeedSources,
+                refreshTrigger = exploreRefreshTrigger,
             )
             else -> ReposScreen(
                 modifier = Modifier.padding(innerPadding),

@@ -7,6 +7,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyListScope
@@ -47,8 +49,6 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -85,6 +85,13 @@ fun ExploreScreen(
     onNavigateToRepo: (String, String) -> Unit,
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToFeedSources: () -> Unit = {},
+    /**
+     * Incremented by the host (HomeScreen) when the user double-taps the
+     * Explore bottom-nav tab. We react with a LaunchedEffect to call
+     * [ExploreViewModel.refresh]. Replaces pull-to-refresh, which conflicted
+     * with horizontal scrollers inside rows and the LazyColumn nested scroll.
+     */
+    refreshTrigger: Int = 0,
     vm: ExploreViewModel = hiltViewModel(),
 ) {
     val section by vm.section.collectAsState()
@@ -101,11 +108,17 @@ fun ExploreScreen(
     val featuredSource by vm.featuredSourceOption.collectAsState()
     val followingSource by vm.followingSourceOption.collectAsState()
     val pinnedRepos by vm.pinnedRepos.collectAsState()
-    val pullState = rememberPullToRefreshState()
 
     // Bring up trending data on first composition; later filter changes are driven
     // by the chips via vm.setTrendingFilters(...).
     LaunchedEffect(Unit) { vm.load() }
+
+    // Double-tap-the-tab refresh — HomeScreen increments refreshTrigger, we
+    // re-fetch whatever section is active. Ignore the initial 0 (screen just
+    // entered composition).
+    LaunchedEffect(refreshTrigger) {
+        if (refreshTrigger > 0) vm.refresh()
+    }
 
     val currentSource = when (section) {
         ExploreSection.TRENDING  -> trendingSource
@@ -113,16 +126,10 @@ fun ExploreScreen(
         ExploreSection.FOLLOWING -> followingSource
     }
 
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = { vm.refresh() },
-        state = pullState,
+    LazyColumn(
         modifier = modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
             // Section switcher (Trending / Featured / Following)
             item {
                 Spacer(Modifier.height(8.dp))
@@ -324,7 +331,7 @@ fun ExploreScreen(
                 }
             }
 
-            // Footer hint when pull-to-refresh isn't obvious — small nudge on first load.
+            // Footer hint for the double-tap-tab refresh affordance.
             item {
                 Row(
                     modifier = Modifier
@@ -348,7 +355,6 @@ fun ExploreScreen(
             }
         }
     }
-}
 
 @Composable
 private fun sourceDisplayName(source: FeedSourceOption): String = when (source) {
@@ -556,6 +562,7 @@ private fun LoadingFooter() {
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun DiscoverItemCard(
     item: DiscoverItem,
@@ -589,13 +596,19 @@ private fun DiscoverItemCard(
                     text = item.owner,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.clickable { onNavigateToUser(item.owner) },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .clickable { onNavigateToUser(item.owner) }
+                        .weight(1f, fill = false),
                 )
                 Text(" / ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
                     text = item.repo,
                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
 
@@ -658,15 +671,30 @@ private fun DiscoverItemCard(
                     Spacer(Modifier.width(4.dp))
                     Text(formatCount(item.forks), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (item.topics.isNotEmpty()) {
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        item.topics.take(2).joinToString(" · ", prefix = ""),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+            }
+            if (item.topics.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    item.topics.take(4).forEach { topic ->
+                        Text(
+                            "#$topic",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    if (item.topics.size > 4) {
+                        Text(
+                            "+${item.topics.size - 4}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
@@ -749,7 +777,7 @@ private fun PinnedRepoCard(
     val repo = parts.getOrNull(1).orEmpty()
     Card(
         onClick = onClick,
-        modifier = Modifier.width(180.dp),
+        modifier = Modifier.widthIn(min = 180.dp, max = 200.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
