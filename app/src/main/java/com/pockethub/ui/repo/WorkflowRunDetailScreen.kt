@@ -62,10 +62,8 @@ import androidx.compose.ui.res.stringResource
 import com.pockethub.R
 import com.pockethub.data.remote.GitHubApi
 import java.text.DateFormat
-import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.TimeZone
 import kotlinx.coroutines.launch
 import java.time.Duration
 
@@ -380,9 +378,7 @@ private fun parseIso(iso: String): Date {
 }
 
 private fun parseIsoSafe(iso: String): Date? = runCatching {
-    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.ENGLISH).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
-    }.parse(iso)
+    java.util.Date.from(java.time.OffsetDateTime.parse(iso.trim().replace(" ", "T")).toInstant())
 }.getOrNull()
 
 @Composable

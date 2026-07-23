@@ -180,8 +180,6 @@ private fun CommitRow(
 
 private fun parseIsoDate(iso: String): Date {
     return runCatching {
-        java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.ENGLISH).apply {
-            timeZone = java.util.TimeZone.getTimeZone("UTC")
-        }.parse(iso)
+        java.util.Date.from(java.time.OffsetDateTime.parse(iso.trim().replace(" ", "T")).toInstant())
     }.getOrDefault(Date())
 }
