@@ -158,12 +158,23 @@ class CreateIssueViewModel @Inject constructor(
             _isSending.value = true
             _actionError.value = null
             try {
+                // Forward template front-matter labels/assignees (if any) to the API.
+                // Milestone is intentionally not auto-filled — GitHub issue templates don't
+                // declare it in front matter, and users may want to set it manually in the
+                // editor. Same for assignees a user might edit after prefill.
+                val tpl = _selectedTemplate.value
                 val issue = api.createIssue(
                     owner, repo,
-                    GitHubApi.IssueCreateRequest(title = title, body = body?.takeIf { it.isNotBlank() }),
+                    GitHubApi.IssueCreateRequest(
+                        title = title,
+                        body = body?.takeIf { it.isNotBlank() },
+                        labels = tpl?.labels.orEmpty(),
+                        assignees = tpl?.assigns.orEmpty(),
+                    ),
                 )
                 _result.value = Result.success(issue)
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 _actionError.value = e.localizedMessage ?: "Failed to create"
             } finally {
                 _isSending.value = false
