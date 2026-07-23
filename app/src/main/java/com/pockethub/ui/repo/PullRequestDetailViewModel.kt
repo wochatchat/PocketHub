@@ -113,6 +113,14 @@ class PullRequestDetailViewModel @Inject constructor(
 
     fun clearActionMessage() { _actionMessage.update { null } }
 
+    private val _reviewerWorking = MutableStateFlow<Boolean>(false)
+    val reviewerWorking: StateFlow<Boolean> = _reviewerWorking.asStateFlow()
+
+    private val _reviewerError = MutableStateFlow<String?>(null)
+    val reviewerError: StateFlow<String?> = _reviewerError.asStateFlow()
+
+    fun clearReviewerError() { _reviewerError.update { null } }
+
     private val _viewerReactions = MutableStateFlow<Map<Long, Map<String, Long>>>(emptyMap())
     val viewerReactions: StateFlow<Map<Long, Map<String, Long>>> = _viewerReactions
 
@@ -635,6 +643,42 @@ class PullRequestDetailViewModel @Inject constructor(
                 _reviewResult.update { e.localizedMessage ?: "Review 提交失败" }
             } finally {
                 _isSendingReview.update { false }
+            }
+        }
+    }
+
+    fun requestReviewers(owner: String, repo: String, number: Int, reviewers: List<String>) {
+        if (_reviewerWorking.value || reviewers.isEmpty()) return
+        viewModelScope.launch {
+            _reviewerWorking.update { true }
+            _reviewerError.update { null }
+            try {
+                val updated = api.requestReviewers(owner, repo, number, GitHubApi.RequestedReviewersBody(reviewers = reviewers))
+                _pr.update { updated }
+                _actionMessage.update { "Requested ${reviewers.size} reviewer(s)" }
+            } catch (e: Exception) {
+                _reviewerError.update { e.localizedMessage ?: "Failed to request reviewer" }
+            } finally {
+                _reviewerWorking.update { false }
+            }
+        }
+    }
+
+    fun removeReviewer(owner: String, repo: String, number: Int, reviewer: String) {
+        if (_reviewerWorking.value) return
+        viewModelScope.launch {
+            _reviewerWorking.update { true }
+            _reviewerError.update { null }
+            try {
+                api.removeReviewers(owner, repo, number, GitHubApi.RequestedReviewersBody(reviewers = listOf(reviewer)))
+                _pr.update {
+                    it?.copy(requestedReviewers = it.requestedReviewers.filterNot { r -> r.login == reviewer })
+                }
+                _actionMessage.update { "Removed reviewer @${reviewer}" }
+            } catch (e: Exception) {
+                _reviewerError.update { e.localizedMessage ?: "Failed to remove reviewer" }
+            } finally {
+                _reviewerWorking.update { false }
             }
         }
     }

@@ -449,6 +449,12 @@
     <string name="pr_reviews">Review (%1$d)</string>
     <string name="pr_no_reviews">暂无 Review</string>
     <string name="pr_reviewers">审阅者：</string>
+    <string name="pr_no_reviewers">暂无审阅者</string>
+    <string name="pr_add_reviewer">添加审阅者</string>
+    <string name="pr_add_reviewer_dialog_title">添加审阅者</string>
+    <string name="pr_add_reviewer_search_hint">GitHub 用户名 (回车添加)</string>
+    <string name="pr_add_reviewer_submit">请求审阅</string>
+    <string name="pr_add_reviewer_empty">尚未添加审阅者</string>
     <string name="pr_approve">批准</string>
     <string name="pr_request_changes">请求修改</string>
     <string name="pr_review_comment">评论</string>

@@ -465,6 +465,12 @@
     <string name="pr_reviews">Reviews (%1$d)</string>
     <string name="pr_no_reviews">No reviews yet</string>
     <string name="pr_reviewers">Reviewers:</string>
+    <string name="pr_no_reviewers">No reviewers yet</string>
+    <string name="pr_add_reviewer">Add reviewer</string>
+    <string name="pr_add_reviewer_dialog_title">Add reviewers</string>
+    <string name="pr_add_reviewer_search_hint">GitHub login (press enter to add)</string>
+    <string name="pr_add_reviewer_submit">Request review</string>
+    <string name="pr_add_reviewer_empty">No reviewers added yet</string>
     <string name="pr_approve">Approve</string>
     <string name="pr_request_changes">Request changes</string>
     <string name="pr_review_comment">Comment</string>

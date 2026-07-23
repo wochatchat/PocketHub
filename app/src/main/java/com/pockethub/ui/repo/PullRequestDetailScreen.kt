@@ -12,6 +12,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,6 +42,8 @@ import androidx.compose.material.icons.outlined.Pending
 import androidx.compose.material.icons.outlined.RateReview
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -64,6 +67,10 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.InputChip
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -79,6 +86,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -93,7 +101,7 @@ import android.content.Context
 import java.text.DateFormat
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun PullRequestDetailScreen(
     owner: String,
@@ -138,6 +146,8 @@ fun PullRequestDetailScreen(
     val commentError by vm.commentError.collectAsState()
     val isTogglingState by vm.isTogglingState.collectAsState()
     val actionMessage by vm.actionMessage.collectAsState()
+    val reviewerWorking by vm.reviewerWorking.collectAsState()
+    val reviewerError by vm.reviewerError.collectAsState()
     val dateFmt = remember { DateFormat.getDateInstance(DateFormat.MEDIUM) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -146,6 +156,7 @@ fun PullRequestDetailScreen(
     var showMergeDialog by remember { mutableStateOf(false) }
     var showMergeWarningDialog by remember { mutableStateOf(false) }
     var showReviewDialog by remember { mutableStateOf(false) }
+    var showAddReviewer by remember { mutableStateOf(false) }
     var reviewEvent by remember { mutableStateOf(ReviewEvent.APPROVE) }
     var editingCommentId by remember { mutableStateOf<Long?>(null) }
     var editingBody by remember { mutableStateOf("") }
@@ -173,6 +184,106 @@ fun PullRequestDetailScreen(
             return@link
         }
         runCatching { uriHandler.openUri(url) }
+    }
+
+    // Add reviewers dialog (multi-input via chip list)
+    if (showAddReviewer) {
+        val sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        var reviewerInput by remember { mutableStateOf("") }
+        var pendingReviewers by remember { mutableStateOf<List<String>>(emptyList()) }
+        ModalBottomSheet(
+            onDismissRequest = { if (!reviewerWorking) showAddReviewer = false },
+            sheetState = sheetState,
+        ) {
+            Column(
+                Modifier.padding(20.dp).fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(stringResource(R.string.pr_add_reviewer_dialog_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                OutlinedTextField(
+                    value = reviewerInput,
+                    onValueChange = { reviewerInput = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text(stringResource(R.string.pr_add_reviewer_search_hint)) },
+                    singleLine = true,
+                    enabled = !reviewerWorking,
+                    trailingIcon = {
+                        IconButton(
+                            onClick = {
+                                val v = reviewerInput.trim().removePrefix("@")
+                                if (v.isNotEmpty() && pendingReviewers.none { it.equals(v, ignoreCase = true) }) {
+                                    pendingReviewers = pendingReviewers + v
+                                    reviewerInput = ""
+                                }
+                            },
+                            enabled = !reviewerWorking,
+                        ) { Icon(Icons.Outlined.Add, null) }
+                    },
+                    keyboardActions = KeyboardActions(onDone = {
+                        val v = reviewerInput.trim().removePrefix("@")
+                        if (v.isNotEmpty() && pendingReviewers.none { it.equals(v, ignoreCase = true) }) {
+                            pendingReviewers = pendingReviewers + v
+                            reviewerInput = ""
+                        }
+                    }),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                )
+                if (pendingReviewers.isEmpty()) {
+                    Text(
+                        stringResource(R.string.pr_add_reviewer_empty),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        pendingReviewers.forEach { login ->
+                            InputChip(
+                                label = { Text("@$login", style = MaterialTheme.typography.labelSmall, maxLines = 1) },
+                                trailingIcon = {
+                                    Icon(
+                                        Icons.Outlined.Close,
+                                        contentDescription = stringResource(R.string.action_remove),
+                                        modifier = Modifier.size(14.dp).clickable {
+                                            pendingReviewers = pendingReviewers.filterNot { it.equals(login, ignoreCase = true) }
+                                        },
+                                    )
+                                },
+                                onClick = { pendingReviewers = pendingReviewers.filterNot { it.equals(login, ignoreCase = true) } },
+                                selected = false,
+                                enabled = !reviewerWorking,
+                            )
+                        }
+                    }
+                }
+                reviewerError?.let { err ->
+                    Text(err, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                }
+                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                    TextButton(
+                        onClick = { showAddReviewer = false },
+                        enabled = !reviewerWorking,
+                    ) { Text(stringResource(R.string.action_cancel)) }
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            showAddReviewer = false
+                            vm.requestReviewers(owner, repo, prNumber, pendingReviewers)
+                        },
+                        enabled = pendingReviewers.isNotEmpty() && !reviewerWorking,
+                    ) {
+                        if (reviewerWorking) {
+                            CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                        } else {
+                            Text(stringResource(R.string.pr_add_reviewer_submit))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+        }
     }
 
     // Snackbar for results
@@ -420,24 +531,59 @@ fun PullRequestDetailScreen(
                 )
 
                 // Requested reviewers
-                if (data.requestedReviewers.isNotEmpty()) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource(R.string.pr_reviewers),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    data.requestedReviewers.forEach { reviewer ->
+                        AsyncImage(
+                            model = reviewer.avatarUrl,
+                            contentDescription = reviewer.login,
+                            modifier = Modifier.size(18.dp).clip(CircleShape)
+                                .clickable { onNavigateToUser(reviewer.login) },
+                        )
+                        Spacer(Modifier.width(2.dp))
+                    }
+                    if (data.requestedReviewers.isNotEmpty()) {
+                        // Inline remove affordance — small chip per reviewer
+                        data.requestedReviewers.forEach { reviewer ->
+                            InputChip(
+                                selected = false,
+                                onClick = { vm.removeReviewer(owner, repo, prNumber, reviewer.login) },
+                                label = { Text("@${reviewer.login}", style = MaterialTheme.typography.labelSmall, maxLines = 1) },
+                                avatar = { AsyncImage(model = reviewer.avatarUrl, contentDescription = null, modifier = Modifier.size(16.dp).clip(CircleShape)) },
+                                trailingIcon = {
+                                    Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.action_remove), modifier = Modifier.size(14.dp))
+                                },
+                                enabled = !reviewerWorking,
+                            )
+                            Spacer(Modifier.width(4.dp))
+                        }
+                    } else {
                         Text(
-                            stringResource(R.string.pr_reviewers),
+                            stringResource(R.string.pr_no_reviewers),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Spacer(Modifier.width(6.dp))
-                        data.requestedReviewers.forEach { reviewer ->
-                            AsyncImage(
-                                model = reviewer.avatarUrl,
-                                contentDescription = reviewer.login,
-                                modifier = Modifier.size(18.dp).clip(CircleShape)
-                                    .clickable { onNavigateToUser(reviewer.login) },
-                            )
-                            Spacer(Modifier.width(2.dp))
-                        }
                     }
+                    Spacer(Modifier.width(6.dp))
+                    AssistChip(
+                        onClick = { showAddReviewer = true },
+                        label = { Text(stringResource(R.string.pr_add_reviewer)) },
+                        leadingIcon = { Icon(Icons.Outlined.PersonAdd, null, modifier = Modifier.size(16.dp)) },
+                        enabled = !reviewerWorking,
+                    )
+                }
+                reviewerError?.let { err ->
+                    Spacer(Modifier.height(4.dp))
+                    Text(err, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                }
+                actionMessage?.takeIf { it.startsWith("Removed") || it.startsWith("Requested") }?.let { msg ->
+                    Spacer(Modifier.height(4.dp))
+                    Text(msg, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                 }
 
                 // Body

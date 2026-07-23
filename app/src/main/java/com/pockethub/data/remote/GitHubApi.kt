@@ -388,11 +388,24 @@ interface GitHubApi {
         @Path("pull_number") pullNumber: Int,
     ): PullRequest
 
-    /**
-     * Update a pull request. Used to close (`state="closed"`) or reopen
-     * (`state="open"`) a PR. GitHub's PATCH pulls endpoint also accepts
-     * `title` / `body` etc., but only `state` is needed for our use.
-     */
+    /** Add requested reviewers to a pull request. */
+    @POST("repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers")
+    suspend fun requestReviewers(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("pull_number") pullNumber: Int,
+        @Body body: RequestedReviewersBody,
+    ): PullRequest
+
+    /** Remove requested reviewers from a pull request. */
+    @DELETE("repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers")
+    suspend fun removeReviewers(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("pull_number") pullNumber: Int,
+        @Body body: RequestedReviewersBody,
+    ): Response<Unit>
+
     @PATCH("repos/{owner}/{repo}/pulls/{pull_number}")
     suspend fun updatePullRequest(
         @Path("owner") owner: String,
@@ -609,6 +622,11 @@ interface GitHubApi {
         val body: String? = null,
         val event: String, // "APPROVE" | "REQUEST_CHANGES" | "COMMENT"
         @kotlinx.serialization.SerialName("comments") val comments: List<ReviewInlineComment> = emptyList(),
+    )
+
+    @kotlinx.serialization.Serializable
+    data class RequestedReviewersBody(
+        val reviewers: List<String> = emptyList(),
     )
 
     @kotlinx.serialization.Serializable
