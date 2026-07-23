@@ -312,6 +312,34 @@ interface GitHubApi {
         @Query("page") page: Int = 1,
     ): Response<List<IssueComment>>
 
+    /**
+     * Timeline events for an issue / PR — labeled, assigned, closed, reopened,
+     * referenced, cross-referenced, milestoned, locked, unlocked, etc. Used to
+     * render a chronological event stream interleaved with comments.
+     */
+    @GET("repos/{owner}/{repo}/issues/{number}/events")
+    suspend fun getIssueEvents(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("number") number: Int,
+        @Query("per_page") perPage: Int = 100,
+        @Query("page") page: Int = 1,
+    ): Response<List<IssueEvent>>
+
+    @kotlinx.serialization.Serializable
+    data class IssueEvent(
+        val id: Long = 0,
+        val event: String = "",
+        @kotlinx.serialization.SerialName("commit_id") val commitId: String? = null,
+        @kotlinx.serialization.SerialName("commit_url") val commitUrl: String? = null,
+        val actor: User? = null,
+        val label: Issue.Label? = null,
+        val assignee: User? = null,
+        val assigner: User? = null,
+        val milestone: Issue.Milestone? = null,
+        @kotlinx.serialization.SerialName("created_at") val createdAt: String? = null,
+    )
+
     @kotlinx.serialization.Serializable
     data class IssueComment(
         val id: Long = 0,

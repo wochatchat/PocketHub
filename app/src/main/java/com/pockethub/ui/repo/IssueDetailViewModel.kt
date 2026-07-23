@@ -66,6 +66,12 @@ class IssueDetailViewModel @Inject constructor(
     private val _commentsError = MutableStateFlow<String?>(null)
     val commentsError: StateFlow<String?> = _commentsError.asStateFlow()
 
+    /** Timeline events (labeled / assigned / closed / reopened / referenced …). */
+    private val _events = MutableStateFlow<List<GitHubApi.IssueEvent>>(emptyList())
+    val events: StateFlow<List<GitHubApi.IssueEvent>> = _events.asStateFlow()
+    private val _eventsError = MutableStateFlow<String?>(null)
+    val eventsError: StateFlow<String?> = _eventsError.asStateFlow()
+
     private var loadedOwner: String? = null
     private var loadedRepo: String? = null
     private var loadedNumber: Int? = null
@@ -85,7 +91,25 @@ class IssueDetailViewModel @Inject constructor(
         }
         // Load comments via the paginated helper (covers page-1 fresh fetch).
         loadComments(firstPage = true)
+        loadTimelineEvents()
         viewModelScope.launch { hydrateReactions(owner, repo) }
+    }
+
+    /** Fetch the issue's event timeline (labeled / assigned / closed / etc.). */
+    fun loadTimelineEvents() {
+        val owner = loadedOwner ?: return
+        val repo = loadedRepo ?: return
+        val number = loadedNumber ?: return
+        viewModelScope.launch {
+            _eventsError.value = null
+            try {
+                val resp = api.getIssueEvents(owner, repo, number)
+                _events.value = resp.body().orEmpty()
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                _eventsError.value = e.localizedMessage ?: "Failed to load events"
+            }
+        }
     }
 
     /**
