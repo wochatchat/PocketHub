@@ -58,8 +58,10 @@ object Routes {
     const val USER_DETAIL = "user/{login}"
     const val HISTORY = "history"
     const val DOWNLOADS = "downloads?tab={tab}"
+    const val IMAGE_PREVIEW = "image_preview?url={url}"
 
     fun downloads(tab: String = "active") = "downloads?tab=$tab"
+    fun imagePreview(url: String) = "image_preview?url=" + java.net.URLEncoder.encode(url, "UTF-8")
 
     fun repoDetail(owner: String, repo: String) = "repo/$owner/$repo"
     fun createIssue(owner: String, repo: String) = "create_issue/$owner/$repo"
@@ -165,6 +167,12 @@ fun PocketHubApp(
     }
 
     PocketHubTheme(mode = themeMode) {
+        val imagePreviewOpener = remember<(String) -> Unit> {
+            { url -> navController.navigate(Routes.imagePreview(url)) }
+        }
+        CompositionLocalProvider(
+            com.pockethub.ui.components.LocalImagePreviewer provides imagePreviewOpener,
+        ) {
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background,
@@ -175,7 +183,6 @@ fun PocketHubApp(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {}
                 return@Surface
             }
-
             NavHost(
                 navController = navController,
                 startDestination = route,
@@ -422,6 +429,17 @@ fun PocketHubApp(
                         onBack = { navController.popBackStack() },
                     )
                 }
+
+                composable(
+                    Routes.IMAGE_PREVIEW,
+                    arguments = listOf(navArgument("url") { type = NavType.StringType }),
+                ) { backStackEntry ->
+                    val url = backStackEntry.arguments?.getString("url") ?: return@composable
+                    com.pockethub.ui.components.ImagePreviewScreen(
+                        imageUrl = url,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
             }
         }
 
@@ -443,6 +461,7 @@ fun PocketHubApp(
                 )
             }
             else -> Unit
+        }
         }
     }
 }

@@ -168,9 +168,23 @@ fun MarkdownText(
     val linkResolver = rememberLinkResolver(repoContext)
     val imageResolver = rememberImageResolver(repoContext, defaultBranch)
     val uriHandler = LocalUriHandler.current
+    val imagePreviewer = com.pockethub.ui.components.LocalImagePreviewer.current
 
     val onTap: (String, LinkKind) -> Unit = { url, kind ->
-        if (onLinkClick != null) onLinkClick(url, kind) else uriHandler.openUri(url)
+        when {
+            // Image links: prefer the in-app zoomable preview if the host screen has
+            // registered one. Markdown README / issue / PR bodies carry screenshots /
+            // diagrams which the web UI opens inline; routing them to the browser is
+            // a worse experience, so we hijack the tap here. We only hijack when the
+            // image pointer is the link target (wrapUrl set to the image itself, or the
+            // inline image src with no wrapping link) — keeping wrapped-link cases
+            // (an image wrapped around a click to another URL) routed through onLinkClick.
+            (kind == LinkKind.IMAGE_URL || kind == LinkKind.IMAGE) && imagePreviewer != null -> {
+                imagePreviewer(url)
+            }
+            onLinkClick != null -> onLinkClick(url, kind)
+            else -> uriHandler.openUri(url)
+        }
     }
 
     val parseResult = androidx.compose.runtime.remember(markdown) {
