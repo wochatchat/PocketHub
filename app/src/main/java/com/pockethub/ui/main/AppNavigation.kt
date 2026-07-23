@@ -116,10 +116,10 @@ fun PocketHubApp(
     // 24h interval and the "ignored version" gates.
     androidx.compose.runtime.LaunchedEffect(Unit) {
         // Delay the auto-check so the home screen has a chance to render fully
-        // before any in-flight network work competes for resources. 5s is long
-        // enough to skip the cold-start critical path; short enough to catch users
-        // who linger on the home screen for a moment.
-        kotlinx.coroutines.delay(5_000)
+        // before any in-flight network work competes for resources. 2s is long
+        // enough to skip the cold-start critical path; short enough to surface
+        // the update dialog within a single session even for short visits.
+        kotlinx.coroutines.delay(2_000)
         updateVm.maybeAutoCheck()
     }
 

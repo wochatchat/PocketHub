@@ -41,16 +41,19 @@ class UpdateViewModel @Inject constructor(
     private val owner = "wochatchat"
     private val repo = "PocketHub"
 
-    /** Minimum gap between two automatic background checks (24h). */
-    private val autoCheckIntervalMs = 24L * 60 * 60 * 1000
+    /** Minimum gap between two automatic background checks (6h). */
+    private val autoCheckIntervalMs = 6L * 60 * 60 * 1000
 
     /**
      * Once the user has dismissed an update prompt (tapped "Later" / backed out),
      * the same release won't be auto-shown again for this long — avoids nagging
      * the user every app launch. Manual "Check for updates" from Settings bypasses
      * this throttle and always shows whatever's found.
+     *
+     * Kept short (1 day) so users who tap "Later" still see the prompt next day —
+     * the previous 3-day window let people miss updates altogether.
      */
-    private val promptSuppressMs = 3L * 24 * 60 * 60 * 1000
+    private val promptSuppressMs = 1L * 24 * 60 * 60 * 1000
 
     sealed interface State {
         data object Idle : State
@@ -104,7 +107,12 @@ class UpdateViewModel @Inject constructor(
             // Auto-check path: respect the suppress window after "Later" dismiss.
             val lastPromptMs = settings.getLastUpdatePromptMs()
             val suppressed = lastPromptMs > 0 && System.currentTimeMillis() - lastPromptMs < promptSuppressMs
-            if (forceShow || !suppressed) {
+            // Escape hatch: a release published *after* the user last dismissed
+            // a prompt is genuinely new, so always surface it. Without this, a
+            // user who tapped "Later" yesterday would miss today's hotfix entirely
+            // — the most common reason people report "I never get the update popup".
+            val releaseNewSinceDismiss = parsePublishedEpochMs(info.publishedAt) > lastPromptMs
+            if (forceShow || !suppressed || releaseNewSinceDismiss) {
                 settings.markUpdatePromptedNow()
                 _state.value = State.UpdateAvailable(info)
             } else {
@@ -114,6 +122,14 @@ class UpdateViewModel @Inject constructor(
         } else {
             _state.value = State.UpToDate
         }
+    }
+
+    /** Parse an ISO-8601 published_at (e.g. "2025-01-02T03:04:05Z") to epoch ms, 0 on parse failure. */
+    private fun parsePublishedEpochMs(iso: String?): Long {
+        if (iso.isNullOrBlank()) return 0L
+        return runCatching {
+            java.time.OffsetDateTime.parse(iso).toInstant().toEpochMilli()
+        }.getOrDefault(0L)
     }
 
     fun ignoreVersion(version: String) {
