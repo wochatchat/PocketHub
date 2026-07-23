@@ -89,11 +89,6 @@ fun HomeScreen(
         BottomNavItem("repos", R.string.tab_repos, Icons.Outlined.Code, Icons.Outlined.Code),
     )
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
-    // Search-bar inline-editing state: tapping the search icon swaps the top
-    // app bar title for a real TextField so users can type a query without the
-    // extra hop into a separate screen first. Submitting routes immediately.
-    var searchMode by rememberSaveable { mutableStateOf(false) }
-    var query by rememberSaveable { mutableStateOf("") }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     // Double-tap-to-refresh on a bottom-nav tab — instead of pull-to-refresh on
@@ -117,99 +112,45 @@ fun HomeScreen(
         topBar = {
             LargeTopAppBar(
                 title = {
-                    if (searchMode) {
-                        val keyboard = LocalSoftwareKeyboardController.current
-                        val focusRequester = remember { FocusRequester() }
-                        // Auto-focus when entering search mode so users can
-                        // start typing immediately.
-                        androidx.compose.runtime.LaunchedEffect(searchMode) {
-                            if (searchMode) focusRequester.requestFocus()
-                        }
-                        OutlinedTextField(
-                            value = query,
-                            onValueChange = { query = it },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .focusRequester(focusRequester),
-                            placeholder = { Text(stringResource(R.string.search_placeholder)) },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(
-                                onSearch = {
-                                    val trimmed = query.trim()
-                                    if (trimmed.isNotEmpty()) {
-                                        keyboard?.hide()
-                                        searchMode = false
-                                        onNavigateToSearch(trimmed)
-                                    }
-                                },
-                            ),
-                            trailingIcon = {
-                                if (query.isNotEmpty()) {
-                                    IconButton(onClick = { query = "" }) {
-                                        Icon(Icons.Outlined.Clear, contentDescription = stringResource(R.string.action_cancel))
-                                    }
-                                }
-                            },
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
-                                unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
-                                focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                                unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                            ),
-                        )
-                    } else {
-                        Text(stringResource(items[selectedTab].labelRes))
-                    }
+                    Text(stringResource(items[selectedTab].labelRes))
                 },
                 navigationIcon = {
-                    if (searchMode) {
-                        IconButton(onClick = {
-                            searchMode = false
-                            query = ""
-                        }) {
-                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_cancel))
-                        }
-                    } else {
-                        IconButton(onClick = onNavigateToProfile) {
-                            if (activeAvatarUrl.isNullOrBlank()) {
-                                Box(
-                                    Modifier.size(28.dp).clip(CircleShape),
-                                    contentAlignment = androidx.compose.ui.Alignment.Center,
-                                ) {
-                                    Text(
-                                        stringResource(R.string.profile_avatar_fallback),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            } else {
-                                AsyncImage(
-                                    model = activeAvatarUrl,
-                                    contentDescription = stringResource(R.string.tab_profile),
-                                    modifier = Modifier.size(28.dp).clip(CircleShape),
+                    IconButton(onClick = onNavigateToProfile) {
+                        if (activeAvatarUrl.isNullOrBlank()) {
+                            Box(
+                                Modifier.size(28.dp).clip(CircleShape),
+                                contentAlignment = androidx.compose.ui.Alignment.Center,
+                            ) {
+                                Text(
+                                    stringResource(R.string.profile_avatar_fallback),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
+                        } else {
+                            AsyncImage(
+                                model = activeAvatarUrl,
+                                contentDescription = stringResource(R.string.tab_profile),
+                                modifier = Modifier.size(28.dp).clip(CircleShape),
+                            )
                         }
                     }
                 },
                 actions = {
-                    if (!searchMode) {
-                        IconButton(onClick = onNavigateToSettings) {
-                            Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.settings))
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.settings))
+                    }
+                    BadgedBox(badge = {
+                        if (unreadCount > 0) {
+                            Badge { Text(if (unreadCount > 99) "99+" else unreadCount.toString()) }
                         }
-                        BadgedBox(badge = {
-                            if (unreadCount > 0) {
-                                Badge { Text(if (unreadCount > 99) "99+" else unreadCount.toString()) }
-                            }
-                        }) {
-                            IconButton(onClick = onNavigateToNotifications) {
-                                Icon(Icons.Outlined.Notifications, contentDescription = stringResource(R.string.tab_notifications))
-                            }
+                    }) {
+                        IconButton(onClick = onNavigateToNotifications) {
+                            Icon(Icons.Outlined.Notifications, contentDescription = stringResource(R.string.tab_notifications))
                         }
-                        IconButton(onClick = { searchMode = true }) {
-                            Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.action_search))
-                        }
+                    }
+                    IconButton(onClick = { onNavigateToSearch("") }) {
+                        Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.action_search))
                     }
                 },
                 colors = TopAppBarDefaults.largeTopAppBarColors(
