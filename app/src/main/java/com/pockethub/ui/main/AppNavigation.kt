@@ -215,6 +215,7 @@ fun PocketHubApp(
                     com.pockethub.ui.profile.ProfileScreen(
                         modifier = Modifier.fillMaxSize(),
                         onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
+                        onNavigateToUserDetail = { login -> navController.navigate(Routes.userDetail(login)) },
                         onNavigateToRepo = { owner, repo -> navController.navigate(Routes.repoDetail(owner, repo)) },
                         onNavigateToIssue = { o, r, n -> navController.navigate(Routes.issueDetail(o, r, n)) },
                         onNavigateToPR = { o, r, n -> navController.navigate(Routes.prDetail(o, r, n)) },

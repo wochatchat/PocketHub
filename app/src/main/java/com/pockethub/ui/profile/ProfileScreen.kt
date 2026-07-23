@@ -4,6 +4,7 @@ import com.pockethub.R
 
 import androidx.compose.ui.res.stringResource
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,11 +24,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Apartment
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Merge
@@ -68,6 +71,7 @@ import com.pockethub.data.model.User
 fun ProfileScreen(
     modifier: Modifier = Modifier,
     onNavigateToSettings: () -> Unit,
+    onNavigateToUserDetail: (String) -> Unit,
     onNavigateToRepo: (String, String) -> Unit,
     onNavigateToIssue: (String, String, Int) -> Unit = { _, _, _ -> },
     onNavigateToPR: (String, String, Int) -> Unit = { _, _, _ -> },
@@ -85,6 +89,10 @@ fun ProfileScreen(
     val workItems by vm.workItems.collectAsState()
     val isLoadingWork by vm.isLoadingWork.collectAsState()
     val workError by vm.workError.collectAsState()
+    val events by vm.events.collectAsState()
+    val isLoadingEvents by vm.isLoadingEvents.collectAsState()
+    val hasMoreRepos by vm.hasMoreRepos.collectAsState()
+    val isLoadingMoreRepos by vm.isLoadingMoreRepos.collectAsState()
 
     Scaffold(
         topBar = {
@@ -93,6 +101,16 @@ fun ProfileScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back))
+                    }
+                },
+                actions = {
+                    // Open the public profile of the signed-in user — same surface the
+                    // "people you follow" pages use, so the layout & follow lists match.
+                    IconButton(onClick = { user?.login?.let { onNavigateToUserDetail(it) } }) {
+                        Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.cd_open_in_browser))
+                    }
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.settings))
                     }
                 },
             )
@@ -121,10 +139,45 @@ fun ProfileScreen(
                 onOpenPR = onNavigateToPR,
             ) }
 
+            // My recent public activity feed.
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp)) {
+                    Icon(Icons.Outlined.History, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.profile_activity), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            if (isLoadingEvents && events.isEmpty()) {
+                item {
+                    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                }
+            } else if (events.isEmpty()) {
+                item {
+                    Text(
+                        stringResource(R.string.user_no_activity),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
+                }
+            } else {
+                items(events, key = { it.id }) { ev ->
+                    com.pockethub.ui.components.ActivityCard(
+                        event = ev,
+                        onNavigateToRepo = { full ->
+                            val parts = full.split("/", limit = 2)
+                            if (parts.size == 2) onNavigateToRepo(parts[0], parts[1])
+                        },
+                    )
+                }
+            }
+
             // Contact / extra info
             item { AdditionalInfo(user) }
 
-            // Pinned / top repositories
+            // All repositories (paginated)
             item {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp)) {
                     Icon(Icons.Outlined.Folder, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
@@ -154,6 +207,21 @@ fun ProfileScreen(
                         repo = repo,
                         onClick = { onNavigateToRepo(repo.owner.login, repo.name) },
                     )
+                }
+                if (isLoadingMoreRepos) {
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        }
+                    }
+                } else if (hasMoreRepos) {
+                    item {
+                        Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.Center) {
+                            TextButton(onClick = { vm.loadMoreRepos() }) {
+                                Text(stringResource(R.string.load_more_repos))
+                            }
+                        }
+                    }
                 }
             }
 
@@ -189,26 +257,35 @@ private fun ProfileHeader(user: User?, activeAccount: AccountEntity?) {
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
         elevation = CardDefaults.cardElevation(0.dp),
     ) {
         Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            // Round avatar with a neutral surface placeholder so the circle is
+            // visible even before the asynchronous image resolves.
             AsyncImage(
                 model = user?.avatarUrl ?: activeAccount?.avatarUrl,
                 contentDescription = null,
-                modifier = Modifier.size(88.dp).clip(CircleShape),
+                modifier = Modifier
+                    .size(88.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
             )
             Spacer(Modifier.height(12.dp))
-            Text(
-                user?.name ?: activeAccount?.name ?: "",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                "@${user?.login ?: activeAccount?.login ?: ""}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            val displayName = user?.name?.takeIf { it.isNotBlank() }
+                ?: activeAccount?.name?.takeIf { it.isNotBlank() }
+            val displayLogin = (user?.login ?: activeAccount?.login)?.takeIf { it.isNotBlank() }
+            if (displayName != null) {
+                Text(displayName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            }
+            if (displayLogin != null) {
+                Text("@$displayLogin", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (displayName == null && displayLogin == null) {
+                // Loading / not-yet-fetched — a single muted placeholder keeps the
+                // layout stable instead of rendering two empty Text rows.
+                Text(stringResource(R.string.profile_loading), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             if (!user?.bio.isNullOrBlank()) {
                 Spacer(Modifier.height(10.dp))
                 Text(
@@ -228,8 +305,8 @@ private fun ProfileHeader(user: User?, activeAccount: AccountEntity?) {
 private fun StatsRow(
     user: User?,
     starredTotal: Int,
-    onFollowersClick: () -> Unit = {},
-    onFollowingClick: () -> Unit = {},
+    onFollowersClick: (() -> Unit)? = null,
+    onFollowingClick: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -243,9 +320,15 @@ private fun StatsRow(
 }
 
 @Composable
-private fun StatPill(label: String, count: Int, onClick: () -> Unit = {}) {
-    val clickable = onClick != {}
-    val mod = if (clickable) Modifier.clip(MaterialTheme.shapes.small).clickable(onClick = onClick) else Modifier
+private fun StatPill(label: String, count: Int, onClick: (() -> Unit)? = null) {
+    val mod = if (onClick != null) {
+        Modifier
+            .clip(MaterialTheme.shapes.small)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 2.dp)
+    } else {
+        Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+    }
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = mod) {
         Text(count.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -264,7 +347,7 @@ private fun AdditionalInfo(user: User?) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
         elevation = CardDefaults.cardElevation(0.dp),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -290,7 +373,7 @@ private fun RepoMiniCard(repo: Repository, onClick: () -> Unit) {
             .padding(horizontal = 16.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
         elevation = CardDefaults.cardElevation(0.dp),
     ) {
         Column(Modifier.padding(14.dp)) {
@@ -377,7 +460,7 @@ private fun WorkListCard(
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
         elevation = CardDefaults.cardElevation(0.dp),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

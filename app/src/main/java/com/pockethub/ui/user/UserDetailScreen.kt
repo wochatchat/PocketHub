@@ -252,7 +252,7 @@ fun UserDetailScreen(
                     }
                 } else {
                     items(events, key = { it.id }) { ev ->
-                        ActivityCard(event = ev, onNavigateToRepo = { full ->
+                        com.pockethub.ui.components.ActivityCard(event = ev, onNavigateToRepo = { full ->
                             val (o, r) = full.split("/", limit = 2).let { it[0] to it.getOrElse(1) { "" } }
                             if (r.isNotEmpty()) onNavigateToRepo(o, r)
                         })
@@ -516,74 +516,3 @@ private fun UserRepoCard(repo: Repository, onClick: () -> Unit) {
     }
 }
 
-/**
- * A single row in the user's activity feed — renders the event type, repo name,
- * and a human-friendly summary derived from [FeedEvent.type] + [FeedEvent.payload].
- */
-@Composable
-private fun ActivityCard(
-    event: FeedEvent,
-    onNavigateToRepo: (String) -> Unit,
-) {
-    val pair: Pair<androidx.compose.ui.graphics.vector.ImageVector, String> = when (event.type) {
-        "PushEvent" -> Icons.Outlined.CloudUpload to stringResource(R.string.event_pushed)
-        "WatchEvent" -> Icons.Outlined.Star to stringResource(R.string.event_starred)
-        "ForkEvent" -> Icons.Outlined.ForkRight to stringResource(R.string.event_forked)
-        "CreateEvent" -> Icons.Outlined.CreateNewFolder to stringResource(R.string.event_created)
-        "IssueCommentEvent" -> Icons.Outlined.Comment to stringResource(R.string.event_commented)
-        "IssuesEvent" -> Icons.Outlined.ErrorOutline to stringResource(R.string.event_opened_issue)
-        "PullRequestEvent" -> Icons.Outlined.Merge to stringResource(R.string.event_pull_request)
-        "ReleaseEvent" -> Icons.Outlined.NewReleases to stringResource(R.string.event_released)
-        "DeleteEvent" -> Icons.Outlined.Delete to stringResource(R.string.event_deleted)
-        "PublicEvent" -> Icons.Outlined.Public to stringResource(R.string.event_made_public)
-        else -> Icons.Outlined.History to event.type.removeSuffix("Event")
-    }
-    val (icon, verb) = pair
-
-    val repoName = event.repo?.name ?: ""
-    val summary = when (event.type) {
-        "PushEvent" -> event.payload?.commits?.firstOrNull()?.message?.take(80)?.let { "→ $it" } ?: ""
-        "CreateEvent" -> event.payload?.ref?.let { stringResource(R.string.event_ref_suffix, it) } ?: ""
-        "DeleteEvent" -> event.payload?.ref?.let { stringResource(R.string.event_ref_suffix, it) } ?: ""
-        "PullRequestEvent" -> event.payload?.pullRequest?.title?.take(80) ?: ""
-        "ForkEvent" -> event.payload?.forkee?.fullName ?: ""
-        "IssueCommentEvent" -> event.payload?.pullRequest?.title?.take(80) ?: ""
-        "IssuesEvent" -> event.payload?.action ?: ""
-        else -> ""
-    }
-    val createdAt = event.createdAt?.take(10) ?: ""
-
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .clickable { if (repoName.isNotEmpty()) onNavigateToRepo(repoName) }
-            .padding(12.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.width(8.dp))
-            Text(
-                "$verb ${repoName}",
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(createdAt, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        if (summary.isNotEmpty()) {
-            Spacer(Modifier.height(4.dp))
-            Text(
-                summary,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}

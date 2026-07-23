@@ -171,6 +171,9 @@
     <!-- Profile -->
     <string name="title_profile">我</string>
     <string name="top_repositories">热门仓库</string>
+    <string name="profile_loading">加载中…</string>
+    <string name="profile_activity">最近动态</string>
+    <string name="load_more_repos">加载更多</string>
     <string name="profile_no_repos_yet">还没有内容 — 加载完成后会显示在这里。</string>
     <string name="accounts">账号</string>
     <string name="active">当前</string>

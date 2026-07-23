@@ -186,6 +186,9 @@
     <!-- Profile -->
     <string name="title_profile">Me</string>
     <string name="top_repositories">Top repositories</string>
+    <string name="profile_loading">Loading…</string>
+    <string name="profile_activity">Recent Activity</string>
+    <string name="load_more_repos">Load more</string>
     <string name="profile_no_repos_yet">Nothing yet — repositories will appear here once they\'re loaded.</string>
     <string name="accounts">Accounts</string>
     <string name="active">Active</string>
