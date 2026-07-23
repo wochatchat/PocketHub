@@ -299,7 +299,7 @@ fun CommitDetailScreen(
                 }
             } else {
                 items(comments, key = { it.id }) { comment ->
-                    CommitCommentItem(comment, dateFmt, onNavigateToUser)
+                    CommitCommentItem(comment, dateFmt, owner, repo, onNavigateToUser)
                 }
             }
 
@@ -430,6 +430,8 @@ private fun parseIsoDateTime(iso: String): Date =
 private fun CommitCommentItem(
     comment: GitHubApi.CommitComment,
     dateFmt: DateFormat,
+    owner: String,
+    repo: String,
     onNavigateToUser: (String) -> Unit,
 ) {
     Column(
@@ -453,26 +455,27 @@ private fun CommitCommentItem(
                 )
                 Spacer(Modifier.width(8.dp))
             }
-            Text(
-                login ?: stringResource(R.string.unknown),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Medium,
-                modifier = if (login != null) Modifier.clickable { onNavigateToUser(login) } else Modifier,
-            )
-            Spacer(Modifier.width(8.dp))
-            comment.createdAt?.let { dateStr ->
-                Text(
-                    dateFmt.format(parseIsoDateTime(dateStr)),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
         Text(
-            comment.body,
-            style = MaterialTheme.typography.bodySmall,
+            login ?: stringResource(R.string.unknown),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Medium,
+            modifier = if (login != null) Modifier.clickable { onNavigateToUser(login) } else Modifier,
         )
+        Spacer(Modifier.width(8.dp))
+        comment.createdAt?.let { dateStr ->
+            Text(
+                dateFmt.format(parseIsoDateTime(dateStr)),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
+    com.pockethub.ui.markdown.MarkdownText(
+        markdown = comment.body,
+        modifier = Modifier.fillMaxWidth(),
+        repoContext = "$owner/$repo",
+    )
+}
 }
 
 @Composable
