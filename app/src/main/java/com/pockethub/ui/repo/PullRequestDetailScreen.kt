@@ -512,10 +512,11 @@ fun PullRequestDetailScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         data.labels.take(5).forEach { label ->
                             val bg = runCatching { Color(("FF" + (label.color ?: "888888")).toLong(16)) }.getOrDefault(MaterialTheme.colorScheme.secondaryContainer)
+                            val textColor = com.pockethub.ui.components.rememberContrastColor(bg)
                             Text(
                                 label.name,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = textColor,
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(4.dp))
                                     .background(bg)

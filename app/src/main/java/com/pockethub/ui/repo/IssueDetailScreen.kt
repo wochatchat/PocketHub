@@ -73,6 +73,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.pockethub.ui.components.CommentItem
+import com.pockethub.ui.components.rememberContrastColor
 import com.pockethub.ui.markdown.MarkdownText
 import kotlinx.coroutines.launch
 import android.content.ClipData
@@ -275,15 +276,17 @@ fun IssueDetailScreen(
                     )
                 }
 
-                // Labels
+                // Labels — text color auto-picks black / white for contrast
+                // against the label's hex background (GitHub computes the same way).
                 if (data.labels.isNotEmpty()) {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         data.labels.take(5).forEach { label ->
                             val bg = runCatching { androidx.compose.ui.graphics.Color(("FF" + (label.color ?: "888888")).toLong(16)) }.getOrDefault(MaterialTheme.colorScheme.secondaryContainer)
+                            val textColor = rememberContrastColor(bg)
                             Text(
                                 label.name,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = textColor,
                                 modifier = Modifier
                                     .clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
                                     .background(bg)

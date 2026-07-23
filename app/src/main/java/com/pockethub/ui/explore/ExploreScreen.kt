@@ -66,6 +66,8 @@ import com.pockethub.data.model.FeedEvent
 import com.pockethub.data.remote.feed.CommunitySignal
 import com.pockethub.data.remote.feed.DiscoverItem
 import com.pockethub.data.remote.feed.FeedSourceOption
+import com.pockethub.ui.components.languageColorHex
+import com.pockethub.ui.components.parseColorHex
 
 /** Trending language filter chips. */
 private val LANGUAGES = listOf("All", "Kotlin", "TypeScript", "Python", "Rust", "Go", "Swift", "Java", "C++")
@@ -726,7 +728,7 @@ private fun CommunitySignalRow(sig: CommunitySignal) {
 /** Tiny colored dot used as the language indicator. Looks up a known color table. */
 @Composable
 private fun LangDot(language: String) {
-    val color = languageColorHex(language)?.let { parseColor(it) } ?: MaterialTheme.colorScheme.outline
+    val color = parseColorHex(languageColorHex(language)) ?: MaterialTheme.colorScheme.outline
     Box(Modifier.size(10.dp).clip(CircleShape).background(color))
 }
 
@@ -734,33 +736,6 @@ private fun formatCount(n: Int): String = when {
     n >= 1_000_000 -> "%.1fM".format(n / 1_000_000.0)
     n >= 1_000 -> "%.1fk".format(n / 1_000.0)
     else -> n.toString()
-}
-
-private fun parseColor(hex: String): androidx.compose.ui.graphics.Color {
-    val v = hex.removePrefix("#").toLong(16)
-    return androidx.compose.ui.graphics.Color(v or 0xFF000000L)
-}
-
-/** GitHub's official language colors (octicons.lang-colors). Subset for the filter chips we offer. */
-private fun languageColorHex(language: String): String? = when (language.lowercase()) {
-    "kotlin" -> "#A97BFF"
-    "typescript" -> "#3178C6"
-    "python" -> "#3572A5"
-    "rust" -> "#DEA584"
-    "go" -> "#00ADD8"
-    "swift" -> "#F05138"
-    "java" -> "#B07219"
-    "c++" -> "#F34B7D"
-    "c" -> "#555555"
-    "c#" -> "#178600"
-    "javascript" -> "#F1E05A"
-    "html" -> "#E34C26"
-    "css" -> "#563D7C"
-    "php" -> "#4F5D95"
-    "ruby" -> "#701516"
-    "dart" -> "#00B4AB"
-    "shell" -> "#89E051"
-    else -> null
 }
 
 /**
