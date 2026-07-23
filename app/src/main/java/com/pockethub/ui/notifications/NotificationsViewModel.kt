@@ -15,7 +15,14 @@ import kotlinx.coroutines.launch
 import java.time.OffsetDateTime
 import javax.inject.Inject
 
-enum class NotifTab { UNREAD, READ }
+/**
+ * Mirrors GitHub web's three notification tabs. UNREAD pulls the default list
+ * (`all=false`) — threads GitHub still considers unread; PARTICIPATING is the
+ * `participating=true` slice (threads you commented on / were assigned); ALL is
+ * the wider `all=true` bucket past 20 threads (client-side filtered to effectively
+ * unread for UNREAD).
+ */
+enum class NotifTab { UNREAD, PARTICIPATING, ALL }
 
 /**
  * Reason filter chip state. [ALL] shows every notification regardless of reason;
@@ -55,13 +62,20 @@ class NotificationsViewModel @Inject constructor(
     init { load() }
 
     fun load(all: Boolean? = null) {
-        val showAll = all ?: (currentTab.value == NotifTab.READ)
+        val tab = currentTab.value
+        val showAll = all ?: (tab == NotifTab.ALL)
         viewModelScope.launch {
             _isLoading.update { true }
             _error.update { null }
             try {
-                val result = cache.getNotifications(perPage = 80, all = showAll)
-                _notifications.update { result.filter { it.isEffectivelyUnread() == !showAll } }
+                val participating = (tab == NotifTab.PARTICIPATING)
+                val result = cache.getNotifications(perPage = 80, all = showAll, participating = participating)
+                // UNREAD tab falls back to the all=false list and filters to effectively
+                // unread threads client-side; PARTICIPATING / ALL show the server list
+                // as-is (they were already scoped server-side).
+                _notifications.update {
+                    if (tab == NotifTab.UNREAD) result.filter { it.isEffectivelyUnread() } else result
+                }
             } catch (e: Exception) {
                 _error.update { e.localizedMessage ?: "Failed to load notifications" }
             } finally {
@@ -72,7 +86,8 @@ class NotificationsViewModel @Inject constructor(
 
     fun switchTab(tab: NotifTab) {
         currentTab.value = tab
-        load(all = tab == NotifTab.READ)
+        // Only ALL passes all=true; PARTICIPATING is scoped server-side via participating=true.
+        load(all = tab == NotifTab.ALL)
     }
 
     fun switchReasonFilter(filter: ReasonFilter) {
@@ -89,7 +104,7 @@ class NotificationsViewModel @Inject constructor(
         val before = _notifications.value
         _notifications.update { list ->
             list.map { if (it.id == threadId) it.copy(unread = false) else it }
-                .filter { currentTab.value == NotifTab.READ || it.unread }
+                .filter { currentTab.value == NotifTab.ALL || it.unread }
         }
         viewModelScope.launch {
             try {
@@ -123,10 +138,10 @@ class NotificationsViewModel @Inject constructor(
             try {
                 api.markAllNotificationsRead()
                 // Reload from cache so the local state reflects the server truth.
-                load(all = currentTab.value == NotifTab.READ)
+                load(all = currentTab.value == NotifTab.ALL)
             } catch (e: Exception) {
                 // Server still says some are unread; reload rather than pretend it worked.
-                load(all = currentTab.value == NotifTab.READ)
+                load(all = currentTab.value == NotifTab.ALL)
                 _error.update { e.localizedMessage ?: "Failed to mark all as read" }
             }
         }

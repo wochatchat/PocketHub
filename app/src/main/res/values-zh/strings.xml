@@ -144,6 +144,8 @@
     <!-- Notifications -->
     <string name="tab_unread">未读</string>
     <string name="tab_read">已读</string>
+    <string name="tab_participating">参与中</string>
+    <string name="tab_all">全部</string>
     <string name="no_notifications">没有通知</string>
     <string name="cd_mark_read">标为已读</string>
 

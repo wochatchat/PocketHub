@@ -159,6 +159,8 @@
     <!-- Notifications -->
     <string name="tab_unread">Unread</string>
     <string name="tab_read">Read</string>
+    <string name="tab_participating">Participating</string>
+    <string name="tab_all">All</string>
     <string name="no_notifications">No notifications</string>
     <string name="cd_mark_read">Mark read</string>
 

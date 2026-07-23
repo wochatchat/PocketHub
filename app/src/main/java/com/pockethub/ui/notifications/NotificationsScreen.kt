@@ -122,9 +122,11 @@ fun NotificationsScreen(
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 SingleChoiceSegmentedButtonRow(Modifier.weight(1f)) {
                     SegmentedButton(selected = tab == NotifTab.UNREAD, onClick = { vm.switchTab(NotifTab.UNREAD) },
-                        shape = SegmentedButtonDefaults.itemShape(0, 2), label = { Text(stringResource(R.string.tab_unread)) })
-                    SegmentedButton(selected = tab == NotifTab.READ, onClick = { vm.switchTab(NotifTab.READ) },
-                        shape = SegmentedButtonDefaults.itemShape(1, 2), label = { Text(stringResource(R.string.tab_read)) })
+                        shape = SegmentedButtonDefaults.itemShape(0, 3), label = { Text(stringResource(R.string.tab_unread)) })
+                    SegmentedButton(selected = tab == NotifTab.PARTICIPATING, onClick = { vm.switchTab(NotifTab.PARTICIPATING) },
+                        shape = SegmentedButtonDefaults.itemShape(1, 3), label = { Text(stringResource(R.string.tab_participating)) })
+                    SegmentedButton(selected = tab == NotifTab.ALL, onClick = { vm.switchTab(NotifTab.ALL) },
+                        shape = SegmentedButtonDefaults.itemShape(2, 3), label = { Text(stringResource(R.string.tab_all)) })
                 }
                 Spacer(Modifier.width(8.dp))
                 TextButton(onClick = { vm.markAllRead() }, enabled = tab == NotifTab.UNREAD && notifications.isNotEmpty()) {

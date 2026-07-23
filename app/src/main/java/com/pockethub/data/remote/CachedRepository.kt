@@ -116,8 +116,13 @@ class CachedRepository @Inject constructor(
 
     // ── Notifications (always fresh — don't cache these) ─
 
-    suspend fun getNotifications(page: Int = 1, perPage: Int = 50, all: Boolean = false): List<com.pockethub.data.model.GitHubNotification> =
-        api.getNotifications(page = page, perPage = perPage, all = all)
+    suspend fun getNotifications(
+        page: Int = 1,
+        perPage: Int = 50,
+        all: Boolean = false,
+        participating: Boolean = false,
+    ): List<com.pockethub.data.model.GitHubNotification> =
+        api.getNotifications(page = page, perPage = perPage, all = all, participating = participating)
 
     // ── README ──────────────────────────────────────────
 
