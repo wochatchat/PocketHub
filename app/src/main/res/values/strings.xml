@@ -285,6 +285,7 @@
     <string name="commit_no_comments">No comments yet — be the first to leave a note</string>
     <string name="commit_comment_placeholder">Leave a comment on this commit…</string>
     <string name="commit_comment_send">Comment</string>
+    <string name="commit_line_comment_title">Comment on %1$s:%2$d</string>
     <string name="commit_no_more">No more commits</string>
     <string name="commit_detail">Commit Detail</string>
     <string name="commit_stats">Stats</string>

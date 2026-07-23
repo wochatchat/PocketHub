@@ -101,6 +101,27 @@ class CommitDetailViewModel @Inject constructor(
         }
     }
 
+    fun postLineComment(owner: String, repo: String, sha: String, path: String, line: Int, body: String) {
+        if (body.isBlank() || _isSendingComment.value) return
+        viewModelScope.launch {
+            _isSendingComment.update { true }
+            _commentError.update { null }
+            try {
+                val created = api.createCommitComment(
+                    owner, repo, sha,
+                    GitHubApi.CommitCommentCreate(body = body, path = path, line = line),
+                )
+                _comments.update { it + created }
+                _actionMessage.update { "Line comment added" }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                _commentError.update { e.localizedMessage ?: "Failed to post line comment" }
+            } finally {
+                _isSendingComment.update { false }
+            }
+        }
+    }
+
     fun clearActionMessage() { _actionMessage.update { null } }
     fun clearCommentError() { _commentError.update { null } }
     fun retryComments(owner: String, repo: String, sha: String) = loadComments(owner, repo, sha)

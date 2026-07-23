@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Remove
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -244,7 +246,10 @@ fun CommitDetailScreen(
 
             // Changed files
             items(data.files, key = { it.sha + it.filename }) { file ->
-                CommitFileCard(file)
+                CommitFileCard(
+                    file = file,
+                    onLineComment = { line, body -> vm.postLineComment(owner, repo, sha, file.filename, line, body) },
+                )
             }
 
             // Commit comments section (GitHub web "Comments on this commit")
@@ -317,8 +322,13 @@ fun CommitDetailScreen(
 }
 
 @Composable
-private fun CommitFileCard(file: GitHubApi.CommitDetail.CommitFile) {
+private fun CommitFileCard(
+    file: GitHubApi.CommitDetail.CommitFile,
+    onLineComment: (line: Int, body: String) -> Unit,
+) {
     var expanded by remember(file.filename) { mutableStateOf(false) }
+    var pendingLine by remember { mutableStateOf<Int?>(null) }
+    var draftBody by remember { mutableStateOf("") }
     val statusColor = when (file.status) {
         "added" -> Color(0xFF3FB950)
         "removed" -> Color(0xFFF85149)
@@ -377,18 +387,57 @@ private fun CommitFileCard(file: GitHubApi.CommitDetail.CommitFile) {
         if (expanded) {
             Spacer(Modifier.height(8.dp))
             if (file.patch != null) {
+                val lines = remember(file.patch) { parsePatch(file.patch!!) }
                 val hScroll = rememberScrollState()
-                Text(
-                    text = remember(file.patch) { annotateDiff(file.patch!!) },
-                    style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, lineHeight = 16.sp),
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
                         .horizontalScroll(hScroll)
                         .padding(10.dp),
-                    softWrap = false,
-                )
+                ) {
+                    lines.forEach { (type, oldNumber, newNumber, text) ->
+                        val color = when (type) {
+                            '+' -> Color(0xFF3FB950)
+                            '-' -> Color(0xFFF85149)
+                            '@' -> Color(0xFF58A6FF)
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                        val lineNo = newNumber ?: oldNumber
+                        // Additions and context lines are anchored to the new file's line number.
+                        val commentable = (type == '+' || type == ' ') && newNumber != null
+                        val displayText = if (type == '+' || type == '-' || type == ' ') "$type$text" else text
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .then(
+                                    if (commentable) Modifier
+                                        .clip(MaterialTheme.shapes.extraSmall)
+                                        .clickable { pendingLine = lineNo; draftBody = "" }
+                                    else Modifier
+                                )
+                                .padding(vertical = 1.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (commentable && lineNo != null) {
+                                Text(
+                                    "$lineNo",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    modifier = Modifier.width(36.dp),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                            }
+                            Text(
+                                displayText,
+                                style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, lineHeight = 16.sp),
+                                color = color,
+                                softWrap = false,
+                            )
+                        }
+                    }
+                }
             } else {
                 Text(
                     stringResource(R.string.commit_no_diff),
@@ -397,6 +446,37 @@ private fun CommitFileCard(file: GitHubApi.CommitDetail.CommitFile) {
                 )
             }
         }
+    }
+
+    // Inline line-comment dialog
+    pendingLine?.let { line ->
+        AlertDialog(
+            onDismissRequest = { pendingLine = null },
+            title = { Text(stringResource(R.string.commit_line_comment_title, file.filename, line)) },
+            text = {
+                OutlinedTextField(
+                    value = draftBody,
+                    onValueChange = { draftBody = it },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp),
+                    placeholder = { Text(stringResource(R.string.commit_comment_placeholder)) },
+                    minLines = 3,
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val body = draftBody.trim()
+                        if (body.isNotEmpty()) {
+                            onLineComment(line, body)
+                        }
+                        pendingLine = null
+                    },
+                ) { Text(stringResource(R.string.commit_comment_send)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingLine = null }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
     }
 }
 
