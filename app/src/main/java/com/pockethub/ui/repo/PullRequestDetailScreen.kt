@@ -121,6 +121,8 @@ fun PullRequestDetailScreen(
     val reviewsError by vm.reviewsError.collectAsState()
     val reviewCommentsError by vm.reviewCommentsError.collectAsState()
     val commentsError by vm.commentsError.collectAsState()
+    val events by vm.events.collectAsState()
+    val eventsError by vm.eventsError.collectAsState()
     val isSendingLineComment by vm.isSendingLineComment.collectAsState()
     val checkRuns by vm.checkRuns.collectAsState()
     val checkSummary by vm.checkSummary.collectAsState()
@@ -731,6 +733,20 @@ fun PullRequestDetailScreen(
                     }
                     if (commentsError != null) {
                         SectionError(message = commentsError!!, onRetry = { vm.retryComments() })
+                    }
+                }
+
+                // ── Timeline events (labeled / assigned / closed / merged / review_requested / …) ──
+                if (events.isNotEmpty()) {
+                    HorizontalDivider()
+                    Text(stringResource(R.string.issue_activity), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    events.forEach { ev -> com.pockethub.ui.components.IssueEventRow(ev, onNavigateToUser) }
+                    if (eventsError != null) {
+                        Text(
+                            eventsError!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
 

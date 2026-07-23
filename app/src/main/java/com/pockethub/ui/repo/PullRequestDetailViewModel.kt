@@ -79,6 +79,12 @@ class PullRequestDetailViewModel @Inject constructor(
     private val _commentsError = MutableStateFlow<String?>(null)
     val commentsError: StateFlow<String?> = _commentsError.asStateFlow()
 
+    /** Timeline events for the PR (labeled / assigned / closed / merged / review_requested …). */
+    private val _events = MutableStateFlow<List<GitHubApi.IssueEvent>>(emptyList())
+    val events: StateFlow<List<GitHubApi.IssueEvent>> = _events
+    private val _eventsError = MutableStateFlow<String?>(null)
+    val eventsError: StateFlow<String?> = _eventsError.asStateFlow()
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -191,6 +197,16 @@ class PullRequestDetailViewModel @Inject constructor(
                 } catch (e: Exception) {
                     if (e is kotlinx.coroutines.CancellationException) throw e
                     _commentsError.update { e.localizedMessage ?: "Failed to load comments" }
+                }
+            }
+            viewModelScope.launch {
+                _eventsError.update { null }
+                try {
+                    val resp = api.getIssueEvents(owner, repo, number)
+                    _events.update { resp.body().orEmpty() }
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    _eventsError.update { e.localizedMessage ?: "Failed to load events" }
                 }
             }
             // Load CI checks for the PR head SHA so users see whether the PR is
