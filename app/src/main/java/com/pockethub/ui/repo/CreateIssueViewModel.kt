@@ -49,6 +49,14 @@ class CreateIssueViewModel @Inject constructor(
     private val _selectedTemplate = MutableStateFlow<IssueTemplate?>(null)
     val selectedTemplate: StateFlow<IssueTemplate?> = _selectedTemplate.asStateFlow()
 
+    /** Editor state — labels selected for the new issue. Prefilled from template front-matter. */
+    private val _labels = MutableStateFlow<List<String>>(emptyList())
+    val labels: StateFlow<List<String>> = _labels.asStateFlow()
+
+    /** Editor state — assignees selected for the new issue. Prefilled from template front-matter. */
+    private val _assignees = MutableStateFlow<List<String>>(emptyList())
+    val assignees: StateFlow<List<String>> = _assignees.asStateFlow()
+
     fun loadTemplates(owner: String, repo: String) {
         if (_templates.value.isNotEmpty() || _isLoadingTemplates.value) return
         viewModelScope.launch {
@@ -150,7 +158,33 @@ class CreateIssueViewModel @Inject constructor(
         return value.split(",").map { it.trim() }.filter { it.isNotEmpty() }
     }
 
-    fun selectTemplate(t: IssueTemplate?) { _selectedTemplate.update { t } }
+    fun selectTemplate(t: IssueTemplate?) {
+        _selectedTemplate.update { t }
+        _labels.update { t?.labels.orEmpty() }
+        _assignees.update { t?.assigns.orEmpty() }
+    }
+
+    fun addLabel(value: String) {
+        val v = value.trim()
+        if (v.isEmpty()) return
+        if (_labels.value.any { it.equals(v, ignoreCase = true) }) return
+        _labels.update { it + v }
+    }
+
+    fun removeLabel(value: String) {
+        _labels.update { list -> list.filterNot { it.equals(value, ignoreCase = true) } }
+    }
+
+    fun addAssignee(value: String) {
+        val v = value.trim()
+        if (v.isEmpty()) return
+        if (_assignees.value.any { it.equals(v, ignoreCase = true) }) return
+        _assignees.update { it + v }
+    }
+
+    fun removeAssignee(value: String) {
+        _assignees.update { list -> list.filterNot { it.equals(value, ignoreCase = true) } }
+    }
 
     fun createIssue(owner: String, repo: String, title: String, body: String?) {
         if (_isSending.value) return
@@ -158,18 +192,15 @@ class CreateIssueViewModel @Inject constructor(
             _isSending.value = true
             _actionError.value = null
             try {
-                // Forward template front-matter labels/assignees (if any) to the API.
-                // Milestone is intentionally not auto-filled — GitHub issue templates don't
-                // declare it in front matter, and users may want to set it manually in the
-                // editor. Same for assignees a user might edit after prefill.
-                val tpl = _selectedTemplate.value
+                // Labels/assignees come from editor state — initialized from template
+                // front-matter (see selectTemplate) but user-editable in the issue editor.
                 val issue = api.createIssue(
                     owner, repo,
                     GitHubApi.IssueCreateRequest(
                         title = title,
                         body = body?.takeIf { it.isNotBlank() },
-                        labels = tpl?.labels.orEmpty(),
-                        assignees = tpl?.assigns.orEmpty(),
+                        labels = _labels.value,
+                        assignees = _assignees.value,
                     ),
                 )
                 _result.value = Result.success(issue)

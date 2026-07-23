@@ -59,6 +59,13 @@
     <string name="issue_template_picker_hint">Pick a template to get started, or open a blank issue.</string>
     <string name="issue_template_blank">Blank issue</string>
     <string name="issue_template_blank_desc">Open a plain issue without a template.</string>
+    <string name="labels_section_title">Labels</string>
+    <string name="assignees_section_title">Assignees</string>
+    <string name="label_input_hint">Add a label</string>
+    <string name="assignee_input_hint">Add an assignee (login)</string>
+    <string name="add">Add</string>
+    <string name="no_labels">No labels</string>
+    <string name="no_assignees">No assignees</string>
     <string name="fork_dialog_title">Fork this repository?</string>
     <string name="fork_dialog_message">Fork %1$s to your account.</string>
     <string name="browse_history">Browse history</string>

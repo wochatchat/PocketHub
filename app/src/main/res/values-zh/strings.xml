@@ -43,6 +43,13 @@
     <string name="issue_template_picker_hint">选择模板或新建空白 issue。</string>
     <string name="issue_template_blank">空白 issue</string>
     <string name="issue_template_blank_desc">不使用模板。</string>
+    <string name="labels_section_title">标签</string>
+    <string name="assignees_section_title">指派人</string>
+    <string name="label_input_hint">添加标签</string>
+    <string name="assignee_input_hint">添加指派人（登录名）</string>
+    <string name="add">添加</string>
+    <string name="no_labels">暂无标签</string>
+    <string name="no_assignees">暂无指派人</string>
     <string name="fork_dialog_title">Fork 这个仓库？</string>
     <string name="fork_dialog_message">将 %1$s Fork 到你的账号。</string>
     <string name="browse_history">浏览历史</string>
