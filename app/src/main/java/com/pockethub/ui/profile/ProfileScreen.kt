@@ -233,7 +233,7 @@ private fun StatsRow(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
+        horizontalArrangement = Arrangement.spacedBy(28.dp, Alignment.CenterHorizontally),
     ) {
         StatPill(stringResource(R.string.followers), user?.followers ?: 0, onClick = onFollowersClick)
         StatPill(stringResource(R.string.following), user?.following ?: 0, onClick = onFollowingClick)
