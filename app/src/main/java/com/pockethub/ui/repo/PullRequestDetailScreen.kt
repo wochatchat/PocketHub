@@ -109,6 +109,10 @@ fun PullRequestDetailScreen(
     val reviews by vm.reviews.collectAsState()
     val comments by vm.comments.collectAsState()
     val reviewComments by vm.reviewComments.collectAsState()
+    val filesError by vm.filesError.collectAsState()
+    val reviewsError by vm.reviewsError.collectAsState()
+    val reviewCommentsError by vm.reviewCommentsError.collectAsState()
+    val commentsError by vm.commentsError.collectAsState()
     val isSendingLineComment by vm.isSendingLineComment.collectAsState()
     val checkRuns by vm.checkRuns.collectAsState()
     val checkSummary by vm.checkSummary.collectAsState()
@@ -428,6 +432,18 @@ fun PullRequestDetailScreen(
                             busyCommentIds = busyReviewComments,
                         )
                     }
+                } else if (filesError != null) {
+                    // files list is empty AND there's a load error — show retry.
+                    // (Empty without error is just an empty PR diff; we don't warn.)
+                    HorizontalDivider()
+                    SectionError(message = filesError!!, onRetry = { vm.retryFiles() })
+                }
+
+                // ── Inline Review Comments (root-level view for comments not
+                // tied to a specific file shown above) ──
+                if (reviewComments.isEmpty() && reviewCommentsError != null) {
+                    HorizontalDivider()
+                    SectionError(message = reviewCommentsError!!, onRetry = { vm.retryReviewComments() })
                 }
 
                 // ── Reviews ──
@@ -487,10 +503,17 @@ fun PullRequestDetailScreen(
                 }
 
                 if (reviews.isEmpty()) {
-                    Text(stringResource(R.string.pr_no_reviews), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (reviewsError != null) {
+                        SectionError(message = reviewsError!!, onRetry = { vm.retryReviews() })
+                    } else {
+                        Text(stringResource(R.string.pr_no_reviews), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 } else {
                     reviews.forEach { review ->
                         ReviewItem(review, onNavigateToUser = onNavigateToUser, dateFmt = dateFmt)
+                    }
+                    if (reviewsError != null) {
+                        SectionError(message = reviewsError!!, onRetry = { vm.retryReviews() })
                     }
                 }
 
@@ -499,7 +522,11 @@ fun PullRequestDetailScreen(
                 Text(stringResource(R.string.comments_title, comments.size), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
 
                 if (comments.isEmpty()) {
-                    Text(stringResource(R.string.no_comments_yet), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (commentsError != null) {
+                        SectionError(message = commentsError!!, onRetry = { vm.retryComments() })
+                    } else {
+                        Text(stringResource(R.string.no_comments_yet), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 } else {
                     vm.commentStates().forEach { state ->
                         CommentItem(
@@ -516,6 +543,9 @@ fun PullRequestDetailScreen(
                             onAddReaction = { content -> vm.toggleReaction(state.comment.id, content) },
                             onRemoveReaction = { content -> vm.toggleReaction(state.comment.id, content) },
                         )
+                    }
+                    if (commentsError != null) {
+                        SectionError(message = commentsError!!, onRetry = { vm.retryComments() })
                     }
                 }
 
@@ -1053,6 +1083,28 @@ private fun parseIso(iso: String): java.util.Date {
             timeZone = java.util.TimeZone.getTimeZone("UTC")
         }.parse(iso)
     }.getOrDefault(java.util.Date())
+}
+
+/**
+ * Inline error + retry row rendered in place of a failed PR section (files, reviews,
+ * review comments, comments). Mirrors [IssueDetailScreen]'s error affordance.
+ */
+@Composable
+private fun SectionError(message: String, onRetry: () -> Unit) {
+    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(Modifier.width(8.dp))
+        TextButton(onClick = onRetry) {
+            Icon(imageVector = Icons.Outlined.Refresh, contentDescription = null)
+            Spacer(Modifier.width(4.dp))
+            Text("Retry")
+        }
+    }
 }
 
 /**

@@ -39,15 +39,21 @@ class PullRequestDetailViewModel @Inject constructor(
 
     private val _files = MutableStateFlow<List<GitHubApi.PullRequestFile>>(emptyList())
     val files: StateFlow<List<GitHubApi.PullRequestFile>> = _files
+    private val _filesError = MutableStateFlow<String?>(null)
+    val filesError: StateFlow<String?> = _filesError.asStateFlow()
 
     private val _reviewComments = MutableStateFlow<List<GitHubApi.ReviewComment>>(emptyList())
     val reviewComments: StateFlow<List<GitHubApi.ReviewComment>> = _reviewComments
+    private val _reviewCommentsError = MutableStateFlow<String?>(null)
+    val reviewCommentsError: StateFlow<String?> = _reviewCommentsError.asStateFlow()
 
     private val _isSendingLineComment = MutableStateFlow(false)
     val isSendingLineComment: StateFlow<Boolean> = _isSendingLineComment.asStateFlow()
 
     private val _reviews = MutableStateFlow<List<GitHubApi.PullRequestReview>>(emptyList())
     val reviews: StateFlow<List<GitHubApi.PullRequestReview>> = _reviews
+    private val _reviewsError = MutableStateFlow<String?>(null)
+    val reviewsError: StateFlow<String?> = _reviewsError.asStateFlow()
 
     /**
      * PR review thread state, keyed by the comment id of the first / root comment of each thread.
@@ -70,6 +76,8 @@ class PullRequestDetailViewModel @Inject constructor(
 
     private val _comments = MutableStateFlow<List<GitHubApi.IssueComment>>(emptyList())
     val comments: StateFlow<List<GitHubApi.IssueComment>> = _comments
+    private val _commentsError = MutableStateFlow<String?>(null)
+    val commentsError: StateFlow<String?> = _commentsError.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -127,29 +135,45 @@ class PullRequestDetailViewModel @Inject constructor(
             }
             // Load files, reviews, and comments in parallel (independent)
             viewModelScope.launch {
+                _filesError.update { null }
                 try {
                     _files.update { api.getPullRequestFiles(owner, repo, number) }
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    _filesError.update { e.localizedMessage ?: "Failed to load files" }
+                }
             }
             viewModelScope.launch {
+                _reviewsError.update { null }
                 try {
                     _reviews.update { api.getPullRequestReviews(owner, repo, number) }
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    _reviewsError.update { e.localizedMessage ?: "Failed to load reviews" }
+                }
             }
             viewModelScope.launch {
+                _reviewCommentsError.update { null }
                 try {
                     _reviewComments.update { api.listPullRequestReviewComments(owner, repo, number) }
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    _reviewCommentsError.update { e.localizedMessage ?: "Failed to load review comments" }
+                }
             }
             viewModelScope.launch {
                 runCatching { fetchThreadState(owner, repo, number) }
             }
             viewModelScope.launch {
+                _commentsError.update { null }
                 try {
                     val resp = api.getIssueComments(owner, repo, number)
                     _comments.update { resp.body().orEmpty() }
                     hydrateReactions(owner, repo)
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    _commentsError.update { e.localizedMessage ?: "Failed to load comments" }
+                }
             }
             // Load CI checks for the PR head SHA so users see whether the PR is
             // mergeable from a checks perspective (parallel with files/reviews).
@@ -159,6 +183,61 @@ class PullRequestDetailViewModel @Inject constructor(
                     runCatching { api.listCheckRuns(owner, repo, sha) }.onSuccess { resp ->
                         _checkRuns.update { resp.runs }
                         _checkSummary.update { summarize(resp.runs) }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Retry a single section (files / reviews / reviewComments / comments)
+     * after a per-section load failure. Each retry clears the matching error
+     * before the attempt, so the UI banner flips back to its loading state.
+     */
+    fun retryFiles() = reloadSection("files")
+    fun retryReviews() = reloadSection("reviews")
+    fun retryReviewComments() = reloadSection("reviewComments")
+    fun retryComments() = reloadSection("comments")
+
+    private fun reloadSection(section: String) {
+        val owner = loadedOwner ?: return
+        val repo = loadedRepo ?: return
+        val number = loadedNumber ?: return
+        viewModelScope.launch {
+            when (section) {
+                "files" -> {
+                    _filesError.update { null }
+                    try { _files.update { api.getPullRequestFiles(owner, repo, number) } }
+                    catch (e: Exception) {
+                        if (e is kotlinx.coroutines.CancellationException) throw e
+                        _filesError.update { e.localizedMessage ?: "Failed to load files" }
+                    }
+                }
+                "reviews" -> {
+                    _reviewsError.update { null }
+                    try { _reviews.update { api.getPullRequestReviews(owner, repo, number) } }
+                    catch (e: Exception) {
+                        if (e is kotlinx.coroutines.CancellationException) throw e
+                        _reviewsError.update { e.localizedMessage ?: "Failed to load reviews" }
+                    }
+                }
+                "reviewComments" -> {
+                    _reviewCommentsError.update { null }
+                    try { _reviewComments.update { api.listPullRequestReviewComments(owner, repo, number) } }
+                    catch (e: Exception) {
+                        if (e is kotlinx.coroutines.CancellationException) throw e
+                        _reviewCommentsError.update { e.localizedMessage ?: "Failed to load review comments" }
+                    }
+                }
+                "comments" -> {
+                    _commentsError.update { null }
+                    try {
+                        val resp = api.getIssueComments(owner, repo, number)
+                        _comments.update { resp.body().orEmpty() }
+                        hydrateReactions(owner, repo)
+                    } catch (e: Exception) {
+                        if (e is kotlinx.coroutines.CancellationException) throw e
+                        _commentsError.update { e.localizedMessage ?: "Failed to load comments" }
                     }
                 }
             }
