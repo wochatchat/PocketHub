@@ -252,6 +252,8 @@
     <string name="action_download">下载</string>
     <string name="cd_send_comment">发送评论</string>
     <string name="action_edit_issue">编辑 Issue</string>
+    <string name="issue_lock_action">锁定对话</string>
+    <string name="issue_unlock_action">解锁对话</string>
     <string name="issue_edit_title">编辑 Issue</string>
     <string name="issue_labels">标签</string>
     <string name="issue_assignees_hint">负责人</string>

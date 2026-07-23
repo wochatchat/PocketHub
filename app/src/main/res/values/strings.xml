@@ -267,6 +267,8 @@
     <string name="action_download">Download</string>
     <string name="cd_send_comment">Send comment</string>
     <string name="action_edit_issue">Edit issue</string>
+    <string name="issue_lock_action">Lock conversation</string>
+    <string name="issue_unlock_action">Unlock conversation</string>
     <string name="issue_edit_title">Edit issue</string>
     <string name="issue_labels">Labels</string>
     <string name="issue_assignees_hint">Assignees</string>

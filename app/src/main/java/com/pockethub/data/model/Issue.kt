@@ -27,6 +27,9 @@ data class Issue(
     @SerialName("comments") val comments: Int = 0,
     @SerialName("reactions") val reactions: Reactions? = null,
 
+    /** True when the conversation is locked (no further comments allowed). */
+    val locked: Boolean = false,
+
     // Timestamps
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,

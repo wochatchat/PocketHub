@@ -29,6 +29,8 @@ import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Label
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
@@ -100,6 +102,7 @@ fun IssueDetailScreen(
     val isSendingComment by vm.isSendingComment.collectAsState()
     val isTogglingState by vm.isTogglingState.collectAsState()
     val isSaving by vm.isSaving.collectAsState()
+    val isLocking by vm.isLocking.collectAsState()
     val repositoryLabels by vm.repositoryLabels.collectAsState()
     val milestones by vm.milestones.collectAsState()
     val actionMessage by vm.actionMessage.collectAsState()
@@ -159,6 +162,25 @@ fun IssueDetailScreen(
                     }
                 },
                 actions = {
+                    // Lock / unlock conversation — visible to repo collaborators.
+                    // Mirrors GitHub web's "Lock conversation" affordance. Disabled
+                    // while a request is in flight or another mutating action runs.
+                    val locked = issue?.locked == true
+                    IconButton(
+                        onClick = { vm.toggleLock() },
+                        enabled = issue != null && !isLocking && !isSaving && !isTogglingState,
+                    ) {
+                        if (isLocking) {
+                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(
+                                if (locked) Icons.Outlined.Lock else Icons.Outlined.LockOpen,
+                                contentDescription = stringResource(
+                                    if (locked) R.string.issue_unlock_action else R.string.issue_lock_action
+                                ),
+                            )
+                        }
+                    }
                     IconButton(onClick = { showEditDialog = true }, enabled = issue != null && !isSaving) {
                         Icon(Icons.Outlined.Edit, contentDescription = stringResource(R.string.action_edit_issue))
                     }

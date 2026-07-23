@@ -35,6 +35,10 @@ class IssueDetailViewModel @Inject constructor(
     val isTogglingState = _isTogglingState.asStateFlow()
     private val _isSaving = MutableStateFlow(false)
     val isSaving = _isSaving.asStateFlow()
+
+    /** True while a lock / unlock request is in flight. */
+    private val _isLocking = MutableStateFlow(false)
+    val isLocking = _isLocking.asStateFlow()
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
     private val _actionMessage = MutableStateFlow<String?>(null)
@@ -279,6 +283,42 @@ class IssueDetailViewModel @Inject constructor(
                 _actionMessage.value = success
             } catch (e: Exception) { _actionMessage.value = e.localizedMessage ?: "Issue 更新失败" }
             finally { _isSaving.value = false; _isTogglingState.value = false }
+        }
+    }
+
+    /**
+     * Lock or unlock the conversation — mirrors GitHub web's "Lock conversation"
+     * affordance (only visible to repo collaborators). When locked the issue can no
+     * longer receive comments from non-collaborators. Optimistically flips the local
+     * [Issue.locked] flag and rolls back on failure.
+     */
+    fun toggleLock() {
+        val owner = loadedOwner ?: return
+        val repo = loadedRepo ?: return
+        val number = loadedNumber ?: return
+        val current = _issue.value ?: return
+        if (_isLocking.value || _isSaving.value || _isTogglingState.value) return
+        val willLock = !current.locked
+        val before = _issue.value
+        _issue.value = current.copy(locked = willLock)
+        viewModelScope.launch {
+            _isLocking.value = true
+            _actionMessage.value = null
+            try {
+                val resp = if (willLock) api.lockIssue(owner, repo, number) else api.unlockIssue(owner, repo, number)
+                if (!resp.isSuccessful) {
+                    _issue.value = before
+                    _actionMessage.value = "Failed to ${if (willLock) "lock" else "unlock"} (${resp.code()})"
+                } else {
+                    _actionMessage.value = if (willLock) "Conversation locked" else "Conversation unlocked"
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                _issue.value = before
+                _actionMessage.value = e.localizedMessage ?: "Failed to toggle lock"
+            } finally {
+                _isLocking.value = false
+            }
         }
     }
 

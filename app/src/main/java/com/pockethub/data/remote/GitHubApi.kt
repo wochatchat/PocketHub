@@ -10,6 +10,7 @@ import retrofit2.http.DELETE
 import retrofit2.http.Field
 import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
+import retrofit2.http.Headers
 import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.PUT
@@ -280,6 +281,24 @@ interface GitHubApi {
         @Path("repo") repo: String,
         @Path("number") number: Int,
     ): Issue
+
+    /** Lock conversation on an issue or PR. Server returns 200 with empty body. */
+    @Headers("Accept: application/vnd.github+json")
+    @PUT("repos/{owner}/{repo}/issues/{number}/lock")
+    suspend fun lockIssue(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("number") number: Int,
+    ): Response<Unit>
+
+    /** Unlock conversation on an issue or PR. Server returns 204 with empty body. */
+    @Headers("Accept: application/vnd.github+json")
+    @DELETE("repos/{owner}/{repo}/issues/{number}/lock")
+    suspend fun unlockIssue(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("number") number: Int,
+    ): Response<Unit>
 
     /** Comments on an issue or PR. Returns a Response so callers can read the
      *  `link` header to detect whether more pages exist (the GitHub API doesn't
