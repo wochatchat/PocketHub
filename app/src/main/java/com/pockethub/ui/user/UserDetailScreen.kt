@@ -87,6 +87,7 @@ import com.pockethub.data.model.User
 @Composable
 fun UserDetailScreen(
     login: String,
+    initialFollowTab: Int = -1,
     onNavigateToRepo: (String, String) -> Unit,
     onNavigateToUser: (String) -> Unit = {},
     onBack: () -> Unit,
@@ -105,7 +106,7 @@ fun UserDetailScreen(
     val context = LocalContext.current
 
     // Which follow list to show in the bottom sheet: 0 = followers, 1 = following, -1 = hidden.
-    var followSheetTab by remember { mutableIntStateOf(-1) }
+    var followSheetTab by remember { mutableIntStateOf(initialFollowTab) }
 
     LaunchedEffect(login) { vm.loadUser(login) }
 

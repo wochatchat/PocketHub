@@ -55,7 +55,7 @@ object Routes {
     const val PR_DETAIL = "repo/{owner}/{repo}/pulls/{number}"
     const val COMMIT_DETAIL = "repo/{owner}/{repo}/commits/{sha}"
     const val WORKFLOW_RUN_DETAIL = "repo/{owner}/{repo}/actions/runs/{runId}"
-    const val USER_DETAIL = "user/{login}"
+    const val USER_DETAIL = "user/{login}?followTab={followTab}"
     const val HISTORY = "history"
     const val DOWNLOADS = "downloads?tab={tab}"
     const val IMAGE_PREVIEW = "image_preview?url={url}"
@@ -71,7 +71,7 @@ object Routes {
     fun workflowRunDetail(owner: String, repo: String, runId: Long) = "repo/$owner/$repo/actions/runs/$runId"
 
     fun search(query: String = "") = "search?query=${java.net.URLEncoder.encode(query, "UTF-8")}"
-    fun userDetail(login: String) = "user/$login"
+    fun userDetail(login: String, followTab: Int = -1) = if (followTab < 0) "user/$login" else "user/$login?followTab=$followTab"
 
     // ── Deep-link URI mappings (scheme pockethub://) ────────────────────────
     // Used by intent-filters in AndroidManifest and NavHost deepLinks to land
@@ -218,6 +218,7 @@ fun PocketHubApp(
                         onNavigateToRepo = { owner, repo -> navController.navigate(Routes.repoDetail(owner, repo)) },
                         onNavigateToIssue = { o, r, n -> navController.navigate(Routes.issueDetail(o, r, n)) },
                         onNavigateToPR = { o, r, n -> navController.navigate(Routes.prDetail(o, r, n)) },
+                        onNavigateToUser = { login, followTab -> navController.navigate(Routes.userDetail(login, followTab)) },
                         onBack = { navController.popBackStack() },
                     )
                 }
@@ -416,14 +417,22 @@ fun PocketHubApp(
                     )
                 }
 
-                composable(
+                 composable(
                     Routes.USER_DETAIL,
-                    arguments = listOf(navArgument("login") { type = NavType.StringType }),
+                    arguments = listOf(
+                        navArgument("login") { type = NavType.StringType },
+                        navArgument("followTab") {
+                            type = NavType.IntType
+                            defaultValue = -1
+                        },
+                    ),
                     deepLinks = listOf(navDeepLink { uriPattern = Routes.DEEP_LINK_USER }),
                 ) { backStackEntry ->
                     val login = backStackEntry.arguments?.getString("login") ?: return@composable
+                    val initialFollowTab = backStackEntry.arguments?.getInt("followTab") ?: -1
                     com.pockethub.ui.user.UserDetailScreen(
                         login = login,
+                        initialFollowTab = initialFollowTab,
                         onNavigateToRepo = { owner, repo -> navController.navigate(Routes.repoDetail(owner, repo)) },
                         onNavigateToUser = { l -> navController.navigate(Routes.userDetail(l)) },
                         onBack = { navController.popBackStack() },

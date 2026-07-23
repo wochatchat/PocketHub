@@ -71,6 +71,7 @@ fun ProfileScreen(
     onNavigateToRepo: (String, String) -> Unit,
     onNavigateToIssue: (String, String, Int) -> Unit = { _, _, _ -> },
     onNavigateToPR: (String, String, Int) -> Unit = { _, _, _ -> },
+    onNavigateToUser: (String, Int) -> Unit = { _, _ -> },
     onBack: () -> Unit,
     vm: ProfileViewModel = hiltViewModel(),
 ) {
@@ -105,7 +106,7 @@ fun ProfileScreen(
             item { ProfileHeader(user, activeAccount) }
 
             // Quick stats row (followers / following / repos)
-            item { StatsRow(user, starredTotal) }
+            item { StatsRow(user, starredTotal, onFollowersClick = { user?.login?.let { onNavigateToUser(it, 0) } }, onFollowingClick = { user?.login?.let { onNavigateToUser(it, 1) } }) }
 
             // Work-list — Assigned / Mentioned / Created / Involved items needing attention.
             // Placed right under the stats so opening the app shows "what's on me" first.
@@ -224,21 +225,28 @@ private fun ProfileHeader(user: User?, activeAccount: AccountEntity?) {
 }
 
 @Composable
-private fun StatsRow(user: User?, starredTotal: Int) {
+private fun StatsRow(
+    user: User?,
+    starredTotal: Int,
+    onFollowersClick: () -> Unit = {},
+    onFollowingClick: () -> Unit = {},
+) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
-        StatPill(stringResource(R.string.followers), user?.followers ?: 0)
-        StatPill(stringResource(R.string.following), user?.following ?: 0)
+        StatPill(stringResource(R.string.followers), user?.followers ?: 0, onClick = onFollowersClick)
+        StatPill(stringResource(R.string.following), user?.following ?: 0, onClick = onFollowingClick)
         StatPill(stringResource(R.string.repos), user?.publicRepos ?: 0)
         StatPill(stringResource(R.string.starred), starredTotal)
     }
 }
 
 @Composable
-private fun StatPill(label: String, count: Int) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun StatPill(label: String, count: Int, onClick: () -> Unit = {}) {
+    val clickable = onClick != {}
+    val mod = if (clickable) Modifier.clip(MaterialTheme.shapes.small).clickable(onClick = onClick) else Modifier
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = mod) {
         Text(count.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
