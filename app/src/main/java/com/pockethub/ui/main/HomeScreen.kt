@@ -107,6 +107,16 @@ fun HomeScreen(
     val notifications by notifVm.notifications.collectAsState()
     val unreadCount = notifications.count { it.unread }
 
+    // Top-app-bar refresh targets — one ViewModel per bottom-nav tab so the refresh
+    // action on HomeScreen's LargeTopAppBar can re-fetch whichever tab is showing.
+    // We deliberately pull these here instead of draining a trigger via LaunchedEffect
+    // (Explore's existing refreshTrigger path) so the spin animation can read a real
+    // isRefreshing/isLoading state from the bound VM rather than a guessed pulse.
+    val exploreVm: com.pockethub.ui.explore.ExploreViewModel = hiltViewModel()
+    val exploreIsRefreshing by exploreVm.isRefreshing.collectAsState()
+    val reposVm: com.pockethub.ui.repos.ReposViewModel = hiltViewModel()
+    val reposIsLoading by reposVm.isLoading.collectAsState()
+
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
@@ -137,6 +147,33 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+                    // Refresh — re-fetches whichever bottom-nav tab is currently visible.
+                    // Explore/Repos expose a real spinner via their StateFlow; the
+                    // RefreshIconButton reads it directly so the rotation is bound to
+                    // real progress rather than a guess. Repos has no dedicated
+                    // isRefreshing flag, so it reuses isLoading — that only flips to
+                    // true while the VM is actually mid-fetch, which is what we want.
+                    com.pockethub.ui.components.RefreshIconButton(
+                        onClick = {
+                            when (selectedTab) {
+                                0 -> {
+                                    // Delegate to ExploreScreen's existing refreshTrigger
+                                    // path rather than calling the VM directly — that keeps
+                                    // a single source of truth (Explore's LaunchedEffect)
+                                    // and avoids a double launch/refresh() since the same
+                                    // VM instance would otherwise get poked twice.
+                                    exploreRefreshTrigger++
+                                }
+                                1 -> reposVm.refresh()
+                                else -> {}
+                            }
+                        },
+                        refreshing = when (selectedTab) {
+                            0 -> exploreIsRefreshing
+                            1 -> reposIsLoading
+                            else -> false
+                        },
+                    )
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.settings))
                     }

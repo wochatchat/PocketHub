@@ -111,6 +111,11 @@ fun WorkflowRunDetailScreen(
                     }
                 },
                 actions = {
+                    com.pockethub.ui.components.RefreshIconButton(
+                        onClick = { vm.refresh(owner, repo, runId) },
+                        refreshing = isLoading && run != null,
+                        enabled = run != null,
+                    )
                     IconButton(onClick = { open(run?.htmlUrl) }) {
                         Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.cd_open_in_browser))
                     }

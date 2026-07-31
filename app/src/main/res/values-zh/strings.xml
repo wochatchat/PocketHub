@@ -23,6 +23,8 @@
     <string name="action_sign_in">登录</string>
     <string name="action_sign_out">登出</string>
     <string name="action_retry">重试</string>
+    <!-- 顶栏刷新按钮——详情和列表页拉取最新数据 -->
+    <string name="action_refresh">刷新</string>
     <string name="action_dismiss">关闭</string>
     <string name="action_switch">切换</string>
     <string name="action_remove">移除</string>

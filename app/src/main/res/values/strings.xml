@@ -23,6 +23,8 @@
     <string name="action_sign_in">Sign in</string>
     <string name="action_sign_out">Sign out</string>
     <string name="action_retry">Retry</string>
+    <!-- Top-app-bar refresh — used on detail/list screens to re-fetch data from the network. -->
+    <string name="action_refresh">Refresh</string>
     <string name="action_dismiss">Dismiss</string>
     <string name="action_switch">Switch</string>
     <string name="action_remove">Remove</string>

@@ -129,5 +129,8 @@ class WorkflowRunDetailViewModel @Inject constructor(
         loadRun(owner, repo, runId)
     }
 
+    /** Manual refresh — same path as retry(); kept as a separate entry point for clarity. */
+    fun refresh(owner: String, repo: String, runId: Long) = retry(owner, repo, runId)
+
     fun clearActionMessage() { _actionMessage.update { null } }
 }

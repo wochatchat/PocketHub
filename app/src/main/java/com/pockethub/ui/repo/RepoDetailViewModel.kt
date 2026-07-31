@@ -148,6 +148,17 @@ class RepoDetailViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    /**
+     * Monotonic counter bumped whenever [refresh] runs while the Commits tab is
+     * visible; consumed by [CommitsTab]'s LaunchedEffect so the embedded
+     * CommitsViewModel re-fetches its list even though it's not a field of this VM.
+     */
+    private val _commitsPokeTrigger = MutableStateFlow(0)
+    val commitsPokeTrigger: StateFlow<Int> = _commitsPokeTrigger.asStateFlow()
+
     private val _isStarred = MutableStateFlow(false)
     val isStarred: StateFlow<Boolean> = _isStarred.asStateFlow()
 
@@ -196,6 +207,40 @@ class RepoDetailViewModel @Inject constructor(
     var currentTab = MutableStateFlow(RepoTab.OVERVIEW)
     private var loadedOwner: String? = null
     private var loadedRepo: String? = null
+
+    /** Force-refresh: re-run every loaded section for the current repo with cache busting. */
+    fun refresh(owner: String, repo: String) {
+        loadedOwner = owner; loadedRepo = repo
+        _currentSlug = "$owner/$repo"
+        viewModelScope.launch {
+            _isRefreshing.update { true }
+            _error.update { null }
+            try {
+                _repo.update { cache.getRepository(owner, repo) }
+                loadReadme(owner, repo).join()
+                checkStar(owner, repo)
+                checkWatch(owner, repo)
+                // Poke the embedded CommitsTab — its VM is a separate Hilt-scoped
+                // instance owned by the Composable, so we can't reach in and call
+                // refresh() from here; the trigger-flow value is the channel.
+                _commitsPokeTrigger.update { it + 1 }
+                // Reload the currently-visible tab list if it was already fetched once,
+                // so users see new commits/issues without switching tabs. We use force=true
+                // to skip the per-tab "already loaded" guard.
+                when (currentTab.value) {
+                    RepoTab.ISSUES -> loadIssues(owner, repo, force = true)
+                    RepoTab.PRS -> loadPulls(owner, repo, force = true)
+                    RepoTab.RELEASES -> loadReleases(owner, repo)
+                    RepoTab.WORKFLOWS -> loadWorkflowRuns(owner, repo, branch = null)
+                    else -> {}  // OVERVIEW/CODE/COMMITS/WIKI have no extra list to reload here.
+                }
+            } catch (e: Exception) {
+                _error.update { e.localizedMessage ?: "Failed to refresh repo" }
+            } finally {
+                _isRefreshing.update { false }
+            }
+        }
+    }
 
     fun loadRepo(owner: String, repo: String) {
         if (loadedOwner == owner && loadedRepo == repo && _repo.value != null) return

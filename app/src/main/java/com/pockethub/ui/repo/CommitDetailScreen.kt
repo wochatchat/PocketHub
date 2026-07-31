@@ -131,6 +131,11 @@ fun CommitDetailScreen(
                     }
                 },
                 actions = {
+                    com.pockethub.ui.components.RefreshIconButton(
+                        onClick = { vm.refresh(owner, repo, sha) },
+                        refreshing = isLoading && commit != null,
+                        enabled = commit != null && !isSendingComment,
+                    )
                     IconButton(onClick = {
                         val url = commit?.htmlUrl ?: "https://github.com/$owner/$repo/commit/$sha"
                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))

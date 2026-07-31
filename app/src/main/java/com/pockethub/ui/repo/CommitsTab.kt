@@ -53,6 +53,13 @@ fun CommitsTab(
     repo: String,
     onNavigateToUser: (String) -> Unit = {},
     onCommitClick: (String) -> Unit = {},
+    /**
+     * Bumped by the host RepoDetailScreen when its top-app-bar Refresh action runs;
+     * a value greater than [initialPoke] means "poke now". Lets the parent trigger a
+     * Commits-only refresh without owning this VM (CommitsViewModel is Hilt-scoped
+     * to this Composable, not RepoDetailVM).
+     */
+    refreshTrigger: Int = 0,
     vm: CommitsViewModel = hiltViewModel(),
 ) {
     val commits by vm.commits.collectAsState()
@@ -61,6 +68,12 @@ fun CommitsTab(
     val listState = rememberLazyListState()
 
     LaunchedEffect(owner, repo) { vm.loadCommits(owner, repo) }
+
+    // Host-triggered refresh — refreshTrigger changes when RepoDetail's top bar
+    // Refresh button is pressed. We don't refresh on initial composition ($(0)).
+    LaunchedEffect(refreshTrigger) {
+        if (refreshTrigger > 0) vm.refresh(owner, repo)
+    }
 
     // Infinite scroll
     val shouldLoadMore by remember {

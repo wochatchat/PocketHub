@@ -87,6 +87,7 @@ fun ProfileScreen(
     vm: ProfileViewModel = hiltViewModel(),
 ) {
     val user by vm.user.collectAsState()
+    val isLoading by vm.isLoading.collectAsState()
     val allAccounts by vm.allAccounts.collectAsState()
     val activeAccount by vm.activeAccount.collectAsState()
     val topRepos by vm.topRepos.collectAsState()
@@ -115,6 +116,11 @@ fun ProfileScreen(
                     }
                 },
                 actions = {
+                    com.pockethub.ui.components.RefreshIconButton(
+                        onClick = { vm.loadProfile() },
+                        refreshing = isLoading && user != null,
+                        enabled = user != null,
+                    )
                     // Open the public profile of the signed-in user — same surface the
                     // "people you follow" pages use, so the layout & follow lists match.
                     IconButton(onClick = { user?.login?.let { onNavigateToUserDetail(it) } }) {

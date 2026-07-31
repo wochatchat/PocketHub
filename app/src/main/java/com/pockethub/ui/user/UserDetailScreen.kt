@@ -121,6 +121,11 @@ fun UserDetailScreen(
                 title = { Text("@$login", style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back)) } },
                 actions = {
+                    com.pockethub.ui.components.RefreshIconButton(
+                        onClick = { vm.refresh() },
+                        refreshing = isLoading && user != null,
+                        enabled = user != null && !followActionInProgress,
+                    )
                     IconButton(onClick = {
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/$login"))
                         context.startActivity(intent)

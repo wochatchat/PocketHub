@@ -113,6 +113,13 @@ fun NotificationsScreen(
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
+                actions = {
+                    com.pockethub.ui.components.RefreshIconButton(
+                        onClick = { vm.refresh() },
+                        refreshing = isLoading && notifications.isNotEmpty(),
+                        enabled = true,
+                    )
+                },
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },

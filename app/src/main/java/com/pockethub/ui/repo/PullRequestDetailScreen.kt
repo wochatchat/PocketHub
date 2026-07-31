@@ -334,6 +334,14 @@ fun PullRequestDetailScreen(
                     }
                 },
                 actions = {
+                    // Refresh — re-fetches the whole PR (body, files, reviews, comments,
+                    // CI checks, timeline). Independent of the check-run-only
+                    // refreshCheckRuns() that the CI banner exposes.
+                    com.pockethub.ui.components.RefreshIconButton(
+                        onClick = { vm.refresh(owner, repo, prNumber) },
+                        refreshing = isLoading && pr != null,
+                        enabled = pr != null && !isMerging && !isSendingReview && !isSendingComment && !isTogglingState,
+                    )
                     IconButton(onClick = {
                         pr?.htmlUrl?.let { url ->
                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))

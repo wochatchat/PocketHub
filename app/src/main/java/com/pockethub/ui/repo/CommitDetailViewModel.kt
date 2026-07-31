@@ -66,6 +66,10 @@ class CommitDetailViewModel @Inject constructor(
         load(owner, repo, sha)
     }
 
+    /** Manual refresh: re-fetch main commit + comments without dropping the
+     *  on-screen commit value (retry() nulls loadedSha before load()). */
+    fun refresh(owner: String, repo: String, sha: String) = retry(owner, repo, sha)
+
     fun loadComments(owner: String, repo: String, sha: String) {
         viewModelScope.launch {
             _commentsError.update { null }

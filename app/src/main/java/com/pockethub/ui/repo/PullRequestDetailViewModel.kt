@@ -837,6 +837,11 @@ class PullRequestDetailViewModel @Inject constructor(
         loadPullRequest(owner, repo, number)
     }
 
+    /** Manual refresh — re-fetches the PR + every sub-section (files/reviews/comment
+     *  lists/CI checks/timeline). Same behaviour as [retry]; kept as a separate
+     *  entry point so the UI intent is explicit. */
+    fun refresh(owner: String, repo: String, number: Int) = retry(owner, repo, number)
+
     companion object {
         /** Meta state for one review thread, used by R3 resolve/unresolve. */
         data class ThreadInfo(val threadId: String, val isResolved: Boolean)

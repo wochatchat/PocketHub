@@ -168,6 +168,14 @@ fun IssueDetailScreen(
                     }
                 },
                 actions = {
+                    // Refresh — re-fetches the issue + its comments/events. retry() takes
+                    // issue-existence as "data is on screen"; the icon rotation plays off
+                    // isLoading so the user sees it spinning until the new data lands.
+                    com.pockethub.ui.components.RefreshIconButton(
+                        onClick = { vm.retry(owner, repo, issueNumber) },
+                        refreshing = isLoading && issue != null,
+                        enabled = issue != null && !isLocking && !isSaving && !isTogglingState,
+                    )
                     // Lock / unlock conversation — visible to repo collaborators.
                     // Mirrors GitHub web's "Lock conversation" affordance. Disabled
                     // while a request is in flight or another mutating action runs.
