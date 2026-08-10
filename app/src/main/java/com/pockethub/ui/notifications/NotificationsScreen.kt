@@ -120,7 +120,12 @@ fun NotificationsScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
-        Column(modifier = modifier.padding(padding)) {
+        com.pockethub.ui.components.RefreshContainer(
+            isRefreshing = isLoading,
+            onRefresh = { vm.refresh() },
+            modifier = modifier.padding(padding),
+        ) {
+        Column(Modifier.fillMaxSize()) {
             // Tab selector + "mark all"
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 SingleChoiceSegmentedButtonRow(Modifier.weight(1f)) {
@@ -236,6 +241,7 @@ fun NotificationsScreen(
                     }
                 }
             }
+        }
         }
     }
 

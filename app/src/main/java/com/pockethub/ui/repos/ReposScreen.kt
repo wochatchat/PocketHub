@@ -102,7 +102,12 @@ fun ReposScreen(
         if (shouldLoadMore && error == null) vm.loadMore()
     }
 
-    Column(modifier) {
+    com.pockethub.ui.components.RefreshContainer(
+        isRefreshing = isLoading,
+        onRefresh = { vm.refresh() },
+        modifier = modifier,
+    ) {
+    Column(Modifier.fillMaxSize()) {
         // Tab selector
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
             SegmentedButton(selected = tab == RepoTab.MINE, onClick = { vm.switchTab(RepoTab.MINE) },
@@ -165,6 +170,7 @@ fun ReposScreen(
                     } // LazyColumn close
             }
         }
+    }
     }
 }
 

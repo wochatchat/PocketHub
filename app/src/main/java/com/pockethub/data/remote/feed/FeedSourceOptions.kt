@@ -35,10 +35,13 @@ enum class FeedSourceOption(
     val urlModifiable: Boolean = false,
     val supportsTrendingFilters: Boolean = false,
 ) {
-    // Trending tab
+    // Official GitHub source. It remains the default and can be tuned from
+    // Settings → Explore information sources (language, time window and stars).
     GITHUB_SEARCH(
         id = "GITHUB_SEARCH",
         defaultBaseUrl = "https://api.github.com/",
+        urlModifiable = false,
+        supportsTrendingFilters = true,
     ),
     GITHUB_TRENDING_API(
         id = "GITHUB_TRENDING_API",
@@ -47,30 +50,36 @@ enum class FeedSourceOption(
         // service then refuses to fetch on this source until that's set.
         defaultBaseUrl = "",
         urlModifiable = true,
-        // Self-hosted GitHub-trending proxies honour language / time-window
-        // filters (newer search-proxy envelopes accept `lang` + `days`, legacy
-        // forks accept `language` + `since`). The service emits both shapes.
         supportsTrendingFilters = true,
     ),
 
-    // Featured tab
+    // Public discovery sources. OSS Insight and Hacker News are intentionally
+    // retained as built-in defaults alongside the official GitHub source.
     OSS_INSIGHT(
         id = "OSS_INSIGHT",
         defaultBaseUrl = "https://api.ossinsight.io/v1/",
         urlModifiable = true,
+        supportsTrendingFilters = true,
     ),
     HACKER_NEWS_SHOWHN(
         id = "HACKER_NEWS_SHOWHN",
         defaultBaseUrl = "https://hacker-news.firebaseio.com/v0/",
         urlModifiable = false,
     ),
+    NPM_REGISTRY(
+        id = "NPM_REGISTRY",
+        defaultBaseUrl = "https://registry.npmjs.org/",
+        urlModifiable = true,
+    ),
+    LOBSTERS(
+        id = "LOBSTERS",
+        defaultBaseUrl = "https://lobste.rs/",
+        urlModifiable = true,
+    ),
     REDDIT_TOP(
         id = "REDDIT_TOP",
-        // Reddit's .json endpoints are reachable in many networks but tend to
-        // require a real browser UA + IP allow-listing in some data centres.
-        // Defaulting empty so the user must opt in via Settings; if Reddit is
-        // blocked, the page stays empty with a "not configured" hint instead of
-        // trying forever and looking broken.
+        // Reddit's .json endpoints can require a real browser UA or an
+        // allow-listed IP. Keep it opt-in, but allow a public mirror URL.
         defaultBaseUrl = "",
         urlModifiable = true,
     ),
@@ -96,8 +105,10 @@ enum class FeedSourceOption(
 
         /** All options selectable for the given tab (used by the settings screen). */
         fun optionsFor(tab: FeedTab): List<FeedSourceOption> = when (tab) {
-            FeedTab.TRENDING  -> listOf(GITHUB_SEARCH, GITHUB_TRENDING_API)
-            FeedTab.FEATURED  -> listOf(OSS_INSIGHT, HACKER_NEWS_SHOWHN, REDDIT_TOP)
+            // Keep the official GitHub endpoint first so it is easy to find and
+            // remains the obvious zero-configuration choice.
+            FeedTab.TRENDING  -> listOf(GITHUB_SEARCH, OSS_INSIGHT, GITHUB_TRENDING_API)
+            FeedTab.FEATURED  -> listOf(OSS_INSIGHT, HACKER_NEWS_SHOWHN, NPM_REGISTRY, LOBSTERS, REDDIT_TOP, GITHUB_SEARCH)
             FeedTab.FOLLOWING -> listOf(GITHUB_EVENTS)
         }
     }
@@ -116,4 +127,11 @@ data class FeedSourceConfig(
     val customBaseUrl: String = "",
     val trendingLanguage: String = "All",
     val trendingRange: String = "Daily",
+    /** GitHub Search sort: stars, forks or updated. */
+    val githubSort: String = "stars",
+    /** Inclusive star range used by the official GitHub source. */
+    val githubMinStars: Int = 50,
+    val githubMaxStars: Int = 20_000,
+    /** Archived repositories are hidden by default to keep discovery useful. */
+    val githubIncludeArchived: Boolean = false,
 )

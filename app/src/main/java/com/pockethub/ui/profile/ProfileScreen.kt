@@ -88,6 +88,7 @@ fun ProfileScreen(
     vm: ProfileViewModel = hiltViewModel(),
 ) {
     val user by vm.user.collectAsState()
+    val isRefreshing by vm.isLoading.collectAsState()
     val allAccounts by vm.allAccounts.collectAsState()
     val activeAccount by vm.activeAccount.collectAsState()
     val topRepos by vm.topRepos.collectAsState()
@@ -128,8 +129,13 @@ fun ProfileScreen(
             }
         },
     ) { padding ->
+        com.pockethub.ui.components.RefreshContainer(
+            isRefreshing = isRefreshing,
+            onRefresh = { vm.refresh() },
+            modifier = modifier.padding(padding),
+        ) {
         LazyColumn(
-            modifier = modifier.padding(padding).fillMaxSize(),
+            modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // Profile header card
@@ -280,6 +286,7 @@ fun ProfileScreen(
 
             item { Spacer(Modifier.height(24.dp)) }
         }
+        }
     }
 }
 
@@ -302,6 +309,7 @@ private fun ProfileHeader(user: User?, activeAccount: AccountEntity?) {
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                 modifier = Modifier
                     .size(88.dp)
+                    .align(Alignment.CenterHorizontally)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant),
             )

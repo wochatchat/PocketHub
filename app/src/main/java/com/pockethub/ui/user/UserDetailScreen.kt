@@ -155,8 +155,13 @@ fun UserDetailScreen(
         val isLoadingEvents by vm.isLoadingEvents.collectAsState()
         var sectionTab by remember { mutableIntStateOf(0) }
 
+        com.pockethub.ui.components.RefreshContainer(
+            isRefreshing = isLoading,
+            onRefresh = { vm.refresh() },
+            modifier = Modifier.padding(padding),
+        ) {
         LazyColumn(
-            modifier = Modifier.padding(padding).fillMaxSize(),
+            modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // Profile header card
@@ -260,6 +265,7 @@ fun UserDetailScreen(
                 }
             }
             item { Spacer(Modifier.height(24.dp)) }
+        }
         }
     }
 

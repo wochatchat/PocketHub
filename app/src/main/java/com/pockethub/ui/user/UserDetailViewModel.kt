@@ -60,13 +60,18 @@ class UserDetailViewModel @Inject constructor(
     private val _isSelf = MutableStateFlow(false)
     val isSelf: StateFlow<Boolean> = _isSelf
 
-    fun loadUser(login: String) {
-        if (loadedLogin == login && _user.value != null) return
+    fun loadUser(login: String, force: Boolean = false) {
+        if (!force && loadedLogin == login && _user.value != null) return
         loadedLogin = login
         viewModelScope.launch {
             _isLoading.update { true }
             _error.update { null }
             try {
+                if (force) {
+                    cache.invalidateUserRepositories(login)
+                    _repos.value = emptyList()
+                    _events.value = emptyList()
+                }
                 _user.update { api.getUser(login) }
                 // Load repos in parallel
                 launch {
@@ -149,6 +154,6 @@ class UserDetailViewModel @Inject constructor(
     }
 
     fun refresh() {
-        loadedLogin?.let { loadUser(it) }
+        loadedLogin?.let { loadUser(it, force = true) }
     }
 }

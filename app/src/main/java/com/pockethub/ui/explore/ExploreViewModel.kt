@@ -88,6 +88,7 @@ class ExploreViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.Eagerly, "Daily")
 
     private var loadJob: Job? = null
+    private var loadRequestId = 0
 
     fun switchSection(section: ExploreSection) {
         if (_section.value == section) return
@@ -104,41 +105,32 @@ class ExploreViewModel @Inject constructor(
     }
 
     /** Standard load (cache-friendly, prefers hits). User-initiated refresh is [refresh]. */
-    fun load() {
+    private fun launchLoad(forceFresh: Boolean) {
         loadJob?.cancel()
+        val requestId = ++loadRequestId
         loadJob = viewModelScope.launch {
             _isLoading.update { true }
             _error.update { null }
             try {
                 when (_section.value) {
-                    ExploreSection.TRENDING  -> _trending.value = sources.loadTrending(forceFresh = false)
-                    ExploreSection.FEATURED  -> _featured.value = sources.loadFeatured(forceFresh = false)
-                    ExploreSection.FOLLOWING -> loadFollowingFeed(forceFresh = false)
+                    ExploreSection.TRENDING -> _trending.value = sources.loadTrending(forceFresh)
+                    ExploreSection.FEATURED -> _featured.value = sources.loadFeatured(forceFresh)
+                    ExploreSection.FOLLOWING -> loadFollowingFeed(forceFresh)
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 _error.value = e.localizedMessage ?: "Failed to load feed."
             } finally {
-                _isLoading.value = false
+                if (requestId == loadRequestId) _isLoading.value = false
             }
         }
     }
 
-    /** Forces a fresh fetch for the active section (used by the Explore tab double-tap). */
-    fun refresh() {
-        loadJob?.cancel()
-        loadJob = viewModelScope.launch {
-            _error.update { null }
-            try {
-                when (_section.value) {
-                    ExploreSection.TRENDING  -> _trending.value = sources.loadTrending(forceFresh = true)
-                    ExploreSection.FEATURED  -> _featured.value = sources.loadFeatured(forceFresh = true)
-                    ExploreSection.FOLLOWING -> loadFollowingFeed(forceFresh = true)
-                }
-            } catch (e: Exception) {
-                _error.value = e.localizedMessage ?: "Failed to load feed."
-            }
-        }
-    }
+    /** Standard cache-friendly load. */
+    fun load() = launchLoad(forceFresh = false)
+
+    /** Forces a fresh fetch for the active section, including pull-to-refresh. */
+    fun refresh() = launchLoad(forceFresh = true)
 
     private suspend fun loadFollowingFeed(forceFresh: Boolean) {
         val login = accounts.getActiveLogin()

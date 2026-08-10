@@ -128,7 +128,7 @@ fun SearchScreen(
         if (shouldLoadMore && vm.canLoadMore(tab)) vm.loadMore()
     }
 
-    Column {
+    Column(Modifier.fillMaxSize()) {
         // Search bar
         TopAppBar(
             title = {
@@ -182,52 +182,56 @@ fun SearchScreen(
         }
 
         // Full-screen loading only when this tab has nothing to show yet; otherwise
-        // keep stale results visible with a footer spinner (no flicker).
-        if (isLoading && !hasResults) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            return@Column
-        }
-
-        when {
-            // Error with nothing to show — full error state with retry.
-            error != null && !hasResults -> {
-                ErrorState(message = error!!, onRetry = { vm.search() })
-            }
-            // Nothing searched yet — guidance.
-            searchedQuery.isBlank() -> {
-                EmptyState(title = stringResource(R.string.search_initial_hint))
-            }
-            // Successful search with no hits.
-            !hasResults -> {
-                EmptyState(title = stringResource(R.string.search_results_empty, searchedQuery))
-            }
-            else -> {
-                LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                when (tab) {
-                    SearchTab.REPOS -> repoItems(repos, onNavigateToRepo, onNavigateToUser)
-                    SearchTab.USERS -> userItems(users, onNavigateToUser)
-                    SearchTab.CODE -> codeItems(code, onNavigateToRepo)
-                    SearchTab.ISSUES -> issueItems(issues, onNavigateToIssue, onNavigateToPR)
-                }
-                // Inline error banner when a refresh failed but stale results are visible.
-                if (error != null) {
-                    item(key = "error-banner") {
-                        Text(
-                            text = error!!,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                        )
+        // keep stale results visible with a footer spinner (no flicker). The same
+        // container also makes a search result page refreshable without changing
+        // the active query or filter state.
+        com.pockethub.ui.components.RefreshContainer(
+            isRefreshing = isLoading,
+            onRefresh = { if (searchedQuery.isNotBlank()) vm.search() },
+            modifier = Modifier.weight(1f),
+        ) {
+            when {
+                isLoading && !hasResults -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
                     }
                 }
-                if (isLoading || isLoadingMore) {
-                    item(key = "loading-footer") { LoadingFooter() }
+                error != null && !hasResults -> {
+                    ErrorState(message = error!!, onRetry = { vm.search() })
                 }
-                    } // LazyColumn close
+                searchedQuery.isBlank() -> {
+                    EmptyState(title = stringResource(R.string.search_initial_hint))
+                }
+                !hasResults -> {
+                    EmptyState(title = stringResource(R.string.search_results_empty, searchedQuery))
+                }
+                else -> {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        when (tab) {
+                            SearchTab.REPOS -> repoItems(repos, onNavigateToRepo, onNavigateToUser)
+                            SearchTab.USERS -> userItems(users, onNavigateToUser)
+                            SearchTab.CODE -> codeItems(code, onNavigateToRepo)
+                            SearchTab.ISSUES -> issueItems(issues, onNavigateToIssue, onNavigateToPR)
+                        }
+                        if (error != null) {
+                            item(key = "error-banner") {
+                                Text(
+                                    text = error!!,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                )
+                            }
+                        }
+                        if (isLoading || isLoadingMore) {
+                            item(key = "loading-footer") { LoadingFooter() }
+                        }
+                    }
+                }
             }
         }
     }

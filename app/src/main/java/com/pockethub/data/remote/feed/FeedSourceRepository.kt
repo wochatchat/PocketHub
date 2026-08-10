@@ -48,15 +48,39 @@ class FeedSourceRepository @Inject constructor(
 
     suspend fun setSource(tab: FeedTab, source: FeedSourceOption, customBaseUrl: String = "") {
         val current = getConfig(tab)
-        setConfig(
-            tab,
-            current.copy(sourceId = source.id, customBaseUrl = customBaseUrl.takeIf { source.urlModifiable }.orEmpty()),
-        )
+        // Re-selecting the same source should not silently erase its custom
+        // endpoint. Switching to another source still starts with a clean URL.
+        val nextUrl = when {
+            !source.urlModifiable -> ""
+            current.sourceId == source.id && customBaseUrl.isBlank() -> current.customBaseUrl
+            else -> customBaseUrl.trim()
+        }
+        setConfig(tab, current.copy(sourceId = source.id, customBaseUrl = nextUrl))
     }
 
     suspend fun setTrendingFilters(language: String, range: String) {
         val current = getConfig(FeedTab.TRENDING)
         setConfig(FeedTab.TRENDING, current.copy(trendingLanguage = language, trendingRange = range))
+    }
+
+    /** Persist tunables for the official GitHub Search source on a tab. */
+    suspend fun setGithubOptions(
+        tab: FeedTab,
+        sort: String,
+        minStars: Int,
+        maxStars: Int,
+        includeArchived: Boolean,
+    ) {
+        val current = getConfig(tab)
+        setConfig(
+            tab,
+            current.copy(
+                githubSort = sort,
+                githubMinStars = minStars.coerceAtLeast(0),
+                githubMaxStars = maxStars.coerceAtLeast(minStars.coerceAtLeast(0)),
+                githubIncludeArchived = includeArchived,
+            ),
+        )
     }
 
     private fun readConfig(prefs: Preferences, tab: FeedTab): FeedSourceConfig {

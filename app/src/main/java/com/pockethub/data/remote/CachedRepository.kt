@@ -172,6 +172,11 @@ class CachedRepository @Inject constructor(
         cacheDao.evictContaining("repos:mine:")
     }
 
+    /** Drop cached pages for a public user's repositories before pull-to-refresh. */
+    suspend fun invalidateUserRepositories(login: String) {
+        cacheDao.evictContaining("repos:user:$login:")
+    }
+
     /** Evict items older than [maxAge]. Called periodically or on manual refresh. */
     suspend fun evictOlderThan(maxAge: Long) {
         cacheDao.evictOlderThan(maxAge)

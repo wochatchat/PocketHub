@@ -38,8 +38,9 @@ data class DiscoverItem(
      */
     val starDelta: StarDelta? = null,
     /**
-     * The community post that surfaced this repo. Only present for HN / Reddit
-     * sources. For pure GitHub-backed sources this is null.
+     * The community or package signal that surfaced this repo. Present for
+     * Hacker News, Reddit, npm and Lobsters; pure GitHub-backed sources leave
+     * this null.
      */
     val communitySignal: CommunitySignal? = null,
 ) {
@@ -64,9 +65,10 @@ data class StarDelta(
 )
 
 /**
- * A community post that surfaced this repository (Hacker News / Reddit).
- * Lets the Explore card print a credits line like
- * "On Hacker News · 412 points by tptacek" or "On /r/androiddev · ↑ 240".
+ * A community or package signal that surfaced this repository.
+ * Lets the Explore card print a credits line such as
+ * "On Hacker News · 412 points", "On npm · 1.4M downloads" or
+ * "On Lobsters · 40 points".
  */
 @Serializable
 data class CommunitySignal(
@@ -79,5 +81,5 @@ data class CommunitySignal(
     val subreddit: String? = null,
 ) {
     @Serializable
-    enum class Platform { HACKER_NEWS, REDDIT }
+    enum class Platform { HACKER_NEWS, REDDIT, NPM, LOBSTERS }
 }

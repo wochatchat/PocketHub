@@ -23,7 +23,10 @@ import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Web
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -101,6 +104,7 @@ fun FeedSourcesScreen(
                 options = FeedSourceOption.optionsFor(FeedTab.TRENDING),
                 onSelect = { src -> vm.selectSource(FeedTab.TRENDING, src, "") },
                 onCustomUrlChange = { src, url -> vm.setCustomBaseUrl(FeedTab.TRENDING, src, url) },
+                onGithubOptionsChange = { sort, min, max, archived -> vm.setGithubOptions(FeedTab.TRENDING, sort, min, max, archived) },
                 onReset = { vm.resetTab(FeedTab.TRENDING) },
             )
 
@@ -112,6 +116,7 @@ fun FeedSourcesScreen(
                 options = FeedSourceOption.optionsFor(FeedTab.FEATURED),
                 onSelect = { src -> vm.selectSource(FeedTab.FEATURED, src, "") },
                 onCustomUrlChange = { src, url -> vm.setCustomBaseUrl(FeedTab.FEATURED, src, url) },
+                onGithubOptionsChange = { sort, min, max, archived -> vm.setGithubOptions(FeedTab.FEATURED, sort, min, max, archived) },
                 onReset = { vm.resetTab(FeedTab.FEATURED) },
             )
 
@@ -123,6 +128,7 @@ fun FeedSourcesScreen(
                 options = FeedSourceOption.optionsFor(FeedTab.FOLLOWING),
                 onSelect = { src -> vm.selectSource(FeedTab.FOLLOWING, src, "") },
                 onCustomUrlChange = { src, url -> vm.setCustomBaseUrl(FeedTab.FOLLOWING, src, url) },
+                onGithubOptionsChange = { sort, min, max, archived -> vm.setGithubOptions(FeedTab.FOLLOWING, sort, min, max, archived) },
                 onReset = { vm.resetTab(FeedTab.FOLLOWING) },
             )
 
@@ -149,6 +155,7 @@ private fun SourceGroup(
     options: List<FeedSourceOption>,
     onSelect: (FeedSourceOption) -> Unit,
     onCustomUrlChange: (FeedSourceOption, String) -> Unit,
+    onGithubOptionsChange: (String, Int, Int, Boolean) -> Unit,
     onReset: () -> Unit,
 ) {
     val selected = FeedSourceOption.fromId(config.sourceId)
@@ -165,6 +172,8 @@ private fun SourceGroup(
                 FeedSourceOption.GITHUB_TRENDING_API   -> Icons.Outlined.Public
                 FeedSourceOption.OSS_INSIGHT          -> Icons.Outlined.Public
                 FeedSourceOption.HACKER_NEWS_SHOWHN   -> Icons.Outlined.Public
+                FeedSourceOption.NPM_REGISTRY          -> Icons.Outlined.Storage
+                FeedSourceOption.LOBSTERS              -> Icons.Outlined.Public
                 FeedSourceOption.REDDIT_TOP           -> Icons.Outlined.Public
                 FeedSourceOption.GITHUB_EVENTS        -> Icons.Outlined.Storage
             }
@@ -213,6 +222,12 @@ private fun SourceGroup(
                         onDebouncedChange = { url -> onCustomUrlChange(option, url) },
                     )
                 }
+                if (option == FeedSourceOption.GITHUB_SEARCH && isCurrent) {
+                    GithubSourceOptions(
+                        config = config,
+                        onChange = onGithubOptionsChange,
+                    )
+                }
             }
         }
 
@@ -224,6 +239,113 @@ private fun SourceGroup(
                 Icon(Icons.Outlined.CleaningServices, null, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(4.dp))
                 Text(stringResource(R.string.feed_sources_reset), style = MaterialTheme.typography.labelMedium)
+            }
+        }
+    }
+}
+
+@Composable
+private fun GithubSourceOptions(
+    config: FeedSourceConfig,
+    onChange: (String, Int, Int, Boolean) -> Unit,
+) {
+    var minStars by rememberSaveable(config.sourceId, config.githubMinStars, config.githubMaxStars) {
+        mutableStateOf(config.githubMinStars.toString())
+    }
+    var maxStars by rememberSaveable(config.sourceId, config.githubMinStars, config.githubMaxStars) {
+        mutableStateOf(config.githubMaxStars.toString())
+    }
+    val parsedMin = minStars.toIntOrNull()?.coerceAtLeast(0)
+    val parsedMax = maxStars.toIntOrNull()?.coerceAtLeast(0)
+    val canApply = parsedMin != null && parsedMax != null && parsedMax >= parsedMin
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 12.dp, end = 12.dp, bottom = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            stringResource(R.string.github_source_options),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(
+                "stars" to R.string.github_sort_stars,
+                "forks" to R.string.github_sort_forks,
+                "updated" to R.string.github_sort_updated,
+            ).forEach { (value, label) ->
+                FilterChip(
+                    selected = config.githubSort == value,
+                    onClick = {
+                        onChange(
+                            value,
+                            config.githubMinStars,
+                            config.githubMaxStars,
+                            config.githubIncludeArchived,
+                        )
+                    },
+                    label = { Text(stringResource(label), style = MaterialTheme.typography.labelSmall) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
+                )
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = minStars,
+                onValueChange = { minStars = it.filter { ch -> ch.isDigit() } },
+                label = { Text(stringResource(R.string.github_min_stars)) },
+                singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
+                ),
+                modifier = Modifier.weight(1f),
+            )
+            OutlinedTextField(
+                value = maxStars,
+                onValueChange = { maxStars = it.filter { ch -> ch.isDigit() } },
+                label = { Text(stringResource(R.string.github_max_stars)) },
+                singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
+                ),
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(
+                checked = config.githubIncludeArchived,
+                onCheckedChange = { checked ->
+                    onChange(
+                        config.githubSort,
+                        parsedMin ?: config.githubMinStars,
+                        parsedMax ?: config.githubMaxStars,
+                        checked,
+                    )
+                },
+            )
+            Text(
+                stringResource(R.string.github_include_archived),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.weight(1f))
+            TextButton(
+                onClick = {
+                    onChange(
+                        config.githubSort,
+                        parsedMin ?: config.githubMinStars,
+                        parsedMax ?: config.githubMaxStars,
+                        config.githubIncludeArchived,
+                    )
+                },
+                enabled = canApply,
+            ) {
+                Text(stringResource(R.string.action_apply))
             }
         }
     }
@@ -288,6 +410,8 @@ private fun optionDisplayName(option: FeedSourceOption): String = when (option) 
     FeedSourceOption.GITHUB_TRENDING_API   -> stringResource(R.string.source_name_github_trending_api)
     FeedSourceOption.OSS_INSIGHT          -> stringResource(R.string.source_name_oss_insight)
     FeedSourceOption.HACKER_NEWS_SHOWHN   -> stringResource(R.string.source_name_hn_showhn)
+    FeedSourceOption.NPM_REGISTRY          -> stringResource(R.string.source_name_npm_registry)
+    FeedSourceOption.LOBSTERS              -> stringResource(R.string.source_name_lobsters)
     FeedSourceOption.REDDIT_TOP           -> stringResource(R.string.source_name_reddit_top)
     FeedSourceOption.GITHUB_EVENTS        -> stringResource(R.string.source_name_github_events)
 }
@@ -298,6 +422,8 @@ private fun optionDescription(option: FeedSourceOption): String = when (option) 
     FeedSourceOption.GITHUB_TRENDING_API   -> stringResource(R.string.source_desc_github_trending_api)
     FeedSourceOption.OSS_INSIGHT          -> stringResource(R.string.source_desc_oss_insight)
     FeedSourceOption.HACKER_NEWS_SHOWHN   -> stringResource(R.string.source_desc_hn_showhn)
+    FeedSourceOption.NPM_REGISTRY          -> stringResource(R.string.source_desc_npm_registry)
+    FeedSourceOption.LOBSTERS              -> stringResource(R.string.source_desc_lobsters)
     FeedSourceOption.REDDIT_TOP           -> stringResource(R.string.source_desc_reddit_top)
     FeedSourceOption.GITHUB_EVENTS        -> stringResource(R.string.source_desc_github_events)
 }

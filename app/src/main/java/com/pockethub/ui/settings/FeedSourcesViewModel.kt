@@ -47,6 +47,18 @@ class FeedSourcesViewModel @Inject constructor(
         }
     }
 
+    fun setGithubOptions(
+        tab: FeedTab,
+        sort: String,
+        minStars: Int,
+        maxStars: Int,
+        includeArchived: Boolean,
+    ) {
+        viewModelScope.launch {
+            repo.setGithubOptions(tab, sort, minStars, maxStars, includeArchived)
+        }
+    }
+
     /** Reset [tab] back to the built-in default source. */
     fun resetTab(tab: FeedTab) {
         viewModelScope.launch {

@@ -146,6 +146,10 @@ class RepoDetailViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    /** Pull-to-refresh state for tabs that do not use the repo loader. */
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     private val _isStarred = MutableStateFlow(false)
     val isStarred: StateFlow<Boolean> = _isStarred.asStateFlow()
 
@@ -195,14 +199,19 @@ class RepoDetailViewModel @Inject constructor(
     private var loadedOwner: String? = null
     private var loadedRepo: String? = null
 
-    fun loadRepo(owner: String, repo: String) {
-        if (loadedOwner == owner && loadedRepo == repo && _repo.value != null) return
+    fun loadRepo(owner: String, repo: String, force: Boolean = false): Job? {
+        if (!force && loadedOwner == owner && loadedRepo == repo && _repo.value != null) return null
         loadedOwner = owner; loadedRepo = repo
         _currentSlug = "$owner/$repo"
-        viewModelScope.launch {
+        return viewModelScope.launch {
             _isLoading.update { true }
             _error.update { null }
             try {
+                if (force) {
+                    cache.invalidateRepo(owner, repo)
+                    _repo.value = null
+                    _readme.value = null
+                }
                 _repo.update { cache.getRepository(owner, repo) }
                 history.recordVisit(owner, repo)
                 loadReadme(owner, repo)
@@ -212,6 +221,30 @@ class RepoDetailViewModel @Inject constructor(
                 _error.update { e.localizedMessage ?: "Failed to load repo" }
             } finally {
                 _isLoading.update { false }
+            }
+        }
+    }
+
+    /** Force-refresh the visible repository tab and its related data. */
+    fun refreshCurrentTab(owner: String, repo: String) {
+        if (_isRefreshing.value) return
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            try {
+                when (currentTab.value) {
+                    RepoTab.OVERVIEW,
+                    RepoTab.CODE,
+                    RepoTab.COMMITS -> loadRepo(owner, repo, force = true)?.join()
+                    RepoTab.ISSUES -> loadIssues(owner, repo, force = true)?.join()
+                    RepoTab.PRS -> loadPulls(owner, repo, force = true)?.join()
+                    RepoTab.RELEASES -> {
+                        cache.invalidateReleases(owner, repo)
+                        loadReleases(owner, repo)?.join()
+                    }
+                    RepoTab.WORKFLOWS -> loadWorkflowRuns(owner, repo)?.join()
+                }
+            } finally {
+                _isRefreshing.value = false
             }
         }
     }
@@ -333,18 +366,18 @@ class RepoDetailViewModel @Inject constructor(
         }
     }
 
-    fun loadIssues(owner: String, repo: String, state: String? = null, force: Boolean = false) {
+    fun loadIssues(owner: String, repo: String, state: String? = null, force: Boolean = false): Job? {
         val effectiveState = state ?: _issueStateFilter.value.apiValue
-        if (!force && loadedIssueState == effectiveState && (_issues.value.isNotEmpty() || _pulls.value.isNotEmpty())) return
+        if (!force && loadedIssueState == effectiveState && (_issues.value.isNotEmpty() || _pulls.value.isNotEmpty())) return null
         loadedIssueState = effectiveState
         issuePage = 1
         issuesCanLoadMore = true
-        fetchIssuesPage(owner, repo, effectiveState, append = false)
+        return fetchIssuesPage(owner, repo, effectiveState, append = false, forceFresh = force)
     }
 
-    fun loadPulls(owner: String, repo: String, state: String? = null, force: Boolean = false) {
+    fun loadPulls(owner: String, repo: String, state: String? = null, force: Boolean = false): Job? {
         // Shares the issues fetch (PRs come from the same endpoint); just ensure loaded.
-        loadIssues(owner, repo, state, force)
+        return loadIssues(owner, repo, state, force)
     }
 
     /** Fetch the next page of issues/PRs for the current filter. */
@@ -355,10 +388,11 @@ class RepoDetailViewModel @Inject constructor(
         fetchIssuesPage(owner, repo, state, append = true)
     }
 
-    private fun fetchIssuesPage(owner: String, repo: String, state: String, append: Boolean) {
-        viewModelScope.launch {
+    private fun fetchIssuesPage(owner: String, repo: String, state: String, append: Boolean, forceFresh: Boolean = false): Job {
+        return viewModelScope.launch {
             if (append) _isLoadingMoreIssues.update { true }
             try {
+                if (forceFresh) cache.invalidateRepo(owner, repo)
                 val all = cache.getIssues(owner, repo, state = state, page = issuePage)
                 val issuesOnly = all.filter { it.pullRequest == null }
                 val pullsOnly = all.filter { it.pullRequest != null }
@@ -384,8 +418,8 @@ class RepoDetailViewModel @Inject constructor(
         }
     }
 
-    fun loadReleases(owner: String, repo: String) {
-        viewModelScope.launch {
+    fun loadReleases(owner: String, repo: String): Job {
+        return viewModelScope.launch {
             try {
                 _releases.update { cache.getReleases(owner, repo) }
             } catch (e: Exception) {
@@ -395,8 +429,8 @@ class RepoDetailViewModel @Inject constructor(
         }
     }
 
-    fun loadWorkflowRuns(owner: String, repo: String, branch: String? = null) {
-        viewModelScope.launch {
+    fun loadWorkflowRuns(owner: String, repo: String, branch: String? = null): Job {
+        return viewModelScope.launch {
             try {
                 val resp = api.getWorkflowRuns(owner, repo, branch = branch)
                 _workflowRuns.update { resp.runs }

@@ -73,11 +73,11 @@ class FeedSourceService @Inject constructor(
         return when (FeedSourceOption.fromId(cfg.sourceId)) {
             FeedSourceOption.GITHUB_TRENDING_API -> {
                 if (!isConfigured(FeedSourceOption.GITHUB_TRENDING_API, cfg.customBaseUrl)) emptyList()
-                    else fetchGitHubTrendingApi(cfg, forceFresh)
+                else fetchGitHubTrendingApi(cfg, forceFresh)
             }
-            // The GitHub REST search-based path is the most stable; it's also the
-            // implicit fallback for anything unexpected so an odd saved config still
-            // shows results rather than blowing up the feed.
+            FeedSourceOption.OSS_INSIGHT -> fetchOssInsight(cfg, forceFresh)
+            // The official GitHub REST search path is the stable zero-config
+            // fallback for old or malformed saved source ids.
             else -> searchGitHub(cfg, forceFresh)
         }
     }
@@ -87,13 +87,18 @@ class FeedSourceService @Inject constructor(
     suspend fun loadFeatured(forceFresh: Boolean): List<DiscoverItem> {
         val cfg = repo.configFlow(FeedTab.FEATURED).first()
         return when (FeedSourceOption.fromId(cfg.sourceId)) {
+            FeedSourceOption.GITHUB_SEARCH -> searchGitHub(cfg, forceFresh)
+            FeedSourceOption.OSS_INSIGHT -> fetchOssInsight(cfg, forceFresh)
             FeedSourceOption.HACKER_NEWS_SHOWHN -> fetchHackerNewsShowHN(forceFresh)
-            FeedSourceOption.REDDIT_TOP         ->
+            FeedSourceOption.NPM_REGISTRY -> fetchNpmRegistry(cfg, forceFresh)
+            FeedSourceOption.LOBSTERS -> fetchLobsters(cfg, forceFresh)
+            FeedSourceOption.REDDIT_TOP ->
                 if (!isConfigured(FeedSourceOption.REDDIT_TOP, cfg.customBaseUrl)) emptyList()
-                else fetchRedditTop(forceFresh)
-            // OSS Insight is the default Featured source; resolve any unrecognised
-            // saved source id back to it to keep the tab from going dark.
-            else -> fetchOssInsight(cfg, forceFresh)
+                else fetchRedditTop(cfg, forceFresh)
+            // Following-only sources are safely mapped to the official feed if
+            // an old install somehow persisted them under Featured.
+            FeedSourceOption.GITHUB_EVENTS,
+            FeedSourceOption.GITHUB_TRENDING_API -> searchGitHub(cfg, forceFresh)
         }
     }
 
@@ -112,14 +117,23 @@ class FeedSourceService @Inject constructor(
             else      -> LocalDate.now().minusDays(1)
         }.format(DateTimeFormatter.ISO_LOCAL_DATE)
         val langPart = if (cfg.trendingLanguage == "All") "" else " language:${cfg.trendingLanguage}"
-        // Cap stars in a rising-star band so we surface newcomers rather than the
-        // evergreen Top-50. Filter out archived repos so we never show "dead" picks.
-        val q = "stars:50..20000$langPart created:>$created archived:false"
+        val minStars = cfg.githubMinStars.coerceAtLeast(0)
+        val maxStars = cfg.githubMaxStars.takeIf { it > minStars }
+        val starPart = if (maxStars != null) "stars:$minStars..$maxStars" else "stars:>=$minStars"
+        val archivedPart = if (cfg.githubIncludeArchived) "" else " archived:false"
+        // The official GitHub Search API is deliberately configurable. These
+        // qualifiers are all supported by GitHub's public REST endpoint, so the
+        // settings page never needs a third-party proxy to tune the feed.
+        val q = "$starPart$langPart created:>$created$archivedPart"
+        val sort = when (cfg.githubSort) {
+            "forks", "updated" -> cfg.githubSort
+            else -> "stars"
+        }
         val perPage = 30
         val result = if (forceFresh) {
-            cache.searchTrendingFresh(query = q, sort = "stars", perPage = perPage)
+            cache.searchTrendingFresh(query = q, sort = sort, perPage = perPage)
         } else {
-            cache.searchTrending(query = q, sort = "stars", perPage = perPage)
+            cache.searchTrending(query = q, sort = sort, perPage = perPage)
         }
         return result.items.map { it.toDiscoverItem() }
     }
@@ -481,11 +495,111 @@ class FeedSourceService @Inject constructor(
         }.sortedByDescending { it.communitySignal?.score ?: 0 }
     }
 
+    // ── npm Registry — public package search, resolved to GitHub repos ───────
+
+    @Serializable
+    private data class NpmSearchResponse(
+        val objects: List<NpmSearchObject> = emptyList(),
+    )
+
+    @Serializable
+    private data class NpmSearchObject(
+        val downloads: NpmDownloads? = null,
+        val `package`: NpmPackage = NpmPackage(),
+    )
+
+    @Serializable
+    private data class NpmDownloads(val monthly: Int = 0)
+
+    @Serializable
+    private data class NpmPackage(
+        val name: String = "",
+        val description: String? = null,
+        val links: NpmLinks? = null,
+        val keywords: List<String> = emptyList(),
+    )
+
+    @Serializable
+    private data class NpmLinks(val repository: String? = null, val homepage: String? = null)
+
+    private suspend fun fetchNpmRegistry(cfg: FeedSourceConfig, forceFresh: Boolean): List<DiscoverItem> {
+        val source = FeedSourceOption.NPM_REGISTRY
+        val base = baseUrlFor(source, cfg.customBaseUrl)
+        if (base.isEmpty()) return emptyList()
+        val url = "${base}-/v1/search?text=keywords%3Aopensource&size=30"
+        val body = requestText(url, forceFresh) ?: return emptyList()
+        val response = runCatching { json.decodeFromString<NpmSearchResponse>(body) }.getOrNull()
+            ?: return emptyList()
+        return response.objects.mapNotNull { row ->
+            val github = HnLinkParser.parseGitHubRepo(row.`package`.links?.repository)
+                ?: HnLinkParser.parseGitHubRepo(row.`package`.links?.homepage)
+                ?: return@mapNotNull null
+            val (owner, repoName) = github
+            DiscoverItem(
+                id = DiscoverItem.stableId(owner, repoName),
+                source = source,
+                owner = owner,
+                repo = repoName,
+                htmlUrl = "https://github.com/$owner/$repoName",
+                description = row.`package`.description,
+                topics = row.`package`.keywords.take(4),
+                ownerAvatarUrl = "https://avatars.githubusercontent.com/$owner",
+                communitySignal = CommunitySignal(
+                    platform = CommunitySignal.Platform.NPM,
+                    postTitle = row.`package`.name,
+                    postUrl = "https://www.npmjs.com/package/${row.`package`.name}",
+                    score = row.downloads?.monthly ?: 0,
+                ),
+            )
+        }.distinctBy { it.id }
+    }
+
+    // ── Lobsters — public JSON feed, filtered to GitHub projects ────────────
+
+    @Serializable
+    private data class LobstersStory(
+        val title: String = "",
+        val url: String? = null,
+        val score: Int = 0,
+        @kotlinx.serialization.SerialName("short_id_url") val shortIdUrl: String = "",
+        val submitter_user: String? = null,
+        val tags: List<String> = emptyList(),
+    )
+
+    private suspend fun fetchLobsters(cfg: FeedSourceConfig, forceFresh: Boolean): List<DiscoverItem> {
+        val source = FeedSourceOption.LOBSTERS
+        val base = baseUrlFor(source, cfg.customBaseUrl)
+        if (base.isEmpty()) return emptyList()
+        val body = requestText("${base}hottest.json", forceFresh) ?: return emptyList()
+        val stories = runCatching { json.decodeFromString<List<LobstersStory>>(body) }.getOrNull()
+            ?: return emptyList()
+        return stories.mapNotNull { story ->
+            val (owner, repoName) = HnLinkParser.parseGitHubRepo(story.url) ?: return@mapNotNull null
+            DiscoverItem(
+                id = DiscoverItem.stableId(owner, repoName),
+                source = source,
+                owner = owner,
+                repo = repoName,
+                htmlUrl = "https://github.com/$owner/$repoName",
+                description = story.title,
+                topics = story.tags.take(4),
+                ownerAvatarUrl = "https://avatars.githubusercontent.com/$owner",
+                communitySignal = CommunitySignal(
+                    platform = CommunitySignal.Platform.LOBSTERS,
+                    postTitle = story.title,
+                    postUrl = story.shortIdUrl,
+                    score = story.score,
+                    author = story.submitter_user,
+                ),
+            )
+        }.distinctBy { it.id }
+    }
+
     // ── Reddit JSON: r/programming + r/androiddev + r/MachineLearning weekly top
 
-    private suspend fun fetchRedditTop(forceFresh: Boolean): List<DiscoverItem> {
+    private suspend fun fetchRedditTop(cfg: FeedSourceConfig, forceFresh: Boolean): List<DiscoverItem> {
         val source = FeedSourceOption.REDDIT_TOP
-        val base = baseUrlFor(source, "")
+        val base = baseUrlFor(source, cfg.customBaseUrl)
         if (base.isEmpty()) return emptyList()
         val subs = listOf("programming", "androiddev", "MachineLearning")
         val limit = if (forceFresh) 30 else 25

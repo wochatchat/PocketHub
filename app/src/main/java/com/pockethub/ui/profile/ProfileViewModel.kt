@@ -91,13 +91,18 @@ class ProfileViewModel @Inject constructor(
 
     init { loadProfile() }
 
-    fun loadProfile() {
+    fun loadProfile(force: Boolean = false) {
         viewModelScope.launch {
             _isLoading.update { true }
             _error.update { null }
             try {
                 val token = accounts.getActiveToken()
                 if (token.isNotBlank()) authInterceptor.token = token
+                if (force) {
+                    cache.invalidateMyRepositories()
+                    _topRepos.value = emptyList()
+                    _events.value = emptyList()
+                }
                 val me = api.getAuthenticatedUser()
                 _user.update { me }
                 // Reset pagination then fetch page 1 (clears anything stale).
@@ -188,6 +193,8 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun refreshWorkList() = loadWorkList(_workTab.value, force = true)
+
+    fun refresh() = loadProfile(force = true)
 
     fun switchAccount(id: Long) {
         viewModelScope.launch {

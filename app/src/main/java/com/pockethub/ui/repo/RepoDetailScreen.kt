@@ -119,6 +119,7 @@ fun RepoDetailScreen(
     val workflowRuns by vm.workflowRuns.collectAsState()
     val readme by vm.readme.collectAsState()
     val isLoading by vm.isLoading.collectAsState()
+    val isRefreshing by vm.isRefreshing.collectAsState()
     val isStarred by vm.isStarred.collectAsState()
     val isPinned by vm.isPinned.collectAsState()
     val isForking by vm.isForking.collectAsState()
@@ -371,6 +372,11 @@ fun RepoDetailScreen(
                 )
             }
 
+            com.pockethub.ui.components.RefreshContainer(
+                isRefreshing = isRefreshing || isLoading,
+                onRefresh = { vm.refreshCurrentTab(owner, repo) },
+                modifier = Modifier.weight(1f),
+            ) {
             when (tab) {
                 RepoTab.OVERVIEW -> OverviewTab(
                     owner,
@@ -450,6 +456,7 @@ fun RepoDetailScreen(
                     onNavigateToUser = onNavigateToUser,
                     onNavigateToWorkflowRun = onNavigateToWorkflowRun,
                 )
+            }
             }
         }
     }

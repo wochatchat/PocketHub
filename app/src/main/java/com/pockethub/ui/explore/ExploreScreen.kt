@@ -126,8 +126,13 @@ fun ExploreScreen(
         ExploreSection.FOLLOWING -> followingSource
     }
 
+        com.pockethub.ui.components.RefreshContainer(
+            isRefreshing = isLoading,
+            onRefresh = { vm.refresh() },
+            modifier = modifier,
+        ) {
         LazyColumn(
-            modifier = modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             // Section switcher (Trending / Featured / Following)
@@ -363,6 +368,7 @@ fun ExploreScreen(
                 }
             }
         }
+        }
     }
 
 @Composable
@@ -371,6 +377,8 @@ private fun sourceDisplayName(source: FeedSourceOption): String = when (source) 
     FeedSourceOption.GITHUB_TRENDING_API   -> stringResource(R.string.source_name_github_trending_api)
     FeedSourceOption.OSS_INSIGHT          -> stringResource(R.string.source_name_oss_insight)
     FeedSourceOption.HACKER_NEWS_SHOWHN   -> stringResource(R.string.source_name_hn_showhn)
+    FeedSourceOption.NPM_REGISTRY          -> stringResource(R.string.source_name_npm_registry)
+    FeedSourceOption.LOBSTERS              -> stringResource(R.string.source_name_lobsters)
     FeedSourceOption.REDDIT_TOP           -> stringResource(R.string.source_name_reddit_top)
     FeedSourceOption.GITHUB_EVENTS        -> stringResource(R.string.source_name_github_events)
 }
@@ -714,11 +722,17 @@ private fun DiscoverItemCard(
 private fun CommunitySignalRow(sig: CommunitySignal) {
     val platformLabel = when (sig.platform) {
         CommunitySignal.Platform.HACKER_NEWS -> stringResource(R.string.feed_signal_hn)
-        CommunitySignal.Platform.REDDIT     -> stringResource(R.string.feed_signal_reddit, sig.subreddit.orEmpty())
+        CommunitySignal.Platform.REDDIT -> stringResource(R.string.feed_signal_reddit, sig.subreddit.orEmpty())
+        CommunitySignal.Platform.NPM -> stringResource(R.string.feed_signal_npm)
+        CommunitySignal.Platform.LOBSTERS -> stringResource(R.string.feed_signal_lobsters)
     }
     val line = buildString {
         append(platformLabel)
-        if (sig.score > 0) append("  ·  ").append(stringResource(R.string.feed_signal_score, sig.score))
+        if (sig.platform == CommunitySignal.Platform.NPM && sig.score > 0) {
+            append("  ·  ").append(stringResource(R.string.feed_signal_downloads, formatCount(sig.score)))
+        } else if (sig.score > 0) {
+            append("  ·  ").append(stringResource(R.string.feed_signal_score, formatCount(sig.score)))
+        }
         if (!sig.author.isNullOrBlank()) append("  ·  ").append(stringResource(R.string.feed_signal_by, sig.author))
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
