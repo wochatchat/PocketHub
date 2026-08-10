@@ -14,7 +14,10 @@ keystore.properties
 signing/
 signing.properties.bak
 
-# Keep: release.keystore, signing.properties, apk/*.apk (archived)
-# Do NOT ignore these — they must be committed for CI reproducible builds
+# Release APKs are generated artifacts. Keep them out of Git history;
+# build.yml uploads the generated APK directly to the GitHub Release.
+apk/*.apk
+
+# CI signing inputs remain tracked for the existing release pipeline.
 !release.keystore
 !signing.properties

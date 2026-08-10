@@ -5,16 +5,25 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Never let two release jobs race over version.properties, APKs and tags.
+concurrency:
+  group: pockethub-release-main
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
 
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          # Full history made checkout grow to ~1 GB because every release APK
+          # used to be committed. The build only needs the current tree.
+          fetch-depth: 1
+          fetch-tags: false
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
