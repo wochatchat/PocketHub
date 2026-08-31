@@ -91,17 +91,17 @@ fun OfflineReposScreen(
                     title = stringResource(R.string.offline_repos_empty),
                 )
             }
-            return
-        }
-        LazyColumn(
-            Modifier.padding(padding).fillMaxSize(),
-        ) {
-            items(repos, key = { it.url }) { entity ->
-                OfflineRepoRow(
-                    entity = entity,
-                    onClick = { onOpenRepo(entity.url, entity.fileName) },
-                )
-                Spacer(Modifier.height(10.dp))
+        } else {
+            LazyColumn(
+                Modifier.padding(padding).fillMaxSize(),
+            ) {
+                items(repos, key = { it.url }) { entity ->
+                    OfflineRepoRow(
+                        entity = entity,
+                        onClick = { onOpenRepo(entity.url, entity.fileName) },
+                    )
+                    Spacer(Modifier.height(10.dp))
+                }
             }
         }
     }

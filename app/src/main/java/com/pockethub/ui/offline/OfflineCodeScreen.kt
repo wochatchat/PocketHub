@@ -93,15 +93,3 @@ fun OfflineCodeScreen(
 ) {
     FullScreenFileViewer(vm = vm, onDismiss = onBack)
 }
-
-/**
- * Navigation destination wrapping the shared [FullScreenFileViewer] with the
- * offline [OfflineCodeViewModel] — full-screen, file-tree equipped, offline.
- */
-@Composable
-fun OfflineCodeScreen(
-    onBack: () -> Unit,
-    vm: OfflineCodeViewModel = hiltViewModel(),
-) {
-    FullScreenFileViewer(vm = vm, onDismiss = onBack)
-}
