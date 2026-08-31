@@ -462,11 +462,23 @@ class FeedSourceService @Inject constructor(
     // cached-data/{category}/{platform}.json whose envelope is
     // { category, platform, lastUpdated, totalCount, repositories: [...] }.
 
+    /** Valid filter values for the top-charts source (backend-enforced). */
+    private val KOMI_CHART_CATEGORIES = setOf("trending", "new-releases", "most-popular")
+    private val KOMI_CHART_PLATFORMS = setOf("android", "windows", "macos", "linux")
+
+    /** Discovery feed additionally accepts the "all platforms" bucket. */
+    private val KOMI_DISCOVER_PLATFORM_SET = KOMI_CHART_PLATFORMS + "all"
+
     private suspend fun fetchKomiTopCharts(cfg: FeedSourceConfig, forceFresh: Boolean): List<DiscoverItem> {
         val source = FeedSourceOption.KOMI_TOP_CHARTS
         val base = baseUrlFor(source, cfg.customBaseUrl)
-        val category = cfg.komiCategory.ifBlank { "trending" }
-        val platform = cfg.komiPlatform.ifBlank { "android" }
+        // Sanitize against stale persisted filters: komiCategory/komiPlatform
+        // are stored per-tab and SHARED across sources, so an "all" platform
+        // saved while using the discovery feed leaks into the charts source —
+        // where neither the backend (400 Invalid platform) nor the mirrors
+        // (404, no all.json) have an "all" bucket, and the tab renders empty.
+        val category = cfg.komiCategory.takeIf { it in KOMI_CHART_CATEGORIES } ?: "trending"
+        val platform = cfg.komiPlatform.takeIf { it in KOMI_CHART_PLATFORMS } ?: "android"
 
         val primaryUrl = base.ifEmpty { "https://api.github-store.org/v1/" } + "categories/$category/$platform"
         // Offline mirrors (same items, wrapped in a { repositories: [...] }
@@ -555,7 +567,7 @@ class FeedSourceService @Inject constructor(
     private suspend fun fetchKomiDiscoverFeed(cfg: FeedSourceConfig, forceFresh: Boolean): List<DiscoverItem> {
         val source = FeedSourceOption.KOMI_DISCOVER
         val base = baseUrlFor(source, cfg.customBaseUrl).ifEmpty { "https://api.github-store.org/v1/" }
-        val platform = cfg.komiPlatform.ifBlank { "android" }
+        val platform = cfg.komiPlatform.takeIf { it in KOMI_DISCOVER_PLATFORM_SET } ?: "android"
         // The backend treats a MISSING platform param as "all platforms"; a
         // literal "all" (or empty value) is rejected with "Invalid platform".
         val primaryUrl = if (platform == "all") {
