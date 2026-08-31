@@ -161,19 +161,48 @@ internal fun FullScreenFileViewer(
         scope.launch { dragState.animateTo(TreeSide.Closed) }
     }
 
-    // Handover between the code scroller and the sliding unit: while the
-    // code body can consume a horizontal drag it keeps it; once it hits a
-    // scroll edge the leftover delta drives the unit (rightward swipes at
-    // the code's start pull the tree out, leftward swipes at its end push
-    // it back), and the fling velocity settles it at the nearest anchor.
-    // Nested-scroll deltas arrive in raw pointer direction (positive x =
-    // finger right = offset grows), so they map 1:1 onto the offset.
+    // Handover between the code scroller and the sliding unit, with
+    // drawer-priority while the unit is open:
+    //  • unit open + leftward drag/fling → the whole unit slides (or
+    //    settles) as one; the code scroller never sees the delta
+    //    (onPreScroll/onPreFling). Once fully closed the hand-back is
+    //    automatic: continued leftward drags scroll the code.
+    //  • unit hidden → the code scroller keeps every drag it can consume;
+    //    only leftover deltas at the code's scroll edges drive the unit
+    //    (onPostScroll: rightward at line start pulls the tree out).
+    //  • release always settles the unit fully open/closed (halfway +
+    //    velocity). Nested-scroll deltas are raw pointer direction
+    //    (positive x = finger right = offset grows), 1:1 with the offset.
     val bodyNestedScroll = remember {
         object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                // While the unit is open (even partially), a leftward drag
+                // belongs to the drawer: consume it BEFORE the code scroller
+                // sees it so the tree and the code slide as one unit. Once
+                // fully closed the hand-back is automatic — continued
+                // leftward drags scroll the code again.
+                if (source != NestedScrollSource.UserInput || available.x >= 0f) return Offset.Zero
+                val off = dragState.offset
+                if (off.isNaN() || off <= 0f || dragState.isAnimationRunning) return Offset.Zero
+                val used = dragState.dispatchRawDelta(available.x)
+                return Offset(used, 0f)
+            }
+
             override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
                 if (available.x == 0f || dragState.isAnimationRunning) return Offset.Zero
                 val used = dragState.dispatchRawDelta(available.x)
                 return Offset(used, 0f)
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                // Same priority rule for the release fling: while the unit
+                // is open, a leftward fling settles the drawer (with real
+                // inertia) instead of fling-scrolling the code.
+                val off = dragState.offset
+                if (off.isNaN() || off <= 0f || dragState.isAnimationRunning) return Velocity.Zero
+                if (available.x >= 0f) return Velocity.Zero
+                val settled = dragState.settle(available.x)
+                return Velocity(-settled, 0f)
             }
 
             override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
