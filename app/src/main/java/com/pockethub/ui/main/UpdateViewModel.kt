@@ -215,7 +215,14 @@ class UpdateViewModel @Inject constructor(
                     val mirrored = com.pockethub.util.applyMirrorPrefix(url, settings.downloadMirrorPrefix.first())
                     // GitHub CDN issues redirects to release-assets; follow them.
                     // (OkHttp preserves the Range header across redirect hops.)
-                    val dlClient = client.newBuilder().followRedirects(true).build()
+                    // An explicit 30s read timeout turns stalled VPN/proxy
+                    // connections into a fast SocketTimeout → auto-resume with the
+                    // .part tail, instead of hanging for the shared client's
+                    // default timeout on every stall.
+                    val dlClient = client.newBuilder()
+                        .followRedirects(true)
+                        .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                        .build()
 
                     // Byte-range resume: a leftover .part file (previous failure /
                     // app kill) re-requests only the missing tail — 206 appends,
@@ -224,9 +231,11 @@ class UpdateViewModel @Inject constructor(
                     // up to MAX_RESUME times with a linear backoff.
                     var droppedStale = false
                     var autoResumes = 0
+                    var bytesAtAttemptStart = 0L
                     while (true) {
                         try {
                             val base = if (tmp.exists()) tmp.length() else 0L
+                            bytesAtAttemptStart = base
                             val req = Request.Builder().url(mirrored)
                             if (base > 0) req.header("Range", "bytes=$base-")
                             var retryStale = false
@@ -267,6 +276,14 @@ class UpdateViewModel @Inject constructor(
                                                 lastEmit = read
                                             }
                                         }
+                                        // Integrity: a "clean" stream end short of
+                                        // Content-Length (proxies love doing this) must
+                                        // NOT rename a corrupt APK into place — throw so
+                                        // the resume loop fetches the tail.
+                                        val written = already + read
+                                        if (total > 0 && written < total) {
+                                            throw java.io.IOException("Truncated download: $written/$total")
+                                        }
                                     }
                                 }
                             }
@@ -287,12 +304,15 @@ class UpdateViewModel @Inject constructor(
                         } catch (e: kotlinx.coroutines.CancellationException) {
                             throw e
                         } catch (e: java.io.IOException) {
-                            // Transient network error mid-transfer: the .part file kept
-                            // everything downloaded so far — loop re-issues the Range
-                            // request and only fetches the tail.
-                            if (autoResumes >= MAX_RESUME) throw e
-                            autoResumes++
-                            kotlinx.coroutines.delay(RESUME_BACKOFF_MS * autoResumes)
+                            // Transient network error mid-transfer (EOF, HTTP/2
+                            // "stream was reset", socket timeout …): the .part file
+                            // kept everything downloaded so far — the loop re-issues
+                            // the Range request and only fetches the tail. Any
+                            // attempt that grew the file resets the budget, so a
+                            // long download rides out unbounded hiccups.
+                            autoResumes = if (tmp.length() > bytesAtAttemptStart) 0 else autoResumes + 1
+                            if (autoResumes > MAX_RESUME) throw e
+                            kotlinx.coroutines.delay(minOf(RESUME_BACKOFF_MS * autoResumes, MAX_BACKOFF_MS))
                         }
                     }
                 }
@@ -347,10 +367,16 @@ class UpdateViewModel @Inject constructor(
     }
 
     private companion object {
-        /** Bounded auto-resume attempts for transient network errors (EOF mid-stream etc.). */
-        const val MAX_RESUME = 3
+        /** Consecutive zero-progress auto-resume attempts before giving up.
+         *  Attempts that DID grow the .part file reset the budget, so a long
+         *  transfer survives unbounded hiccups on a flaky network — only a
+         *  truly dead path (server refuses Range, no bytes flowing) aborts. */
+        const val MAX_RESUME = 8
 
         /** Linear backoff between auto-resume attempts, multiplied by the attempt number. */
         const val RESUME_BACKOFF_MS = 1_500L
+
+        /** Upper bound for the backoff delay. */
+        const val MAX_BACKOFF_MS = 15_000L
     }
 }
