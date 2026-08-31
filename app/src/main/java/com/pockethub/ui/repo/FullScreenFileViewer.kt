@@ -61,17 +61,29 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.pockethub.R
 import com.pockethub.data.remote.GitHubApi
+import kotlinx.coroutines.flow.StateFlow
+
+/**
+ * Data surface the full-screen viewer needs. Implemented by the GitHub-backed
+ * [CodeBrowserViewModel] and the offline zip viewer ([com.pockethub.ui.offline.OfflineCodeViewModel]),
+ * so the IDE-style UI (file tree + syntax-highlighted body) is shared verbatim.
+ */
+interface FullScreenViewerHost {
+    val state: StateFlow<CodeBrowserViewModel.State>
+    fun loadTree()
+    fun openFile(entry: GitHubApi.ContentEntry)
+}
 
 /**
  * IDE-style full-screen code viewer: top bar (file name/path + tree toggle +
  * copy), a collapsible left file-tree panel (recursive git tree with
  * expandable folders, current file highlighted) and the syntax-highlighted
- * code body. Shares the host screen's [CodeBrowserViewModel].
+ * code body. Hosted by any [FullScreenViewerHost].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun FullScreenFileViewer(
-    vm: CodeBrowserViewModel,
+    vm: FullScreenViewerHost,
     onDismiss: () -> Unit,
 ) {
     val state by vm.state.collectAsState()
@@ -145,6 +157,19 @@ internal fun FullScreenFileViewer(
                             fileName = entry.name,
                             modifier = Modifier.fillMaxSize(),
                         )
+                        // Viewer-host errors: offline markers get real copy,
+                        // anything else is already a user-readable message.
+                        state.error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(
+                                when (state.error) {
+                                    "extract_failed" -> stringResource(R.string.offline_extract_failed)
+                                    "unpreviewable" -> stringResource(R.string.binary_preview_unavailable)
+                                    else -> state.error!!
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         else -> EmptyHint()
                     }
                 }
@@ -222,7 +247,7 @@ private data class TreeRow(
  */
 @Composable
 private fun FileTreePanel(
-    vm: CodeBrowserViewModel,
+    vm: FullScreenViewerHost,
     modifier: Modifier = Modifier,
 ) {
     val state by vm.state.collectAsState()

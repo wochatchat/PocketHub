@@ -59,10 +59,15 @@ object Routes {
     const val USER_DETAIL = "user/{login}?followTab={followTab}"
     const val HISTORY = "history"
     const val DOWNLOADS = "downloads?tab={tab}"
+    const val OFFLINE_REPOS = "offline_repos"
+    const val OFFLINE_CODE = "offline_code?url={url}&name={name}"
     const val IMAGE_PREVIEW = "image_preview?url={url}&gallery={gallery}&index={index}"
     const val FILE_VIEWER = "repo/{owner}/{repo}/file?path={path}&ref={ref}"
 
     fun downloads(tab: String = "active") = "downloads?tab=$tab"
+    fun offlineCode(url: String, name: String) =
+        "offline_code?url=" + java.net.URLEncoder.encode(url, "UTF-8") +
+            "&name=" + java.net.URLEncoder.encode(name, "UTF-8")
     fun imagePreview(url: String, gallery: List<String> = emptyList(), startIndex: Int = 0) =
         "image_preview?url=" + java.net.URLEncoder.encode(url, "UTF-8") +
             "&gallery=" + java.net.URLEncoder.encode(gallery.joinToString("\n"), "UTF-8") +
@@ -296,7 +301,27 @@ fun PocketHubApp(
                     SettingsScreen(
                         onBack = { navController.popBackStack() },
                         onNavigateToFeedSources = { navController.navigate(Routes.FEED_SOURCES) },
+                        onNavigateToOfflineRepos = { navController.navigate(Routes.OFFLINE_REPOS) },
                         onSignOut = { appVm.signOut() },
+                    )
+                }
+
+                composable(Routes.OFFLINE_REPOS) {
+                    com.pockethub.ui.offline.OfflineReposScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenRepo = { url, name -> navController.navigate(Routes.offlineCode(url, name)) },
+                    )
+                }
+
+                composable(
+                    Routes.OFFLINE_CODE,
+                    arguments = listOf(
+                        navArgument("url") { type = NavType.StringType },
+                        navArgument("name") { type = NavType.StringType; defaultValue = "" },
+                    ),
+                ) {
+                    com.pockethub.ui.offline.OfflineCodeScreen(
+                        onBack = { navController.popBackStack() },
                     )
                 }
 

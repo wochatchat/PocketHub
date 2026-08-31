@@ -4,7 +4,7 @@ name: Compile Check
 # No version bump, no APK archive, no release — those stay in build.yml (main).
 on:
   push:
-    branches: [fix, 'refactor/**', net]
+    branches: [fix, 'refactor/**', net, 'feature/**']
   pull_request:
   workflow_dispatch:
 

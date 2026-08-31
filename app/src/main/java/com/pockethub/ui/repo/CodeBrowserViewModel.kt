@@ -39,7 +39,7 @@ private const val MAX_LAST_COMMIT_FETCH = 60
 class CodeBrowserViewModel @Inject constructor(
     private val api: GitHubApi,
     private val json: Json,
-    private val issueReporter: com.pockethub.data.reporting.IssueReporter,) : ViewModel() {
+    private val issueReporter: com.pockethub.data.reporting.IssueReporter,) : ViewModel(), FullScreenViewerHost {
 
     /** Per-path last commit info (message + date), cached across navigations. */
     data class LastCommit(
@@ -71,7 +71,7 @@ class CodeBrowserViewModel @Inject constructor(
     )
 
     private val _state = MutableStateFlow(State())
-    val state: StateFlow<State> = _state.asStateFlow()
+    override val state: StateFlow<State> = _state.asStateFlow()
 
     /** Persistent commit cache keyed by `${owner}/${repo}@${ref}::<path>` to avoid refetching. */
     private val commitCache = mutableMapOf<String, LastCommit>()
@@ -170,7 +170,7 @@ class CodeBrowserViewModel @Inject constructor(
     }
 
     /** Open a single file: fetch its content (ContentEntry with base64) and show inline. */
-    fun openFile(entry: GitHubApi.ContentEntry) {
+    override fun openFile(entry: GitHubApi.ContentEntry) {
         val s = _state.value
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, viewingFile = entry, error = null) }
@@ -241,7 +241,7 @@ class CodeBrowserViewModel @Inject constructor(
      * Fetch the full recursive file tree once per ref (used by the full-screen
      * viewer's file-tree panel). Cached in [State.fullTree] until the ref changes.
      */
-    fun loadTree() {
+    override fun loadTree() {
         val s = _state.value
         if (s.fullTree.isNotEmpty() || s.isLoadingTree) return
         viewModelScope.launch {

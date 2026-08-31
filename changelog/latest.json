@@ -1,11 +1,11 @@
 {
-  "version": "0.3.66",
+  "version": "0.3.67",
   "summary": {
-    "zh": "本次更新修复了动态列表里推送事件点击无法打开 commit 详情的问题。",
-    "en": "Push events in the activity list now open the corresponding commit detail when tapped."
+    "zh": "设置新增\"数据\"栏，离线仓库上线：已下载的 zip 可以断网浏览代码了。",
+    "en": "Settings gains a Data section and offline repositories: downloaded repo zips are now browsable without a network."
   },
   "items": [
-    { "type": "fix", "zh": "动态列表的推送事件点击现在会跳转到对应 commit 详情页，不再只能进仓库", "en": "Tapping a push event now opens the commit detail page instead of only the repository" },
-    { "type": "fix", "zh": "推送事件卡片重新显示推送分支名（GitHub 接口已不再返回 commit 内容）", "en": "Push event cards show the pushed branch name again (GitHub no longer returns commit contents on events)" }
+    { "type": "feat", "zh": "新增离线仓库：列表展示已下载的 zip 归档，点击进入全屏代码浏览器（带 IDE 风格文件树），全程离线可用", "en": "New offline repositories: downloaded zips are listed and open in the full-screen code viewer with the IDE-style file tree, fully offline" },
+    { "type": "improve", "zh": "设置新增\"数据\"栏，下载加速镜像与清除缓存移入其中", "en": "Settings gains a Data section; the download mirror and clear-cache entries moved there" }
   ]
 }

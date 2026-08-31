@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.Brightness2
 import androidx.compose.material.icons.outlined.Brightness6
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CleaningServices
+import androidx.compose.material.icons.outlined.FolderZip
 import androidx.compose.material.icons.outlined.GTranslate
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.RocketLaunch
@@ -92,6 +93,7 @@ import com.pockethub.ui.components.SectionHeader
 fun SettingsScreen(
     onBack: () -> Unit,
     onNavigateToFeedSources: () -> Unit = {},
+    onNavigateToOfflineRepos: () -> Unit = {},
     onSignOut: () -> Unit = {},
     vm: SettingsViewModel = hiltViewModel(),
 ) {
@@ -230,6 +232,26 @@ fun SettingsScreen(
                 modifier = Modifier.clickable { showOAuthSheet = true },
             )
             ListItem(
+                leadingContent = { Icon(Icons.Outlined.Logout, contentDescription = null) },
+                headlineContent = { Text(stringResource(R.string.action_sign_out)) },
+                supportingContent = { Text(stringResource(R.string.sign_out_summary)) },
+                modifier = Modifier.clickable { showSignOutDialog = true },
+            )
+                }
+            }
+
+            // Data management — moved out of the account section: storage and
+            // network tweaks have nothing to do with account identity.
+            SectionHeader(stringResource(R.string.section_data))
+            com.pockethub.ui.components.PhCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), cornerRadius = 18.dp) {
+                Column {
+            ListItem(
+                leadingContent = { Icon(Icons.Outlined.FolderZip, contentDescription = null) },
+                headlineContent = { Text(stringResource(R.string.offline_repos)) },
+                supportingContent = { Text(stringResource(R.string.offline_repos_summary)) },
+                modifier = Modifier.clickable { onNavigateToOfflineRepos() },
+            )
+            ListItem(
                 leadingContent = { Icon(Icons.Outlined.RocketLaunch, contentDescription = null) },
                 headlineContent = { Text(stringResource(R.string.mirror_prefix_title)) },
                 supportingContent = { Text(if (downloadMirrorPrefix.isBlank()) stringResource(R.string.mirror_prefix_not_set) else stringResource(R.string.mirror_prefix_set, downloadMirrorPrefix)) },
@@ -246,12 +268,6 @@ fun SettingsScreen(
                         snackbarHostState.showSnackbar(context.getString(R.string.cache_cleared))
                     }
                 },
-            )
-            ListItem(
-                leadingContent = { Icon(Icons.Outlined.Logout, contentDescription = null) },
-                headlineContent = { Text(stringResource(R.string.action_sign_out)) },
-                supportingContent = { Text(stringResource(R.string.sign_out_summary)) },
-                modifier = Modifier.clickable { showSignOutDialog = true },
             )
                 }
             }

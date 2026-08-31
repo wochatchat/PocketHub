@@ -468,6 +468,11 @@
     <string name="custom_oauth_client_configured">Client ID %1$s…</string>
     <string name="clear_cache">Clear cache</string>
     <string name="clear_cache_summary">Currently %1$s</string>
+    <string name="section_data">Data</string>
+    <string name="offline_repos">Offline repositories</string>
+    <string name="offline_repos_summary">Browse downloaded repo zips — works fully offline</string>
+    <string name="offline_repos_empty">No offline repositories yet\nDownload a repo zip first</string>
+    <string name="offline_extract_failed">Failed to extract the zip archive</string>
     <string name="accounts_summary">%1$d account(s) stored</string>
     <string name="section_privacy_security">Privacy &amp; Security</string>
     <string name="section_about">About</string>
