@@ -2,7 +2,8 @@ package com.pockethub.ui.repo
 
 import com.pockethub.R
 import com.pockethub.util.userMessage
-import com.pockethub.ui.components.ChipListEditor
+import com.pockethub.ui.components.AssigneePicker
+import com.pockethub.ui.components.LabelPicker
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -69,7 +70,10 @@ fun CreateIssueScreen(
     onIssueCreated: (Int) -> Unit,
     vm: CreateIssueViewModel = hiltViewModel(),
 ) {
-    LaunchedEffect(owner, repo) { vm.loadTemplates(owner, repo) }
+    LaunchedEffect(owner, repo) {
+        vm.loadTemplates(owner, repo)
+        vm.loadMetadata(owner, repo)
+    }
     val templates by vm.templates.collectAsState()
     val isLoadingTemplates by vm.isLoadingTemplates.collectAsState()
     val selectedTemplate by vm.selectedTemplate.collectAsState()
@@ -266,6 +270,9 @@ private fun FormIssueEditor(
     val isSending by vm.isSending.collectAsState()
     val labels by vm.labels.collectAsState()
     val assignees by vm.assignees.collectAsState()
+    val repoLabels by vm.repoLabels.collectAsState()
+    val assignableUsers by vm.assignableUsers.collectAsState()
+    val canSetMetadata by vm.canSetMetadata.collectAsState()
     val result by vm.result.collectAsState()
     val actionError by vm.actionError.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -327,25 +334,22 @@ private fun FormIssueEditor(
                 onAnswerChange = vm::updateAnswer,
             )
 
-            ChipListEditor(
-                title = stringResource(R.string.labels_section_title),
-                items = labels,
-                inputHint = stringResource(R.string.label_input_hint),
-                emptyText = stringResource(R.string.no_labels),
-                enabled = !isSending,
-                onAdd = vm::addLabel,
-                onRemove = vm::removeLabel,
-            )
-
-            ChipListEditor(
-                title = stringResource(R.string.assignees_section_title),
-                items = assignees,
-                inputHint = stringResource(R.string.assignee_input_hint),
-                emptyText = stringResource(R.string.no_assignees),
-                enabled = !isSending,
-                onAdd = vm::addAssignee,
-                onRemove = vm::removeAssignee,
-            )
+            // GitHub ignores labels/assignees from users without push
+            // access, so the pickers only render for maintainers.
+            if (canSetMetadata) {
+                LabelPicker(
+                    labels = repoLabels,
+                    selected = labels,
+                    enabled = !isSending,
+                    onToggle = vm::toggleLabel,
+                )
+                AssigneePicker(
+                    users = assignableUsers,
+                    selected = assignees,
+                    enabled = !isSending,
+                    onToggle = vm::toggleAssignee,
+                )
+            }
 
             Button(
                 onClick = { vm.submitForm(owner, repo, title) },
@@ -418,6 +422,9 @@ private fun IssueEditor(
     val isSending by vm.isSending.collectAsState()
     val labels by vm.labels.collectAsState()
     val assignees by vm.assignees.collectAsState()
+    val repoLabels by vm.repoLabels.collectAsState()
+    val assignableUsers by vm.assignableUsers.collectAsState()
+    val canSetMetadata by vm.canSetMetadata.collectAsState()
     val result by vm.result.collectAsState()
     val actionError by vm.actionError.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -466,25 +473,22 @@ private fun IssueEditor(
                 enabled = !isSending,
             )
 
-            ChipListEditor(
-                title = stringResource(R.string.labels_section_title),
-                items = labels,
-                inputHint = stringResource(R.string.label_input_hint),
-                emptyText = stringResource(R.string.no_labels),
-                enabled = !isSending,
-                onAdd = vm::addLabel,
-                onRemove = vm::removeLabel,
-            )
-
-            ChipListEditor(
-                title = stringResource(R.string.assignees_section_title),
-                items = assignees,
-                inputHint = stringResource(R.string.assignee_input_hint),
-                emptyText = stringResource(R.string.no_assignees),
-                enabled = !isSending,
-                onAdd = vm::addAssignee,
-                onRemove = vm::removeAssignee,
-            )
+            // GitHub ignores labels/assignees from users without push
+            // access, so the pickers only render for maintainers.
+            if (canSetMetadata) {
+                LabelPicker(
+                    labels = repoLabels,
+                    selected = labels,
+                    enabled = !isSending,
+                    onToggle = vm::toggleLabel,
+                )
+                AssigneePicker(
+                    users = assignableUsers,
+                    selected = assignees,
+                    enabled = !isSending,
+                    onToggle = vm::toggleAssignee,
+                )
+            }
 
             Button(
                 onClick = { vm.createIssue(owner, repo, title, body) },

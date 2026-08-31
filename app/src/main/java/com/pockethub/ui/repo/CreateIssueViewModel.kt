@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import com.pockethub.util.userMessage
 import androidx.lifecycle.viewModelScope
 import com.pockethub.data.model.Issue
+import com.pockethub.data.model.User
 import com.pockethub.data.remote.GitHubApi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -85,6 +86,47 @@ class CreateIssueViewModel @Inject constructor(
     /** Editor state — assignees selected for the new issue. Prefilled from template front-matter. */
     private val _assignees = MutableStateFlow<List<String>>(emptyList())
     val assignees: StateFlow<List<String>> = _assignees.asStateFlow()
+
+    // ── Picker metadata: preset labels, assignable users, push access ───
+    // GitHub silently drops labels/assignees from users without push
+    // access, and auto-creates unknown label names in the repo — so the
+    // editors only offer the repo's real presets, and only for maintainers.
+
+    private val _repoLabels = MutableStateFlow<List<Issue.Label>>(emptyList())
+    val repoLabels: StateFlow<List<Issue.Label>> = _repoLabels.asStateFlow()
+
+    private val _assignableUsers = MutableStateFlow<List<User>>(emptyList())
+    val assignableUsers: StateFlow<List<User>> = _assignableUsers.asStateFlow()
+
+    /** True when the viewer has push access — gates the label/assignee pickers. */
+    private val _canSetMetadata = MutableStateFlow(false)
+    val canSetMetadata: StateFlow<Boolean> = _canSetMetadata.asStateFlow()
+
+    private var metadataLoaded = false
+
+    /**
+     * Best-effort fetch of the picker data: repo permission, preset labels
+     * and assignable users. Everything is non-fatal — on failure the
+     * pickers simply stay hidden (or empty) and issue creation still works.
+     * [force] re-runs after a failed first attempt (template retry).
+     */
+    fun loadMetadata(owner: String, repo: String, force: Boolean = false) {
+        if (metadataLoaded && !force) return
+        metadataLoaded = true
+        viewModelScope.launch {
+            val info = runCatching { api.getRepository(owner, repo) }.getOrNull()
+            _canSetMetadata.value = info?.permissions?.push == true
+            if (!_canSetMetadata.value) return@launch
+            launch {
+                runCatching { api.getRepositoryLabels(owner, repo) }
+                    .onSuccess { _repoLabels.value = it }
+            }
+            launch {
+                runCatching { api.getRepositoryAssignees(owner, repo) }
+                    .onSuccess { _assignableUsers.value = it }
+            }
+        }
+    }
 
     private val _templatesFailed = MutableStateFlow(false)
 
@@ -284,26 +326,26 @@ class CreateIssueViewModel @Inject constructor(
         }
     }
 
-    fun addLabel(value: String) {
-        val v = value.trim()
-        if (v.isEmpty()) return
-        if (_labels.value.any { it.equals(v, ignoreCase = true) }) return
-        _labels.update { it + v }
+    /** Toggle a preset label in the selection (case-insensitive). */
+    fun toggleLabel(name: String) {
+        _labels.update { list ->
+            if (list.any { it.equals(name, ignoreCase = true) }) {
+                list.filterNot { it.equals(name, ignoreCase = true) }
+            } else {
+                list + name
+            }
+        }
     }
 
-    fun removeLabel(value: String) {
-        _labels.update { list -> list.filterNot { it.equals(value, ignoreCase = true) } }
-    }
-
-    fun addAssignee(value: String) {
-        val v = value.trim()
-        if (v.isEmpty()) return
-        if (_assignees.value.any { it.equals(v, ignoreCase = true) }) return
-        _assignees.update { it + v }
-    }
-
-    fun removeAssignee(value: String) {
-        _assignees.update { list -> list.filterNot { it.equals(value, ignoreCase = true) } }
+    /** Toggle an assignable user in the selection (case-insensitive). */
+    fun toggleAssignee(login: String) {
+        _assignees.update { list ->
+            if (list.any { it.equals(login, ignoreCase = true) }) {
+                list.filterNot { it.equals(login, ignoreCase = true) }
+            } else {
+                list + login
+            }
+        }
     }
 
     fun createIssue(owner: String, repo: String, title: String, body: String?) {
@@ -312,15 +354,22 @@ class CreateIssueViewModel @Inject constructor(
             _isSending.value = true
             _actionError.value = null
             try {
-                // Labels/assignees come from editor state — initialized from template
-                // front-matter (see selectTemplate) but user-editable in the issue editor.
+                // Defense in depth: only send labels/assignees GitHub will
+                // honor. Unknown label names get auto-created in the repo
+                // (polluting it), and non-assignable logins are silently
+                // dropped — drop both here regardless of what the editors
+                // collected (also guards template front-matter).
+                val knownLabels = _repoLabels.value.map { it.name }
+                val knownUsers = _assignableUsers.value.map { it.login }
+                val labels = _labels.value.filter { l -> knownLabels.any { it.equals(l, ignoreCase = true) } }
+                val assignees = _assignees.value.filter { a -> knownUsers.any { it.equals(a, ignoreCase = true) } }
                 val issue = api.createIssue(
                     owner, repo,
                     GitHubApi.IssueCreateRequest(
                         title = title,
                         body = body?.takeIf { it.isNotBlank() },
-                        labels = _labels.value,
-                        assignees = _assignees.value,
+                        labels = labels,
+                        assignees = assignees,
                     ),
                 )
                 _result.value = Result.success(issue)

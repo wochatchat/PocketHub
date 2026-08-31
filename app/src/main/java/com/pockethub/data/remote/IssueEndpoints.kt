@@ -6,6 +6,7 @@ package com.pockethub.data.remote
 // in GitHubApi.kt and are referenced as GitHubApi.X.
 
 import com.pockethub.data.model.Issue
+import com.pockethub.data.model.User
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -115,6 +116,18 @@ interface IssueEndpoints {
         @Path("repo") repo: String,
         @Query("per_page") perPage: Int = 100,
     ): List<Issue.Label>
+
+    /**
+     * Users that can be assigned to issues in this repo: the owner, members
+     * with push access, and everyone who has opened an issue/PR here. Publicly
+     * readable — this is what GitHub's own assignee picker shows.
+     */
+    @GET("repos/{owner}/{repo}/assignees")
+    suspend fun getRepositoryAssignees(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Query("per_page") perPage: Int = 100,
+    ): List<User>
 
     /** Open milestones configured for a repository. */
     @GET("repos/{owner}/{repo}/milestones")

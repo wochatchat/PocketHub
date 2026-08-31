@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import com.pockethub.util.userMessage
 import androidx.lifecycle.viewModelScope
 import com.pockethub.data.model.Issue
+import com.pockethub.data.model.User
 import com.pockethub.data.remote.AccountRepository
 import com.pockethub.data.remote.GitHubApi
 import com.pockethub.ui.components.CommentUiState
@@ -29,6 +30,8 @@ class IssueDetailViewModel @Inject constructor(
     val repositoryLabels: StateFlow<List<Issue.Label>> = _repositoryLabels
     private val _milestones = MutableStateFlow<List<Issue.Milestone>>(emptyList())
     val milestones: StateFlow<List<Issue.Milestone>> = _milestones
+    private val _assignableUsers = MutableStateFlow<List<User>>(emptyList())
+    val assignableUsers: StateFlow<List<User>> = _assignableUsers
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
     private val _isSendingComment = MutableStateFlow(false)
@@ -183,6 +186,7 @@ class IssueDetailViewModel @Inject constructor(
         if (_repositoryLabels.value.isNotEmpty() || _milestones.value.isNotEmpty()) return
         viewModelScope.launch { runCatching { api.getRepositoryLabels(owner, repo) }.onSuccess { _repositoryLabels.value = it } }
         viewModelScope.launch { runCatching { api.getRepositoryMilestones(owner, repo) }.onSuccess { _milestones.value = it } }
+        viewModelScope.launch { runCatching { api.getRepositoryAssignees(owner, repo) }.onSuccess { _assignableUsers.value = it } }
     }
 
     fun postComment(body: String, onSuccess: () -> Unit = {}) {

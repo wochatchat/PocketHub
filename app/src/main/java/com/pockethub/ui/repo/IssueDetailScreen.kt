@@ -442,6 +442,7 @@ fun IssueDetailScreen(
             issue = issue!!,
             availableLabels = repositoryLabels,
             milestones = milestones,
+            assignableUsers = assignableUsers,
             isSaving = isSaving,
             onDismiss = { if (!isSaving) showEditDialog = false },
             onSave = { title, body, labels, assignees, milestone ->
@@ -487,6 +488,7 @@ private fun IssueEditDialog(
     issue: com.pockethub.data.model.Issue,
     availableLabels: List<com.pockethub.data.model.Issue.Label>,
     milestones: List<com.pockethub.data.model.Issue.Milestone>,
+    assignableUsers: List<com.pockethub.data.model.User>,
     isSaving: Boolean,
     onDismiss: () -> Unit,
     onSave: (String, String, List<String>, List<String>, Int?) -> Unit,
@@ -513,14 +515,14 @@ private fun IssueEditDialog(
                         }
                     }
                 }
-                com.pockethub.ui.components.ChipListEditor(
-                    title = stringResource(R.string.assignees_section_title),
-                    items = assignees.toList(),
-                    inputHint = stringResource(R.string.assignee_input_hint),
-                    emptyText = stringResource(R.string.no_assignees),
+                com.pockethub.ui.components.AssigneePicker(
+                    users = assignableUsers,
+                    selected = assignees.toList(),
                     enabled = !isSaving,
-                    onAdd = { assignees = (assignees + it.removePrefix("@").trim()).toMutableSet() },
-                    onRemove = { assignees = (assignees - it).toMutableSet() },
+                    onToggle = { login ->
+                        assignees = if (login in assignees) (assignees - login).toMutableSet()
+                        else (assignees + login).toMutableSet()
+                    },
                 )
                 if (milestones.isNotEmpty()) {
                     Text(stringResource(R.string.issue_milestone), style = MaterialTheme.typography.labelLarge)

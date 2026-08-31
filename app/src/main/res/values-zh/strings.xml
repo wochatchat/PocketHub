@@ -46,8 +46,8 @@
     <string name="issue_form_required_prompt">「%1$s」为必填项</string>
     <string name="labels_section_title">标签</string>
     <string name="assignees_section_title">指派人</string>
-    <string name="label_input_hint">添加标签</string>
-    <string name="assignee_input_hint">添加指派人（登录名）</string>
+    <string name="picker_filter_hint">筛选…</string>
+    <string name="picker_no_match">没有匹配项</string>
     <string name="add">添加</string>
     <string name="no_labels">暂无标签</string>
     <string name="no_assignees">暂无指派人</string>
