@@ -17,7 +17,6 @@ import androidx.compose.foundation.gestures.DraggableAnchors
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.anchoredDraggable
 import androidx.compose.foundation.gestures.animateTo
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,14 +24,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ViewSidebar
@@ -63,10 +59,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -74,7 +72,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -114,11 +112,13 @@ internal fun FullScreenFileViewer(
     val scope = rememberCoroutineScope()
     var treeOpenSaved by rememberSaveable { mutableStateOf(true) }
 
-    // ── Drawer-style tree panel ─────────────────────────────────────────
-    // Classic left drawer: [TreeSide.Open] = flush at the start edge,
-    // [TreeSide.Closed] = slid fully off-screen. The raw offset is read
-    // while sliding so the panel/tint track the finger continuously; the
-    // code body stays full width underneath (overlay, like a modal drawer).
+    // ── Same-layer sliding unit ─────────────────────────────────────────
+    // The tree and the code body sit side by side in one Row that slides
+    // as a single unit: offset 0 = tree fully off-screen (code fullscreen),
+    // treeWidthPx = tree flush at the start edge with the code pushed
+    // right. Pointer right ⇒ offset grows ⇒ the unit follows the finger;
+    // anchors clamp, so a fully-open drawer cannot be dragged further
+    // right and a hidden one not further left.
     val treeWidthPx = with(density) { TREE_PANEL_WIDTH.toPx() }
     val dragState = remember {
         AnchoredDraggableState(
@@ -135,17 +135,16 @@ internal fun FullScreenFileViewer(
     LaunchedEffect(treeWidthPx) {
         dragState.updateAnchors(
             DraggableAnchors {
-                TreeSide.Closed at -treeWidthPx
-                TreeSide.Open at 0f
+                TreeSide.Closed at 0f
+                TreeSide.Open at treeWidthPx
             },
         )
     }
-    // 1f = fully open, 0f = fully closed — drives the toggle tint & tap zone.
-    // offset is 0 when open and -treeWidthPx when closed.
+    // 1f = fully open, 0f = fully hidden — drives the toggle tint gradient.
     val treeFraction by remember(treeWidthPx) {
         derivedStateOf {
             val off = dragState.offset
-            if (off.isNaN()) (if (treeOpenSaved) 1f else 0f) else (1f + off / treeWidthPx).coerceIn(0f, 1f)
+            if (off.isNaN()) (if (treeOpenSaved) 1f else 0f) else (off / treeWidthPx).coerceIn(0f, 1f)
         }
     }
     val treeVisible = treeFraction > 0.5f
@@ -162,8 +161,30 @@ internal fun FullScreenFileViewer(
         scope.launch { dragState.animateTo(TreeSide.Closed) }
     }
 
+    // Handover between the code scroller and the sliding unit: while the
+    // code body can consume a horizontal drag it keeps it; once it hits a
+    // scroll edge the leftover delta drives the unit (rightward swipes at
+    // the code's start pull the tree out, leftward swipes at its end push
+    // it back), and the fling velocity settles it at the nearest anchor.
+    // Nested-scroll deltas arrive in raw pointer direction (positive x =
+    // finger right = offset grows), so they map 1:1 onto the offset.
+    val bodyNestedScroll = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (available.x == 0f || dragState.isAnimationRunning) return Offset.Zero
+                val used = dragState.dispatchRawDelta(available.x)
+                return Offset(used, 0f)
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                val settled = dragState.settle(available.x)
+                return Velocity(settled, 0f)
+            }
+        }
+    }
+
     LaunchedEffect(Unit) { vm.loadTree() }
-    // Back first retracts the drawer (classic behavior), then leaves the viewer.
+    // Back first retracts the drawer, then leaves the viewer.
     BackHandler {
         if (treeVisible) closeTree() else onDismiss()
     }
@@ -196,115 +217,89 @@ internal fun FullScreenFileViewer(
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.surface),
             ) {
-                // Code body — every gesture here belongs to the code view,
-                // exactly like before the drawer existed. The drawer never
-                // shares this space: it owns the edge strip (below) when
-                // hidden and the scrim (below) when open.
-                Box(Modifier.fillMaxSize()) {
-                    val content = state.fileContent
-                    val entry = state.viewingFile
-                    when {
-                        entry == null -> EmptyHint()
-                        state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(strokeWidth = 2.dp)
-                        }
-                        content != null -> SyntaxHighlightedCode(
-                            code = content,
-                            fileName = entry.name,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                        // Viewer-host errors: offline markers get real copy,
-                        // anything else is already a user-readable message.
-                        state.error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(
-                                when (state.error) {
-                                    "extract_failed" -> stringResource(R.string.offline_extract_failed)
-                                    "unpreviewable" -> stringResource(R.string.binary_preview_unavailable)
-                                    else -> state.error!!
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                // The sliding unit: [file tree | divider | code body] side
+                // by side. The custom layout modifier widens the unit by the
+                // still-hidden tree width and places it left by the same
+                // amount, so the code body is exactly full-screen when the
+                // tree is hidden and shrinks smoothly as the tree pushes in.
+                // The anchoredDraggable sits BEFORE it: its hit region stays
+                // the full screen, drags no child scroller claims (gutter,
+                // empty space, the tree itself) move the unit directly, and
+                // code-scroll drags keep their original behavior.
+                Row(
+                    Modifier
+                        .anchoredDraggable(dragState, Orientation.Horizontal)
+                        .nestedScroll(bodyNestedScroll)
+                        .layout { measurable, constraints ->
+                            val off = dragState.offset
+                            val unitOff = if (off.isNaN()) {
+                                // Anchors not landed yet (first frame): use
+                                // the saved side so nothing flashes.
+                                if (treeOpenSaved) treeWidthPx else 0f
+                            } else {
+                                off
+                            }
+                            val extra = (treeWidthPx - unitOff).roundToInt().coerceAtLeast(0)
+                            val placeable = measurable.measure(
+                                constraints.copy(minWidth = 0, maxWidth = constraints.maxWidth + extra),
                             )
+                            layout(constraints.maxWidth, constraints.maxHeight) {
+                                placeable.placeRelative(-extra, 0)
+                            }
                         }
-                        else -> EmptyHint()
+                        .fillMaxSize(),
+                ) {
+                    FileTreePanel(
+                        vm = vm,
+                        modifier = Modifier
+                            .width(TREE_PANEL_WIDTH)
+                            .fillMaxHeight(),
+                    )
+                    if (treeFraction > 0.05f) {
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .width(0.5.dp),
+                        )
                     }
-                }
-
-                // Edge strip — the only gesture that opens a hidden drawer:
-                // a horizontal drag in this 24dp strip pulls the panel out
-                // and it follows the finger. Vertical drags are never claimed
-                // here, so scrolling the code vertically still works.
-                Box(
-                    Modifier
-                        .fillMaxHeight()
-                        .width(EDGE_SWIPE_WIDTH)
-                        .anchoredDraggable(dragState, Orientation.Horizontal),
-                )
-
-                // Grabber pill — a subtle affordance marking the drawer edge,
-                // fading out as the panel opens.
-                Box(
-                    Modifier
-                        .align(Alignment.CenterStart)
-                        .padding(start = 3.dp)
-                        .size(width = 4.dp, height = 36.dp)
-                        .alpha(1f - treeFraction)
-                        .background(
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-                            RoundedCornerShape(2.dp),
-                        ),
-                )
-
-                // Scrim — while the drawer is open it owns the whole screen:
-                // horizontal drags move the panel as one unit with the tree,
-                // a tap dismisses it.
-                if (treeFraction > 0f) {
+                    // Code body — with the tree hidden, a leftward swipe only
+                    // ever scrolls the code; a rightward swipe scrolls until
+                    // the code hits its start edge, then the leftover delta
+                    // pulls the whole unit — tree included — back out.
                     Box(
                         Modifier
-                            .matchParentSize()
-                            .anchoredDraggable(dragState, Orientation.Horizontal)
-                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.45f * treeFraction))
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                            ) { closeTree() },
-                    )
-                }
-
-                // Tree panel — slides in over the code body as one drawer unit.
-                // The offset modifier sits BEFORE the pointer modifiers so the
-                // gesture hit region follows the translated panel (no ghost
-                // touch strip left behind when the panel is closed).
-
-                // Tree panel — slides in over the code body as one drawer unit.
-                // The offset modifier sits BEFORE the pointer modifiers so the
-                // gesture hit region follows the translated panel (no ghost
-                // touch strip left behind when the panel is closed).
-                Box(
-                    Modifier
-                        .offset {
-                            // NaN before anchors land: render at the saved side
-                            // so the very first frame doesn't flash.
-                            val off = dragState.offset
-                            IntOffset(
-                                (if (off.isNaN()) (if (treeOpenSaved) 0f else -treeWidthPx) else off).roundToInt(),
-                                0,
+                            .weight(1f)
+                            .fillMaxHeight(),
+                    ) {
+                        val content = state.fileContent
+                        val entry = state.viewingFile
+                        when {
+                            entry == null -> EmptyHint()
+                            state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(strokeWidth = 2.dp)
+                            }
+                            content != null -> SyntaxHighlightedCode(
+                                code = content,
+                                fileName = entry.name,
+                                modifier = Modifier.fillMaxSize(),
                             )
+                            // Viewer-host errors: offline markers get real copy,
+                            // anything else is already a user-readable message.
+                            state.error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text(
+                                    when (state.error) {
+                                        "extract_failed" -> stringResource(R.string.offline_extract_failed)
+                                        "unpreviewable" -> stringResource(R.string.binary_preview_unavailable)
+                                        else -> state.error!!
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            else -> EmptyHint()
                         }
-                        .fillMaxHeight()
-                        .width(TREE_PANEL_WIDTH)
-                        .anchoredDraggable(dragState, Orientation.Horizontal)
-                        .shadow(6.dp)
-                        .background(MaterialTheme.colorScheme.surface),
-                ) {
-                    FileTreePanel(vm = vm, modifier = Modifier.fillMaxSize())
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                        modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .fillMaxHeight()
-                            .width(0.5.dp),
-                    )
+                    }
                 }
             }
         }
@@ -380,9 +375,6 @@ private fun TopBar(
 
 /** Width of the file-tree drawer panel. */
 private val TREE_PANEL_WIDTH = 200.dp
-
-/** Width of the left-edge strip that opens the hidden drawer. */
-private val EDGE_SWIPE_WIDTH = 24.dp
 
 /** Anchors of the tree drawer: [Open] flush at the start edge, [Closed] slid out. */
 private enum class TreeSide { Open, Closed }
