@@ -163,46 +163,51 @@ internal fun FullScreenFileViewer(
 
     // Handover between the code scroller and the sliding unit, with
     // drawer-priority while the unit is open:
-    //  • unit open + leftward drag/fling → the whole unit slides (or
-    //    settles) as one; the code scroller never sees the delta
-    //    (onPreScroll/onPreFling). Once fully closed the hand-back is
-    //    automatic: continued leftward drags scroll the code.
-    //  • unit hidden → the code scroller keeps every drag it can consume;
+    //  • A leftward drag/fling while the unit is open is a "closing
+    //    gesture": the drawer eats the deltas (onPreScroll) and the whole
+    //    unit slides. After it hits the closed anchor the connection keeps
+    //    claiming the remaining deltas — unapplied, so the code never
+    //    drifts — and absorbs the release fling. The code gets gestures
+    //    back on the next one.
+    //  • Unit hidden: the code scroller keeps every drag it can consume;
     //    only leftover deltas at the code's scroll edges drive the unit
     //    (onPostScroll: rightward at line start pulls the tree out).
-    //  • release always settles the unit fully open/closed (halfway +
+    //  • Release always settles the unit fully open/closed (halfway +
     //    velocity). Nested-scroll deltas are raw pointer direction
     //    (positive x = finger right = offset grows), 1:1 with the offset.
     val bodyNestedScroll = remember {
+        var closingGesture = false
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                // While the unit is open (even partially), a leftward drag
-                // belongs to the drawer: consume it BEFORE the code scroller
-                // sees it so the tree and the code slide as one unit. Once
-                // fully closed the hand-back is automatic — continued
-                // leftward drags scroll the code again.
                 if (source != NestedScrollSource.UserInput || available.x >= 0f) return Offset.Zero
                 val off = dragState.offset
-                if (off.isNaN() || off <= 0f || dragState.isAnimationRunning) return Offset.Zero
-                val used = dragState.dispatchRawDelta(available.x)
-                return Offset(used, 0f)
+                if (off.isNaN()) return Offset.Zero
+                if (off > 0f) {
+                    closingGesture = true
+                } else if (!closingGesture) {
+                    return Offset.Zero
+                }
+                // Closing gesture: apply what the anchors allow and claim
+                // the rest (returning it as consumed) so the code stays put.
+                dragState.dispatchRawDelta(available.x)
+                return available.copy(y = 0f)
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (!closingGesture) return Velocity.Zero
+                closingGesture = false
+                if (!dragState.isAnimationRunning) {
+                    dragState.settle(available.x)
+                }
+                // Absorb the whole fling: this gesture closed the drawer,
+                // it must not also fling-scroll the code.
+                return Velocity(available.x, 0f)
             }
 
             override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
                 if (available.x == 0f || dragState.isAnimationRunning) return Offset.Zero
                 val used = dragState.dispatchRawDelta(available.x)
                 return Offset(used, 0f)
-            }
-
-            override suspend fun onPreFling(available: Velocity): Velocity {
-                // Same priority rule for the release fling: while the unit
-                // is open, a leftward fling settles the drawer (with real
-                // inertia) instead of fling-scrolling the code.
-                val off = dragState.offset
-                if (off.isNaN() || off <= 0f || dragState.isAnimationRunning) return Velocity.Zero
-                if (available.x >= 0f) return Velocity.Zero
-                val settled = dragState.settle(available.x)
-                return Velocity(-settled, 0f)
             }
 
             override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {

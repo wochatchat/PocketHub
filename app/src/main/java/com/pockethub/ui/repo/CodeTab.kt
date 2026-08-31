@@ -1,13 +1,9 @@
 package com.pockethub.ui.repo
 
-import com.pockethub.R
-import com.pockethub.util.relativeTime
-import com.pockethub.data.download.DownloadManager
-import com.pockethub.ui.download.DownloadViewModel
-
-import androidx.compose.ui.res.stringResource
-
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,10 +15,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Article
@@ -51,21 +47,26 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
-import com.pockethub.ui.markdown.CodeHighlighter
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.pockethub.R
+import com.pockethub.data.download.DownloadManager
+import com.pockethub.ui.download.DownloadViewModel
+import com.pockethub.ui.markdown.CodeHighlighter
+import com.pockethub.util.relativeTime
+
+
+
 
 /**
  * Code tab — directory navigation with inline text file viewer.
@@ -495,9 +496,11 @@ internal fun SyntaxHighlightedCode(
         }
         return
     }
+    // Gutter hugs a 4-digit line number: ~8dp per monospace digit at
+    // bodySmall size, plus a small leading inset (Start) and trailing gap.
     val gutterWidth = remember(prepared!!.lineCount) {
-        val digits = prepared!!.lineCount.toString().length
-        (digits * 8 + 16).dp
+        val digits = prepared!!.lineCount.toString().length.coerceAtMost(4)
+        (digits * 8 + 10).dp
     }
     val highlighted = prepared!!.highlighted
     val gutterText = prepared!!.gutterText
@@ -511,12 +514,12 @@ internal fun SyntaxHighlightedCode(
         Text(
             text = gutterText,
             style = codeStyle,
-            textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Start,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
             modifier = Modifier
                 .width(gutterWidth)
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-                .padding(horizontal = 6.dp),
+                .padding(start = 4.dp, end = 6.dp),
             softWrap = false,
         )
         // Code body
