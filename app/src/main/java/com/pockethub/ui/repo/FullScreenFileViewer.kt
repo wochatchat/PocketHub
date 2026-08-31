@@ -17,6 +17,7 @@ import androidx.compose.foundation.gestures.DraggableAnchors
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.anchoredDraggable
 import androidx.compose.foundation.gestures.animateTo
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -62,13 +63,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -77,7 +75,6 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -165,29 +162,6 @@ internal fun FullScreenFileViewer(
         scope.launch { dragState.animateTo(TreeSide.Closed) }
     }
 
-    // Gesture-conflict resolution between the drawer and the horizontally
-    // scrollable code body: while the code scroller can consume the drag it
-    // keeps it; once it hits an edge the leftover delta is handed over here
-    // and drives the panel, and the fling velocity settles the panel at the
-    // nearest anchor. Nested-scroll deltas arrive in raw pointer direction
-    // (negative x = finger moving left); negating them maps a leftward drag
-    // to panel opening and a rightward drag to code scrolling, so the
-    // handover only kicks in once the code hits a scroll edge.
-    val bodyNestedScroll = remember {
-        object : NestedScrollConnection {
-            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                if (available.x == 0f || dragState.isAnimationRunning) return Offset.Zero
-                val used = dragState.dispatchRawDelta(-available.x)
-                return Offset(-used, 0f)
-            }
-
-            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-                val settled = dragState.settle(-available.x)
-                return Velocity(-settled, 0f)
-            }
-        }
-    }
-
     LaunchedEffect(Unit) { vm.loadTree() }
     // Back first retracts the drawer (classic behavior), then leaves the viewer.
     BackHandler {
@@ -222,19 +196,11 @@ internal fun FullScreenFileViewer(
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.surface),
             ) {
-                // Code body — full width; the tree panel overlays the start edge.
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        // Drags that no child scroller claims (short code, the
-                        // gutter, empty space) drag the panel directly.
-                        .anchoredDraggable(dragState, Orientation.Horizontal)
-                        .nestedScroll(bodyNestedScroll)
-                        // Tree open: a tap anywhere in the reading area collapses
-                        // the panel for immersive reading (scrolls still work —
-                        // children consume drag gestures first).
-                        .clickable(enabled = treeVisible) { closeTree() },
-                ) {
+                // Code body — every gesture here belongs to the code view,
+                // exactly like before the drawer existed. The drawer never
+                // shares this space: it owns the edge strip (below) when
+                // hidden and the scrim (below) when open.
+                Box(Modifier.fillMaxSize()) {
                     val content = state.fileContent
                     val entry = state.viewingFile
                     when {
@@ -263,6 +229,52 @@ internal fun FullScreenFileViewer(
                         else -> EmptyHint()
                     }
                 }
+
+                // Edge strip — the only gesture that opens a hidden drawer:
+                // a horizontal drag in this 24dp strip pulls the panel out
+                // and it follows the finger. Vertical drags are never claimed
+                // here, so scrolling the code vertically still works.
+                Box(
+                    Modifier
+                        .fillMaxHeight()
+                        .width(EDGE_SWIPE_WIDTH)
+                        .anchoredDraggable(dragState, Orientation.Horizontal),
+                )
+
+                // Grabber pill — a subtle affordance marking the drawer edge,
+                // fading out as the panel opens.
+                Box(
+                    Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = 3.dp)
+                        .size(width = 4.dp, height = 36.dp)
+                        .alpha(1f - treeFraction)
+                        .background(
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                            RoundedCornerShape(2.dp),
+                        ),
+                )
+
+                // Scrim — while the drawer is open it owns the whole screen:
+                // horizontal drags move the panel as one unit with the tree,
+                // a tap dismisses it.
+                if (treeFraction > 0f) {
+                    Box(
+                        Modifier
+                            .matchParentSize()
+                            .anchoredDraggable(dragState, Orientation.Horizontal)
+                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.45f * treeFraction))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) { closeTree() },
+                    )
+                }
+
+                // Tree panel — slides in over the code body as one drawer unit.
+                // The offset modifier sits BEFORE the pointer modifiers so the
+                // gesture hit region follows the translated panel (no ghost
+                // touch strip left behind when the panel is closed).
 
                 // Tree panel — slides in over the code body as one drawer unit.
                 // The offset modifier sits BEFORE the pointer modifiers so the
@@ -368,6 +380,9 @@ private fun TopBar(
 
 /** Width of the file-tree drawer panel. */
 private val TREE_PANEL_WIDTH = 200.dp
+
+/** Width of the left-edge strip that opens the hidden drawer. */
+private val EDGE_SWIPE_WIDTH = 24.dp
 
 /** Anchors of the tree drawer: [Open] flush at the start edge, [Closed] slid out. */
 private enum class TreeSide { Open, Closed }
