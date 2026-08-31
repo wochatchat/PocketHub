@@ -118,6 +118,7 @@ fun IssueDetailScreen(
     val isLocking by vm.isLocking.collectAsState()
     val repositoryLabels by vm.repositoryLabels.collectAsState()
     val milestones by vm.milestones.collectAsState()
+    val assignableUsers by vm.assignableUsers.collectAsState()
     val actionMessage by vm.actionMessage.collectAsState()
     val events by vm.events.collectAsState()
     val eventsError by vm.eventsError.collectAsState()
