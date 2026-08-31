@@ -126,7 +126,7 @@ internal fun FullScreenFileViewer(
     val dragState = remember {
         AnchoredDraggableState(
             initialValue = if (treeOpenSaved) TreeSide.Open else TreeSide.Closed,
-            positionalThreshold = { totalDistance -> totalDistance * 0.33f },
+            positionalThreshold = { totalDistance -> totalDistance * 0.5f },
             velocityThreshold = { with(density) { 500.dp.toPx() } },
             snapAnimationSpec = spring(
                 dampingRatio = Spring.DampingRatioNoBouncy,
@@ -144,10 +144,11 @@ internal fun FullScreenFileViewer(
         )
     }
     // 1f = fully open, 0f = fully closed — drives the toggle tint & tap zone.
+    // offset is 0 when open and -treeWidthPx when closed.
     val treeFraction by remember(treeWidthPx) {
         derivedStateOf {
             val off = dragState.offset
-            if (off.isNaN()) (if (treeOpenSaved) 1f else 0f) else (off / -treeWidthPx).coerceIn(0f, 1f)
+            if (off.isNaN()) (if (treeOpenSaved) 1f else 0f) else (1f + off / treeWidthPx).coerceIn(0f, 1f)
         }
     }
     val treeVisible = treeFraction > 0.5f
@@ -167,9 +168,11 @@ internal fun FullScreenFileViewer(
     // Gesture-conflict resolution between the drawer and the horizontally
     // scrollable code body: while the code scroller can consume the drag it
     // keeps it; once it hits an edge the leftover delta is handed over here
-    // and drives the panel (swipe past the scroll edge ⇒ drawer follows the
-    // finger), and the fling velocity settles the panel at the nearest anchor.
-    // Nested-scroll deltas are sign-flipped relative to pointer drags.
+    // and drives the panel, and the fling velocity settles the panel at the
+    // nearest anchor. Nested-scroll deltas arrive in raw pointer direction
+    // (negative x = finger moving left); negating them maps a leftward drag
+    // to panel opening and a rightward drag to code scrolling, so the
+    // handover only kicks in once the code hits a scroll edge.
     val bodyNestedScroll = remember {
         object : NestedScrollConnection {
             override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
