@@ -247,7 +247,9 @@ class DownloadManager @Inject constructor(
     private fun openDownload(url: String, rangeHeader: String? = null): Pair<Call, Response> {
         val baseReq = Request.Builder().url(url)
         if (rangeHeader != null) baseReq.header("Range", rangeHeader)
-        var call = client.newBuilder().followRedirects(false).build()
+        var call = client.newBuilder().followRedirects(false)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .build()
             .newCall(baseReq.build())
         currentCall = call
         var response = call.execute()
@@ -275,13 +277,15 @@ class DownloadManager @Inject constructor(
         val destFile = File(targetFile.parentFile, "${targetFile.name}.part")
         val job = scope.launch(start = CoroutineStart.LAZY) {
             var droppedStale = false  // 416: the stale .part was dropped once already
-            var autoResumes = 0       // transient network failures auto-resumed so far
+            var autoResumes = 0       // consecutive zero-progress failures so far
+            var bytesAtAttemptStart = 0L
             while (true) {
                 try {
                     // Byte-range resume: a leftover .part file (from a previous
                     // failure, cancel or app kill) requests only the missing
                     // tail. 206 → append; 200 → server ignored Range, restart.
                     val baseBytes = if (destFile.exists()) destFile.length() else 0L
+                    bytesAtAttemptStart = baseBytes
                     val (call, response) = openDownload(
                         url, if (baseBytes > 0) "bytes=$baseBytes-" else null,
                     )
@@ -301,11 +305,11 @@ class DownloadManager @Inject constructor(
                     if (!response.isSuccessful) {
                         val code = response.code
                         response.close()
-                        // Server-side hiccups (5xx) get the same bounded
-                        // auto-resume treatment as in-stream network errors.
+                        // Server-side hiccups (5xx) get the same auto-resume
+                        // treatment as in-stream network errors.
                         if (code in 500..599 && autoResumes < MAX_AUTO_RESUME) {
                             autoResumes++
-                            kotlinx.coroutines.delay(AUTO_RESUME_BACKOFF_MS * autoResumes)
+                            kotlinx.coroutines.delay(minOf(AUTO_RESUME_BACKOFF_MS * autoResumes, MAX_BACKOFF_MS))
                             continue
                         }
                         dao.upsert(entity.copy(status = "FAILED", errorMsg = "HTTP $code", updatedAt = System.currentTimeMillis()))
@@ -341,6 +345,14 @@ class DownloadManager @Inject constructor(
                                         lastReported = read
                                     }
                                 }
+                                // Integrity: a "clean" stream end short of
+                                // Content-Length (proxies do this) must NOT rename
+                                // a truncated file into place — throw so the
+                                // resume loop fetches the tail.
+                                val written = alreadyBytes + read
+                                if (totalBytes > 0 && written < totalBytes) {
+                                    throw IOException("Truncated download: $written/$totalBytes")
+                                }
                             }
                         }
 
@@ -370,9 +382,11 @@ class DownloadManager @Inject constructor(
                     // Transient network error mid-transfer: the .part file kept
                     // everything downloaded so far, so re-entering the loop
                     // re-issues the Range request and only fetches the tail.
+                    // Any attempt that grew the file resets the budget — only
+                    // repeated zero-progress failures give up.
+                    autoResumes = if (destFile.length() > bytesAtAttemptStart) 0 else autoResumes + 1
                     if (autoResumes < MAX_AUTO_RESUME) {
-                        autoResumes++
-                        kotlinx.coroutines.delay(AUTO_RESUME_BACKOFF_MS * autoResumes)
+                        kotlinx.coroutines.delay(minOf(AUTO_RESUME_BACKOFF_MS * autoResumes, MAX_BACKOFF_MS))
                         continue
                     }
                     // Keep the .part file so retry() can byte-range resume.
@@ -397,10 +411,15 @@ class DownloadManager @Inject constructor(
     }
 
     private companion object {
-        /** Bounded auto-resume attempts for transient network failures (5xx / IOException). */
-        const val MAX_AUTO_RESUME = 3
+        /** Consecutive zero-progress auto-resume attempts before giving up.
+         *  Attempts that DID grow the .part file reset the budget, so a long
+         *  transfer survives unbounded hiccups on a flaky network. */
+        const val MAX_AUTO_RESUME = 8
 
         /** Linear backoff between auto-resume attempts, multiplied by the attempt number. */
         const val AUTO_RESUME_BACKOFF_MS = 1_500L
+
+        /** Upper bound for the backoff delay. */
+        const val MAX_BACKOFF_MS = 15_000L
     }
 }
