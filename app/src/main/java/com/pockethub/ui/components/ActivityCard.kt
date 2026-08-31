@@ -86,11 +86,7 @@ fun ActivityCard(
 
     val repoName = event.repo?.name ?: ""
     val summary = when (event.type) {
-        "PushEvent" -> event.payload?.commits?.firstOrNull()?.message?.take(80)?.let { "→ $it" }
-            // GitHub events dropped the commits array — fall back to the pushed branch name.
-            ?: event.payload?.ref?.removePrefix("refs/heads/")?.takeIf { it.isNotBlank() }
-                ?.let { stringResource(R.string.event_ref_suffix, it) }
-            ?: ""
+        "PushEvent" -> event.payload?.commits?.firstOrNull()?.message?.take(80)?.let { "→ $it" } ?: ""
         "CreateEvent" -> event.payload?.ref?.let { stringResource(R.string.event_ref_suffix, it) } ?: ""
         "DeleteEvent" -> event.payload?.ref?.let { stringResource(R.string.event_ref_suffix, it) } ?: ""
         "PullRequestEvent" -> event.payload?.pullRequest?.title?.take(80) ?: ""
@@ -112,10 +108,7 @@ fun ActivityCard(
         val prNumber = event.payload?.pullRequest?.number?.takeIf { it > 0 }
             ?: issue?.number?.takeIf { it > 0 && issue.pullRequest != null }
         val issueNumber = issue?.number?.takeIf { it > 0 && issue.pullRequest == null }
-        // GitHub events no longer include payload.commits — `head` is the SHA
-        // of the last pushed commit (verified against /commits/{sha} → 200).
         val sha = event.payload?.commits?.lastOrNull()?.sha?.takeIf { it.isNotBlank() }
-            ?: event.payload?.head?.takeIf { it.isNotBlank() }
 
         val commitAction: (() -> Unit)? =
             if (event.type == "PushEvent" && sha != null) { { onNavigateToCommit?.invoke(owner, repo, sha) } } else null

@@ -152,25 +152,7 @@ class DownloadManager @Inject constructor(
     suspend fun removeCompleted(url: String) {
         val existing = dao.byUrl(url) ?: return
         destFileOrNull(existing)?.delete()
-        deleteExport(existing.fileName)
         dao.deleteByUrl(url)
-    }
-
-    /**
-     * Best-effort removal of the mirrored copy in the user's chosen SAF
-     * download folder (the export written by [exportToUserFolder]). Deleting
-     * only the internal copy would leave a stale file behind in the folder
-     * the user actually browses. Failures are swallowed — same policy as the
-     * export itself.
-     */
-    private suspend fun deleteExport(fileName: String) {
-        val treeUri = settings.downloadFolderUri.first() ?: return
-        runCatching {
-            val root = androidx.documentfile.provider.DocumentFile.fromTreeUri(
-                appContext, android.net.Uri.parse(treeUri),
-            ) ?: return
-            root.findFile(fileName)?.delete()
-        }
     }
 
     private fun destFileOrNull(entity: DownloadEntity): File? =

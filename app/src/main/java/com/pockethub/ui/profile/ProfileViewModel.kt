@@ -192,9 +192,7 @@ class ProfileViewModel @Inject constructor(
                 // state:open keeps the board actionable; sort by updated desc so the
                 // freshest items surface first. GitHub /search/issues returns issues
                 // and PRs together — `pullRequest` on each item distinguishes them.
-                // The inline `sort:` qualifier inside q proved unreliable (the API
-                // ignores it) — sorting rides on the query parameters instead.
-                val q = "${tab.queryQualifier}:$login state:open"
+                val q = "${tab.queryQualifier}:$login state:open sort:updated-desc"
                 val result = api.searchIssues(q, sort = "updated", order = "desc", perPage = 30)
                 _workItems.value = result.items
             } catch (e: Exception) {

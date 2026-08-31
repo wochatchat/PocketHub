@@ -44,6 +44,7 @@ import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -102,6 +103,8 @@ fun SettingsScreen(
     val customClientId by vm.customClientId.collectAsState()
     val downloadMirrorPrefix by vm.downloadMirrorPrefix.collectAsState()
     val customClientSecret by vm.customClientSecret.collectAsState()
+    val oauthBackendUrl by vm.oauthBackendUrl.collectAsState()
+    val dohUrl by vm.dohUrl.collectAsState()
     val accountCount by vm.accountCount.collectAsState()
     val cacheSizeBytes by vm.cacheSizeBytes.collectAsState()
     val translateTarget by vm.translateTarget.collectAsState()
@@ -110,6 +113,7 @@ fun SettingsScreen(
     var showTranslateSheet by remember { mutableStateOf(false) }
     var showOAuthSheet by remember { mutableStateOf(false) }
     var showMirrorSheet by remember { mutableStateOf(false) }
+    var showDohSheet by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     var showSignOutDialog by remember { mutableStateOf(false) }
     val issueCount by vm.issueCount.collectAsState()
@@ -234,6 +238,12 @@ fun SettingsScreen(
                 headlineContent = { Text(stringResource(R.string.mirror_prefix_title)) },
                 supportingContent = { Text(if (downloadMirrorPrefix.isBlank()) stringResource(R.string.mirror_prefix_not_set) else stringResource(R.string.mirror_prefix_set, downloadMirrorPrefix)) },
                 modifier = Modifier.clickable { showMirrorSheet = true },
+            )
+            ListItem(
+                leadingContent = { Icon(Icons.Outlined.Public, contentDescription = null) },
+                headlineContent = { Text("加密 DNS（DoH）") },
+                supportingContent = { Text(dohUrl) },
+                modifier = Modifier.clickable { showDohSheet = true },
             )
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.CleaningServices, contentDescription = null) },
@@ -380,8 +390,9 @@ fun SettingsScreen(
         OAuthClientSheet(
             initialId = customClientId,
             initialSecret = customClientSecret,
+            initialBackendUrl = oauthBackendUrl,
             onDismiss = { showOAuthSheet = false },
-            onSave = { id, secret -> vm.setCustomOAuthClient(id, secret); showOAuthSheet = false },
+            onSave = { id, secret, backendUrl -> vm.setCustomOAuthClient(id, secret); vm.setOAuthBackendUrl(backendUrl); showOAuthSheet = false },
         )
     }
 
@@ -393,6 +404,9 @@ fun SettingsScreen(
         )
     }
 
+    if (showDohSheet) {
+        DohSettingsSheet(initial = dohUrl, onDismiss = { showDohSheet = false }, onSave = { url -> vm.setDohUrl(url); showDohSheet = false })
+    }
     if (showAbout) {
         ModalBottomSheet(onDismissRequest = { showAbout = false }, sheetState = rememberModalBottomSheetState()) {
             AboutContent()
@@ -443,6 +457,48 @@ fun SettingsScreen(
         else -> Unit
     }
 }
+private data class DohOption(val name: String, val url: String)
+private val builtInDoh = listOf(
+    DohOption("阿里 DNS（国内）", "https://dns.alidns.com/dns-query"),
+    DohOption("腾讯 DNSPod（国内）", "https://doh.pub/dns-query"),
+    DohOption("360 安全 DNS（国内）", "https://doh.360.cn"),
+    DohOption("18Bit DNS（国内）", "https://doh.18bit.cn/dns-query"),
+    DohOption("Cloudflare", "https://1.1.1.1/dns-query"),
+    DohOption("Google Public DNS", "https://dns.google/dns-query"),
+    DohOption("Quad9", "https://dns.quad9.net/dns-query"),
+    DohOption("AdGuard DNS", "https://dns.adguard-dns.com/dns-query"),
+)
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DohSettingsSheet(initial: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+    var selected by rememberSaveable { mutableStateOf(initial) }
+    var custom by rememberSaveable { mutableStateOf(if (builtInDoh.none { it.url == initial }) initial else "") }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        Column(Modifier.fillMaxWidth().padding(16.dp).imePadding().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("选择加密 DNS（DoH）", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text("优先使用国内服务。修改后重启应用，使新的 DNS 解析器生效。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            builtInDoh.forEach { option ->
+                ListItem(headlineContent = { Text(option.name) }, supportingContent = { Text(option.url) }, leadingContent = { RadioButton(selected == option.url, onClick = { selected = option.url; custom = "" }) }, modifier = Modifier.clickable { selected = option.url; custom = "" })
+            }
+            OutlinedTextField(value = custom, onValueChange = { custom = it; selected = it }, label = { Text("自定义 DoH 地址") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onDismiss) { Text("取消") }
+                Button(enabled = selected.startsWith("https://"), onClick = { onSave(selected.trim()) }) { Text("保存") }
+            }
+        }
+    }
+}
+
+private data class MirrorOption(val name: String, val prefix: String)
+private data class MirrorSpeed(val option: MirrorOption, val bytesPerSecond: Long, val code: Int)
+
+private val builtInMirrors = listOf(
+    MirrorOption("gh-proxy.com", "https://gh-proxy.com/"),
+    MirrorOption("v6.gh-proxy.org", "https://v6.gh-proxy.org/"),
+    MirrorOption("gh.1s.fan", "https://gh.1s.fan/"),
+    MirrorOption("ghproxy.net", "https://ghproxy.net/"),
+)
+
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun MirrorPrefixSheet(
@@ -450,33 +506,43 @@ private fun MirrorPrefixSheet(
     onDismiss: () -> Unit,
     onSave: (String) -> Unit,
 ) {
-    var value by rememberSaveable { mutableStateOf(initial) }
-
+    var selected by rememberSaveable { mutableStateOf(initial) }
+    var testing by remember { mutableStateOf(false) }
+    var results by remember { mutableStateOf<List<MirrorSpeed>>(emptyList()) }
+    val scope = rememberCoroutineScope()
+    val sample = "https://github.com/Wxjxpp/PocketHub_Next/archive/refs/heads/main.zip"
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
         Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-                .imePadding()
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            Modifier.fillMaxWidth().padding(16.dp).imePadding().verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(stringResource(R.string.mirror_prefix_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text(
-                stringResource(R.string.mirror_prefix_summary),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Text("选择加速站，测速会实际下载测试数据，而不是只测延迟。测试结果仅代表当前网络。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            builtInMirrors.forEach { option ->
+                val result = results.firstOrNull { it.option == option }
+                ListItem(
+                    headlineContent = { Text(option.name) },
+                    supportingContent = { Text(result?.let { if (it.code in 200..299 && it.bytesPerSecond > 0) "${formatSpeed(it.bytesPerSecond)} · HTTP ${it.code}" else "不可用 · HTTP ${it.code}" } ?: option.prefix) },
+                    leadingContent = { RadioButton(selected == option.prefix, onClick = { selected = option.prefix }) },
+                    modifier = Modifier.clickable { selected = option.prefix },
+                )
+            }
+            ListItem(
+                headlineContent = { Text("直连（关闭加速）") },
+                leadingContent = { RadioButton(selected.isBlank(), onClick = { selected = "" }) },
+                modifier = Modifier.clickable { selected = "" },
             )
-            OutlinedTextField(
-                value = value,
-                onValueChange = { value = it },
-                label = { Text(stringResource(R.string.mirror_prefix_label)) },
-                placeholder = { Text("https://gh-proxy.com/") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { onSave(value.trim()) }) { Text(stringResource(R.string.action_save)) }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(enabled = !testing, onClick = {
+                    testing = true
+                    scope.launch {
+                        results = withContext(Dispatchers.IO) { builtInMirrors.map { testMirror(it, sample) } }
+                        testing = false
+                    }
+                }) {
+                    if (testing) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text("测速")
+                }
+                Button(onClick = { onSave(selected) }) { Text(stringResource(R.string.action_save)) }
                 OutlinedButton(onClick = { onSave("") }) { Text(stringResource(R.string.action_clear)) }
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
             }
@@ -485,16 +551,49 @@ private fun MirrorPrefixSheet(
     }
 }
 
+private fun testMirror(option: MirrorOption, original: String): MirrorSpeed {
+    val started = System.nanoTime()
+    var bytes = 0L
+    var code = 0
+    runCatching {
+        val connection = java.net.URL(option.prefix + original).openConnection() as java.net.HttpURLConnection
+        connection.connectTimeout = 8_000
+        connection.readTimeout = 12_000
+        connection.instanceFollowRedirects = true
+        code = connection.responseCode
+        if (code in 200..299) connection.inputStream.use { input ->
+            val buffer = ByteArray(32 * 1024)
+            while (System.nanoTime() - started < 5_000_000_000L) {
+                val count = input.read(buffer)
+                if (count <= 0) break
+                bytes += count
+            }
+        }
+        connection.disconnect()
+    }
+    val seconds = ((System.nanoTime() - started).coerceAtLeast(1L)) / 1_000_000_000.0
+    return MirrorSpeed(option, (bytes / seconds).toLong(), code)
+}
+
+private fun formatSpeed(bytesPerSecond: Long): String = when {
+    bytesPerSecond >= 1_048_576 -> "%.1f MB/s".format(bytesPerSecond / 1_048_576.0)
+    bytesPerSecond >= 1024 -> "%.0f KB/s".format(bytesPerSecond / 1024.0)
+    else -> "$bytesPerSecond B/s"
+}
+
+
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun OAuthClientSheet(
     initialId: String,
     initialSecret: String,
+    initialBackendUrl: String,
     onDismiss: () -> Unit,
-    onSave: (String, String) -> Unit,
+    onSave: (String, String, String) -> Unit,
 ) {
     var id by rememberSaveable { mutableStateOf(initialId) }
     var secret by rememberSaveable { mutableStateOf(initialSecret) }
+    var backendUrl by rememberSaveable { mutableStateOf(initialBackendUrl) }
     var showSecret by rememberSaveable { mutableStateOf(false) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
@@ -534,12 +633,20 @@ private fun OAuthClientSheet(
                     }
                 },
             )
+            OutlinedTextField(
+                value = backendUrl,
+                onValueChange = { backendUrl = it },
+                label = { Text("OAuth 后端地址") },
+                placeholder = { Text("https://你的-worker.workers.dev") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
-                    onClick = { onSave(id.trim(), secret.trim()) },
-                    enabled = id.isNotBlank(),
+                    onClick = { onSave(id.trim(), secret.trim(), backendUrl.trim()) },
+                    enabled = backendUrl.trim().startsWith("https://"),
                 ) { Text(stringResource(R.string.action_save)) }
-                OutlinedButton(onClick = { onSave("", "") }) { Text(stringResource(R.string.action_clear)) }
+                OutlinedButton(onClick = { onSave("", "", "") }) { Text(stringResource(R.string.action_clear)) }
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
             }
             Spacer(Modifier.height(24.dp))

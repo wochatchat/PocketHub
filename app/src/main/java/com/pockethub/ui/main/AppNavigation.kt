@@ -143,11 +143,18 @@ fun PocketHubApp(
         updateVm.maybeAutoCheck()
     }
 
-    // Observe signedOut to empty the nav stack back to Login when the user signs out.
+    // Observe signedOut and always reset the whole authenticated navigation stack.
+    // Use the graph's actual start-destination id rather than the HOME route string:
+    // logout can be initiated from profile/settings/account-picker, where HOME may
+    // not be the current graph entry anymore.
     androidx.compose.runtime.LaunchedEffect(signedOut) {
         if (signedOut) {
             navController.navigate(Routes.LOGIN) {
-                popUpTo(Routes.HOME) { inclusive = true }
+                popUpTo(navController.graph.findStartDestination().id) {
+                    inclusive = true
+                }
+                launchSingleTop = true
+                restoreState = false
             }
             appVm.clearSignedOut()
         }

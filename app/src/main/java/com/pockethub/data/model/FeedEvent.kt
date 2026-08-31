@@ -45,10 +45,6 @@ data class FeedEvent(
         @SerialName("master_branch") val masterBranch: String? = null,
         val size: Int = 0,
         val commits: List<Commit> = emptyList(),
-        /** PushEvent only: SHA of the last commit on the pushed branch. GitHub
-         *  events no longer carry the commits array, so this is the reliable
-         *  deep-link target for pushes. */
-        val head: String? = null,
         @SerialName("pull_request") val pullRequest: PullRequestRef? = null,
         val forkee: RepoRef? = null,
         /** IssuesEvent / IssueCommentEvent carry the target issue. When the

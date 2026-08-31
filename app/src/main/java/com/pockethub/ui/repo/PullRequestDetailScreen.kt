@@ -312,7 +312,7 @@ fun PullRequestDetailScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .verticalScroll(com.pockethub.ui.components.rememberRestorableScrollState(contentReady = pr != null))
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {

@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.pockethub.ui.theme.AppStyle
 import com.pockethub.ui.theme.ThemeMode
+import com.pockethub.data.local.TokenCipher
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -29,6 +30,7 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("p
 @Singleton
 class SettingsRepository @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val cipher: TokenCipher,
 ) {
     // ── Keys ──────────────────────────────────────────────
     private object Keys {
@@ -37,6 +39,9 @@ class SettingsRepository @Inject constructor(
         val APP_LOCALE = stringPreferencesKey("app_locale")
         val CUSTOM_CLIENT_ID = stringPreferencesKey("custom_client_id")
         val CUSTOM_CLIENT_SECRET = stringPreferencesKey("custom_client_secret")
+        val OAUTH_BACKEND_URL = stringPreferencesKey("oauth_backend_url")
+        val DOH_URL = stringPreferencesKey("doh_url")
+        val PENDING_OAUTH_STATE = stringPreferencesKey("pending_oauth_state")
         val NOTIF_POLL_MINUTES = intPreferencesKey("notif_poll_minutes")
         val NOTIFIED_IDS = stringPreferencesKey("notified_ids")
         val TRANSLATE_TARGET = stringPreferencesKey("translate_target")
@@ -104,21 +109,44 @@ class SettingsRepository @Inject constructor(
         }
     }
 
+    val oauthBackendUrl: Flow<String> = context.dataStore.data.map {
+        it[Keys.OAUTH_BACKEND_URL] ?: DEFAULT_OAUTH_BACKEND_URL
+    }
+    val dohUrl: Flow<String> = context.dataStore.data.map {
+        it[Keys.DOH_URL] ?: DEFAULT_DOH_URL
+    }
+    suspend fun setDohUrl(url: String) {
+        context.dataStore.edit { prefs ->
+            val value = url.trim()
+            if (value.isBlank()) prefs.remove(Keys.DOH_URL) else prefs[Keys.DOH_URL] = value
+        }
+    }
+
+    suspend fun setOAuthBackendUrl(url: String) {
+        context.dataStore.edit { prefs ->
+            val value = url.trim().removeSuffix("/")
+            if (value.isBlank()) prefs.remove(Keys.OAUTH_BACKEND_URL) else prefs[Keys.OAUTH_BACKEND_URL] = value
+        }
+    }
+
     // ── Custom OAuth Client ───────────────────────────────
     val customClientId: Flow<String> = context.dataStore.data.map {
         it[Keys.CUSTOM_CLIENT_ID].orEmpty()
     }
 
     val customClientSecret: Flow<String> = context.dataStore.data.map {
-        it[Keys.CUSTOM_CLIENT_SECRET].orEmpty()
+        cipher.decrypt(it[Keys.CUSTOM_CLIENT_SECRET].orEmpty())
     }
 
     suspend fun setCustomOAuthClient(id: String, secret: String) {
         context.dataStore.edit { prefs ->
             prefs[Keys.CUSTOM_CLIENT_ID] = id
-            prefs[Keys.CUSTOM_CLIENT_SECRET] = secret
+            prefs[Keys.CUSTOM_CLIENT_SECRET] = cipher.encrypt(secret)
         }
     }
+
+    suspend fun setPendingOAuthState(state: String) { context.dataStore.edit { it[Keys.PENDING_OAUTH_STATE] = state } }
+    suspend fun consumePendingOAuthState(): String? { var value:String?=null; context.dataStore.edit { value=it[Keys.PENDING_OAUTH_STATE]; it.remove(Keys.PENDING_OAUTH_STATE) }; return value }
 
     // ── Translation ───────────────────────────────────────
     /** Target language for README translation: "zh", "en", or null (disabled). */
@@ -354,7 +382,9 @@ class SettingsRepository @Inject constructor(
         context.dataStore.edit { it[Keys.ISSUE_REPORT_TARGET_REPO] = slug.trim().lowercase() }
     }
 
-    private companion object {
+    companion object {
         const val KEEP = 200
+        const val DEFAULT_OAUTH_BACKEND_URL = "https://oauth.wxjxpp.de5.net"
+        const val DEFAULT_DOH_URL = "https://dns.alidns.com/dns-query"
     }
 }

@@ -154,11 +154,8 @@ internal fun OverviewTab(
         return
     }
     repoData?.let { data ->
-        // Belt-and-suspenders scroll restore (see rememberRestorableScrollState):
-        // keeps the overview position when navigating into a sub-page and back.
-        val overviewScroll = com.pockethub.ui.components.rememberRestorableScrollState(contentReady = true)
         Column(
-            Modifier.fillMaxSize().verticalScroll(overviewScroll).padding(16.dp),
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // ── Info card: owner, description, homepage, stats, topics ──

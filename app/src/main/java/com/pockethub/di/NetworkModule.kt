@@ -15,6 +15,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.json.Json
+import com.pockethub.data.remote.SettingsRepository
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -53,7 +54,7 @@ object NetworkModule {
             .build()
         val doh = okhttp3.dnsoverhttps.DnsOverHttps.Builder()
             .client(bootstrapClient)
-            .url("https://dns.alidns.com/dns-query".toHttpUrl())
+            .url(SettingsRepository.DEFAULT_DOH_URL.toHttpUrl())
             .bootstrapDnsHosts(
                 java.net.InetAddress.getByName("223.5.5.5"),
                 java.net.InetAddress.getByName("223.6.6.6"),

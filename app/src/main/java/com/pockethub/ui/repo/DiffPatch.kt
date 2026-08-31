@@ -12,10 +12,12 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Reply
 import androidx.compose.material.icons.automirrored.outlined.Send
@@ -120,31 +122,33 @@ fun DiffPatchWithComment(
     threadState: Map<Long, ThreadState> = emptyMap(),
     currentLogin: String? = null,
     busyCommentIds: Set<Long> = emptySet(),
+    preloadedLines: List<DiffLine>? = null,
     modifier: Modifier = Modifier,
 ) {
-    val lines = remember(patch) { parsePatch(patch) }
+    val lines = preloadedLines ?: remember(patch) { parsePatch(patch) }
     // Track which line is currently being commented — show an inline input below it.
     var activeLine by remember { mutableStateOf<Int?>(null) }
     var draftBody by remember { mutableStateOf("") }
     // Reply state for a given thread root id.
     var replyTo by remember { mutableStateOf<Long?>(null) }
     var replyBody by remember { mutableStateOf("") }
-
     val hScroll = rememberScrollState()
-    val vScroll = rememberScrollState()
 
-    Column(
+
+    LazyColumn(
         modifier
             .fillMaxWidth()
             .heightIn(max = 360.dp)
-            .verticalScroll(vScroll)
             .horizontalScroll(hScroll)
             .clip(RoundedCornerShape(4.dp))
             .background(MaterialTheme.colorScheme.surface)
             .padding(6.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
-        lines.forEachIndexed { idx, line ->
+        itemsIndexed(
+            items = lines,
+            key = { index, line -> "${filename}:${index}:${line.newNumber ?: line.oldNumber ?: 0}" },
+        ) { idx, line ->
             // Pull all comments anchored at this line, AS WELL AS every reply in the
             // same thread (matching root id) — render them as a single thread block.
             val anchoredHere = remember(reviewComments, line.newNumber) {

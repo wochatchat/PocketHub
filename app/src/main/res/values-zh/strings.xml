@@ -63,8 +63,6 @@
     <string name="download_tab_active">下载中</string>
     <string name="download_tab_done">已完成</string>
     <string name="download_action_delete">删除</string>
-    <string name="download_delete_confirm_title">删除文件？</string>
-    <string name="download_delete_confirm_message">将同时删除本地下载文件夹中的 %1$s，此操作无法撤销。</string>
     <string name="download_action_retry">重试</string>
     <string name="download_action_cancel">取消</string>
     <string name="download_empty_active">没有下载任务</string>

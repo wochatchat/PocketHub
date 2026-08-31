@@ -118,8 +118,6 @@
     <string name="download_tab_active">In progress</string>
     <string name="download_tab_done">Completed</string>
     <string name="download_action_delete">Delete</string>
-    <string name="download_delete_confirm_title">Delete file?</string>
-    <string name="download_delete_confirm_message">This will also delete %1$s from the local download folder. This cannot be undone.</string>
     <string name="download_action_retry">Retry</string>
     <string name="download_action_cancel">Cancel</string>
     <string name="download_empty_active">No active downloads</string>

@@ -40,8 +40,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
@@ -348,28 +346,6 @@ fun EmptyStateV2(
             action()
         }
     }
-}
-
-/**
- * [rememberScrollState] with a belt-and-suspenders restore for the
- * navigate-away-and-back case: mirrors the live scroll position into
- * [rememberSaveable] ints and re-applies via [ScrollState.scrollTo] once
- * [contentReady] turns true — covers the case where the built-in restore was
- * clamped to the top because the container was briefly empty (data still
- * loading) at restore time. When the built-in restore already worked, the
- * re-apply is a no-op.
- */
-@Composable
-fun rememberRestorableScrollState(contentReady: Boolean): ScrollState {
-    val scrollState = rememberScrollState()
-    var savedValue by rememberSaveable { mutableIntStateOf(0) }
-    LaunchedEffect(scrollState.value) { savedValue = scrollState.value }
-    LaunchedEffect(contentReady) {
-        if (contentReady && savedValue > 0 && scrollState.value == 0) {
-            scrollState.scrollTo(savedValue)
-        }
-    }
-    return scrollState
 }
 
 /**

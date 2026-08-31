@@ -24,16 +24,14 @@ import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.InsertDriveFile
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.TaskAlt
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TabRow
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -189,34 +187,6 @@ private fun DoneDownloadsTab(vm: DownloadViewModel) {
         return
     }
     val context = LocalContext.current
-    // Pending delete request — shown as a confirmation dialog first, since
-    // deleting a finished download also removes the file from disk.
-    var pendingDelete by remember { mutableStateOf<DownloadEntity?>(null) }
-
-    pendingDelete?.let { target ->
-        AlertDialog(
-            onDismissRequest = { pendingDelete = null },
-            title = { Text(stringResource(R.string.download_delete_confirm_title)) },
-            text = { Text(stringResource(R.string.download_delete_confirm_message, target.fileName)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    vm.removeCompleted(target.url)
-                    pendingDelete = null
-                }) {
-                    Text(
-                        stringResource(R.string.action_delete),
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) {
-                    Text(stringResource(R.string.action_cancel))
-                }
-            },
-        )
-    }
-
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp)) {
         items(done, key = { it.url }) { entity ->
             DoneDownloadItem(
@@ -230,7 +200,7 @@ private fun DoneDownloadsTab(vm: DownloadViewModel) {
                         openLocalFile(context, f)
                     }
                 },
-                onRemove = { pendingDelete = entity },
+                onRemove = { vm.removeCompleted(entity.url) },
             )
             Spacer(Modifier.height(10.dp))
         }

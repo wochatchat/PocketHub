@@ -7,6 +7,7 @@ import com.pockethub.BuildConfig
 import com.pockethub.data.remote.AccountRepository
 import com.pockethub.data.remote.AuthInterceptor
 import com.pockethub.data.remote.GitHubApi
+import com.pockethub.data.remote.OAuthEndpoints
 import com.pockethub.data.remote.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,6 +15,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.security.SecureRandom
+import android.util.Base64
 import javax.inject.Inject
 
 /**
@@ -46,6 +49,7 @@ class LoginViewModel @Inject constructor(
 
     private val _ui = MutableStateFlow(UiState())
     val ui: StateFlow<UiState> = _ui
+    val loginHistory = accounts.allAccounts
 
     /**
      * Sign in with a Personal Access Token.
@@ -86,28 +90,33 @@ class LoginViewModel @Inject constructor(
      * Initiate OAuth: build the authorization URL using either the built-in
      * default OAuth Client or a user-provided custom client (from Settings).
      */
+    fun loginFromHistory(id: Long) { viewModelScope.launch { _ui.update { it.copy(isLoading=true,error=null) }; if(accounts.loginStoredAccount(id)) _ui.update { it.copy(isLoading=false,success=true) } else _ui.update { it.copy(isLoading=false,error="Stored login is no longer valid.") } } }
+    private var oauthState: String? = null
     fun startOAuth() {
         viewModelScope.launch {
-            val customId = settings.customClientId.first()
-            val clientId = customId.ifBlank { BuildConfig.GITHUB_DEFAULT_CLIENT_ID }
-            if (clientId.isBlank()) {
-                _ui.update {
-                    it.copy(
-                        error = "OAuth Client ID is not configured.\n\n" +
-                            "To create one, go to GitHub Settings → Developer settings → OAuth Apps, " +
-                            "create a new OAuth App, then copy the Client ID into PocketHub Settings → Custom OAuth Client.\n\n" +
-                            "Or simply sign in with a Personal Access Token (fastest)."
-                    )
-                }
+            try {
+            val backend = settings.oauthBackendUrl.first().trim().removeSuffix("/")
+            if (!backend.startsWith("https://")) {
+                _ui.update { it.copy(error = "请先在设置 → Custom OAuth Client 中填写 OAuth 后端地址。") }
                 return@launch
             }
-            val redirectUri = BuildConfig.GITHUB_OAUTH_REDIRECT_URI
-            val scope = "repo read:user user:email read:org read:notifications"
-            val url = "https://github.com/login/oauth/authorize" +
-                "?client_id=$clientId" +
-                "&redirect_uri=$redirectUri" +
-                "&scope=${java.net.URLEncoder.encode(scope, "UTF-8")}"
+            val config = api.getOAuthBackendConfig("$backend/config")
+            val clientId = config.clientId
+            val redirectUri = config.redirectUri.ifBlank { BuildConfig.GITHUB_OAUTH_REDIRECT_URI }
+            if (clientId.isBlank()) {
+                _ui.update { it.copy(error = "OAuth 后端未配置 GITHUB_CLIENT_ID。") }
+                return@launch
+            }
+            val scope="repo read:user user:email read:org read:notifications"
+            val b=ByteArray(32).also{SecureRandom().nextBytes(it)}
+            oauthState=Base64.encodeToString(b,Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
+            settings.setPendingOAuthState(oauthState!!)
+            val url=config.authorizeUrl+"?client_id=${java.net.URLEncoder.encode(clientId,"UTF-8")}"+"&redirect_uri=${java.net.URLEncoder.encode(redirectUri,"UTF-8")}"+"&scope=${java.net.URLEncoder.encode(scope,"UTF-8")}"+"&state=${java.net.URLEncoder.encode(oauthState,"UTF-8")}"
             _ui.update { it.copy(oauthUrl = url) }
+            } catch (e: Exception) {
+                issueReporter.reportError("Login", "startOAuth", e)
+                _ui.update { it.copy(isLoading = false, error = e.userMessage("OAuth 后端不可用，请检查地址和 GITHUB_CLIENT_ID 配置。")) }
+            }
         }
     }
 
@@ -116,30 +125,24 @@ class LoginViewModel @Inject constructor(
      * for an access token. The deep link is handled by [MainActivity]; once it receives
      * `code=xxx`, it will call this function.
      */
-    fun exchangeOAuthCode(code: String) {
+    fun exchangeOAuthCode(code: String, state: String?) {
         viewModelScope.launch {
             _ui.update { it.copy(isLoading = true, error = null) }
             try {
-                val customId = settings.customClientId.first()
-                val customSecret = settings.customClientSecret.first()
-                val clientId = customId.ifBlank { BuildConfig.GITHUB_DEFAULT_CLIENT_ID }
-                val clientSecret = customSecret.ifBlank { BuildConfig.GITHUB_DEFAULT_CLIENT_SECRET }
-                if (clientId.isBlank() || clientSecret.isBlank()) {
-                    _ui.update {
-                        it.copy(
-                            isLoading = false,
-                            error = "OAuth Client ID/Secret not configured — cannot complete the token exchange.\n" +
-                                "Please go to Settings → Custom OAuth Client and enter your OAuth App details."
-                        )
-                    }
+                val expected=oauthState?:settings.consumePendingOAuthState()
+                if(expected==null||expected!=state){_ui.update{it.copy(isLoading=false,error="OAuth callback verification failed.")};return@launch}
+                settings.consumePendingOAuthState();oauthState=null
+                val backend = settings.oauthBackendUrl.first().trim().removeSuffix("/")
+                if (!backend.startsWith("https://")) {
+                    _ui.update { it.copy(isLoading = false, error = "OAuth 后端地址未配置。") }
                     return@launch
                 }
-
-                val tokenResp = api.exchangeOAuthCode(
-                    clientId = clientId,
-                    clientSecret = clientSecret,
-                    code = code,
-                    redirectUri = BuildConfig.GITHUB_OAUTH_REDIRECT_URI,
+                val tokenResp = api.exchangeOAuthCodeViaBackend(
+                    url = "$backend/oauth/exchange",
+                    body = OAuthEndpoints.BackendExchangeRequest(
+                        code = code,
+                        redirectUri = BuildConfig.GITHUB_OAUTH_REDIRECT_URI,
+                    ),
                 )
                 if (tokenResp.error != null) {
                     _ui.update {

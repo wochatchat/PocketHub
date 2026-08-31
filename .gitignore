@@ -21,3 +21,6 @@ apk/*.apk
 # CI signing inputs remain tracked for the existing release pipeline.
 !release.keystore
 !signing.properties
+
+release.keystore
+signing.properties

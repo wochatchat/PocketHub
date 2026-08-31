@@ -2,6 +2,7 @@ package com.pockethub.data.remote
 
 import com.pockethub.data.local.AccountDao
 import com.pockethub.data.local.AccountEntity
+import com.pockethub.data.local.TokenCipher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
@@ -13,12 +14,15 @@ import javax.inject.Singleton
 @Singleton
 class AccountRepository @Inject constructor(
     private val accountDao: AccountDao,
+    private val cipher: TokenCipher,
 ) {
     val allAccounts: Flow<List<AccountEntity>> = accountDao.allAccounts()
     val activeAccount: Flow<AccountEntity?> = accountDao.activeAccount()
 
     /** Get the token of the current active account, or empty. */
-    suspend fun getActiveToken(): String = accountDao.getActiveAccountSync()?.token.orEmpty()
+    suspend fun getActiveToken(): String { val a=accountDao.getActiveAccountSync()?:return ""; val t=cipher.decrypt(a.token); if(t.isNotBlank()&&!a.token.startsWith("v1:"))accountDao.update(a.copy(token=cipher.encrypt(t))); return t }
+    suspend fun loginStoredAccount(id:Long):Boolean { val a=accountDao.getById(id)?:return false; val t=cipher.decrypt(a.token); if(t.isBlank())return false; if(!a.token.startsWith("v1:"))accountDao.update(a.copy(token=cipher.encrypt(t))); accountDao.deactivateAll(); accountDao.activate(id); return true }
+    suspend fun logout(){accountDao.deactivateAll()}
 
     /** Get the current login, or empty. */
     suspend fun getActiveLogin(): String = accountDao.getActiveAccountSync()?.login.orEmpty()
@@ -38,7 +42,7 @@ class AccountRepository @Inject constructor(
                 login = login,
                 name = name,
                 avatarUrl = avatarUrl,
-                token = token,
+                token = cipher.encrypt(token),
                 tokenType = tokenType,
                 isActive = existing.isEmpty(), // first account is active by default
                 scopes = scopes,

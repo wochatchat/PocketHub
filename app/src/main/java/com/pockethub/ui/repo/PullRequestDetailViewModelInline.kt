@@ -4,7 +4,12 @@ import androidx.lifecycle.viewModelScope
 import com.pockethub.util.userMessage
 import com.pockethub.data.remote.GitHubApi
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.jsonArray
@@ -302,11 +307,25 @@ internal fun PullRequestDetailViewModel.clearInlineCommentError() { _inlineComme
 internal suspend fun PullRequestDetailViewModel.hydrateReactions(owner: String, repo: String) {
     val current = accounts.getActiveLogin()
     if (current.isBlank()) return
-    for (c in _comments.value) {
-        if (c.reactions == null || c.reactions.totalCount == 0) continue
-        runCatching { api.listIssueCommentReactions(owner, repo, c.id) }.onSuccess { list ->
-            val mine = list.filter { it.user?.login == current }.associate { it.content to it.id }
-            if (mine.isNotEmpty()) _viewerReactions.update { it + (c.id to mine) }
-        }
+    val targets = _comments.value.filter { it.reactions?.totalCount ?: 0 > 0 }
+    if (targets.isEmpty()) return
+    // Keep requests concurrent but bounded: GitHub API and mobile networks both
+    // perform poorly when one request is made per comment in a serial loop.
+    val permits = Semaphore(4)
+    coroutineScope {
+        targets.map { comment ->
+            async {
+                permits.withPermit {
+                    runCatching { api.listIssueCommentReactions(owner, repo, comment.id) }
+                        .onSuccess { list ->
+                            val mine = list.filter { it.user?.login == current }
+                                .associate { it.content to it.id }
+                            if (mine.isNotEmpty()) {
+                                _viewerReactions.update { it + (comment.id to mine) }
+                            }
+                        }
+                }
+            }
+        }.awaitAll()
     }
 }

@@ -35,6 +35,20 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Restore release signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > release-signing.p12
+          cat > signing.properties <<EOF
+          STORE_FILE=release-signing.p12
+          STORE_PASSWORD=$KEYSTORE_PASSWORD
+          KEY_ALIAS=pockethub
+          KEY_PASSWORD=$KEYSTORE_PASSWORD
+          EOF
       - name: Build release APK (auto-bump version)
         run: |
           chmod +x build.sh
@@ -59,22 +73,14 @@ jobs:
           fi
           # Fallback: generate from commit subjects (AI when LLM_API_KEY is set,
           # deterministic phrasing otherwise). Runs when no matching committed
-          # changelog exists. Only commits SINCE the previous release tag are
-          # summarized — a fixed -n 40 would bleed earlier rounds' changes in.
+          # changelog exists.
           if [ ! -f /tmp/changelog.json ]; then
-            LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-            if [ -n "$LAST_TAG" ]; then
-              git log --pretty=format:'%s' "$LAST_TAG"..HEAD \
+            mapfile -t LOG_LINES < <(
+              git log --pretty=format:'%s' -n 40 \
                 --grep='chore: release' --invert-grep \
-                --grep='\[skip ci\]' --invert-grep > /tmp/commits.txt
-            else
-              mapfile -t LOG_LINES < <(
-                git log --pretty=format:'%s' -n 40 \
-                  --grep='chore: release' --invert-grep \
-                  --grep='\[skip ci\]' --invert-grep
-              )
-              printf '%s\n' "${LOG_LINES[@]}" > /tmp/commits.txt
-            fi
+                --grep='\[skip ci\]' --invert-grep
+            )
+            printf '%s\n' "${LOG_LINES[@]}" > /tmp/commits.txt
             python3 scripts/gen_changelog.py /tmp/commits.txt > /tmp/changelog.json \
               || echo '{"items":[]}' > /tmp/changelog.json
           fi

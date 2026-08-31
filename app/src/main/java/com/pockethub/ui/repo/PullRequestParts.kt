@@ -36,6 +36,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,6 +53,8 @@ import com.pockethub.ui.markdown.MarkdownText
 import java.text.DateFormat
 import com.pockethub.util.parseIso
 import com.pockethub.ui.components.PhAsyncImage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 
 @Composable
@@ -163,6 +166,13 @@ internal fun FileDiffItem(
     currentLogin: String?,
     busyCommentIds: Set<Long>,
 ) {
+    var expanded by remember { mutableStateOf(false) }
+    var preloadedLines by remember(file.patch) { mutableStateOf<List<DiffLine>?>(null) }
+    LaunchedEffect(expanded, file.patch) {
+        if (expanded && !file.patch.isNullOrBlank() && preloadedLines == null) {
+            preloadedLines = withContext(Dispatchers.Default) { parsePatch(file.patch) }
+        }
+    }
     val statusColor = when (file.status) {
         "added" -> Color(0xFF2EA043)
         "removed" -> MaterialTheme.colorScheme.error
@@ -185,7 +195,10 @@ internal fun FileDiffItem(
             .padding(8.dp),
     ) {
         // File header
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth().clickable { expanded = !expanded },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Box(
                 Modifier.clip(RoundedCornerShape(4.dp))
                     .background(statusColor.copy(alpha = 0.15f))
@@ -210,9 +223,14 @@ internal fun FileDiffItem(
             )
         }
         // Patch — line-commentable
-        if (!file.patch.isNullOrBlank()) {
+        if (expanded && !file.patch.isNullOrBlank()) {
             Spacer(Modifier.height(6.dp))
-            DiffPatchWithComment(
+            if (preloadedLines == null) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                }
+            } else {
+                DiffPatchWithComment(
                 patch = file.patch,
                 filename = file.filename,
                 commitId = commitId,
@@ -227,9 +245,12 @@ internal fun FileDiffItem(
                 threadState = threadState,
                 currentLogin = currentLogin,
                 busyCommentIds = busyCommentIds,
+                preloadedLines = preloadedLines,
             )
         }
     }
+}
+
 }
 
 /**
