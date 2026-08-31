@@ -439,6 +439,16 @@ private fun FileViewerContent(
  */
 private const val HIGHLIGHT_MAX_CHARS = 200_000
 
+/** Everything the code body needs, prepared OFF the main thread — splitting,
+ *  gutter numbering and regex tokenizing of a large file all cost seconds on
+ *  the UI thread and ANR the app (hit hardest by the offline zip viewer,
+ *  whose files are not capped by the Contents API's 1MB limit). */
+private class PreparedCode(
+    val lineCount: Int,
+    val gutterText: String,
+    val highlighted: androidx.compose.ui.text.AnnotatedString,
+)
+
 /**
  * Code view with line numbers, syntax highlighting and horizontal scrolling.
  * Line numbers scroll vertically with the code but stay pinned at the start
@@ -452,11 +462,6 @@ internal fun SyntaxHighlightedCode(
 ) {
     val vScroll = rememberScrollState()
     val hScroll = rememberScrollState()
-    val lines = remember(code) { code.split("\n") }
-    val gutterWidth = remember(lines.size) {
-        val digits = lines.size.toString().length
-        (digits * 8 + 16).dp
-    }
     // Capture the palette from the theme once, then cache the tokenized result.
     val colorScheme = MaterialTheme.colorScheme
     val palette = remember(colorScheme) {
@@ -468,10 +473,34 @@ internal fun SyntaxHighlightedCode(
             annotation = colorScheme.primary,
         )
     }
-    val highlighted = remember(code, fileName, palette) {
-        CodeHighlighter.highlight(code.take(HIGHLIGHT_MAX_CHARS), fileName, palette)
+    // Heavy prep runs on a worker thread; composition only renders the result.
+    val prepared by androidx.compose.runtime.produceState<PreparedCode?>(null, code, fileName, palette) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            val truncated = code.take(HIGHLIGHT_MAX_CHARS)
+            val lines = truncated.split("\n")
+            PreparedCode(
+                lineCount = lines.size,
+                gutterText = (1..lines.size).joinToString("\n"),
+                highlighted = CodeHighlighter.highlight(truncated, fileName, palette),
+            )
+        }
     }
-    val gutterText = remember(lines.size) { (1..lines.size).joinToString("\n") }
+    if (prepared == null) {
+        // Spinner instead of a multi-second frozen frame.
+        androidx.compose.foundation.layout.Box(
+            modifier = modifier,
+            contentAlignment = androidx.compose.ui.Alignment.Center,
+        ) {
+            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+        }
+        return
+    }
+    val gutterWidth = remember(prepared!!.lineCount) {
+        val digits = prepared!!.lineCount.toString().length
+        (digits * 8 + 16).dp
+    }
+    val highlighted = prepared!!.highlighted
+    val gutterText = prepared!!.gutterText
     val codeStyle = MaterialTheme.typography.bodySmall.copy(
         fontFamily = FontFamily.Monospace,
         lineHeight = 18.sp,

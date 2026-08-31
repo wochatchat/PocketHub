@@ -15,8 +15,10 @@ import java.util.zip.ZipInputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Text files above this size are not previewed (OOM guard for the viewer). */
-private const val MAX_TEXT_BYTES = 2L * 1024 * 1024
+/** Text files above this size are not previewed (OOM guard for the viewer).
+ *  1MB matches what the GitHub Contents API returns online — bigger files
+ *  would blow up the viewer's prepare/layout cost. */
+private const val MAX_TEXT_BYTES = 1024L * 1024
 
 /**
  * Offline repository browsing: turns finished zip downloads (release source
@@ -98,9 +100,10 @@ class OfflineRepoManager @Inject constructor(
     /**
      * Recursive file listing in the shape the shared code viewer's tree panel
      * already consumes ([GitHubApi.GitTreeEntry]) — directories first handled
-     * by the UI, ordering is done there.
+     * by the UI, ordering is done there. Runs off the main thread: a full repo
+     * zip is thousands of stat() calls.
      */
-    fun treeOf(root: File): List<GitHubApi.GitTreeEntry> =
+    suspend fun treeOf(root: File): List<GitHubApi.GitTreeEntry> = withContext(Dispatchers.IO) {
         root.walkTopDown()
             .filter { it != root }
             .map { f ->
@@ -111,6 +114,7 @@ class OfflineRepoManager @Inject constructor(
                 )
             }
             .toList()
+    }
 
     /** Decoded text of an extracted file, or null for binary / oversized files. */
     suspend fun readText(root: File, path: String): String? = withContext(Dispatchers.IO) {
