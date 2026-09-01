@@ -364,7 +364,7 @@ private fun OAuthClientSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        contentWindowInsets = WindowInsets.ime,
+        contentWindowInsets = { WindowInsets.ime },
     ) {
         Column(
             Modifier
