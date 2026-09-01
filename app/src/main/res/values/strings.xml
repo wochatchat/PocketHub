@@ -10,9 +10,7 @@
     <string name="login_description_scopes">A token with repo, read:user, user:email, read:org, read:notifications scopes is required.</string>
     <string name="login_get_token_link">https://github.com/settings/tokens/new</string>
     <string name="login_get_token_link_text">Create a new token →</string>
-    <string name="login_oauth_description">Authorize PocketHub as an OAuth App to sign in without creating a token.</string>
-    <string name="login_get_oauth_link">https://github.com/settings/applications/new</string>
-    <string name="login_get_oauth_link_text">Create an OAuth App →</string>
+    <string name="login_oauth_description">Sign in with GitHub OAuth — no token or OAuth App setup needed.</string>
 
     <!-- Common actions -->
     <string name="action_search">Search</string>
@@ -78,7 +76,6 @@
     <string name="mirror_prefix_not_set">Off — direct connection</string>
     <string name="mirror_prefix_set">%1$s</string>
     <string name="mirror_prefix_summary">Prepends a gh-proxy-style accelerator in front of GitHub FILE downloads (release assets, raw files, zips). API traffic is untouched. Example: https://gh-proxy.com/ — leave blank to disable.</string>
-    <string name="mirror_prefix_label">Accelerator base URL</string>
     <string name="mirror_pick_hint">Pick a mirror; the speed test downloads real data through each one (not just latency). Results reflect your current network only.</string>
     <string name="mirror_direct">Direct (no accelerator)</string>
     <string name="mirror_speed_test">Speed test</string>

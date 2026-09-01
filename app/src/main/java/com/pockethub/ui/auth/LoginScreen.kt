@@ -5,6 +5,7 @@ import com.pockethub.R
 import androidx.compose.ui.res.stringResource
 
 import android.net.Uri
+import androidx.activity.ComponentActivity
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,11 +15,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.Icons
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.ui.text.SpanStyle
@@ -26,9 +31,6 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -93,15 +95,14 @@ private fun HyperlinkLabel(
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
-    vmPlaceholder: LoginViewModel? = null,
 ) {
     // Activity-scoped VM: MainActivity exchanges the OAuth code on the SAME
     // instance, so the UI actually observes isLoading/success/error. The
     // default (navigation-scoped) instance splits the brain — the exchange
     // succeeds on one VM while the screen stares at another. (Ported from
     // #32 by @Wxjxpp.)
-    val activity = LocalContext.current as androidx.activity.ComponentActivity
-    val vm: LoginViewModel = vmPlaceholder ?: androidx.hilt.navigation.compose.hiltViewModel(activity)
+    val activity = LocalContext.current as ComponentActivity
+    val vm: LoginViewModel = hiltViewModel(activity)
     val ui by vm.ui.collectAsState()
     val context = LocalContext.current
     var token by rememberSaveable { mutableStateOf("") }
@@ -146,25 +147,19 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Logo plate
+            // Launcher icon — same adaptive-icon assets as the home screen icon:
+            // foreground vector over the launcher background color.
             Box(
                 modifier = Modifier
                     .size(84.dp)
                     .clip(androidx.compose.foundation.shape.RoundedCornerShape(24.dp))
-                    .background(
-                        Brush.linearGradient(
-                            listOf(
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
-                                MaterialTheme.colorScheme.tertiary.copy(alpha = 0.85f),
-                            )
-                        )
-                    ),
+                    .background(colorResource(R.color.ic_launcher_background)),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    Icons.Outlined.Code,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(40.dp),
+                Image(
+                    painter = painterResource(R.drawable.ic_launcher_foreground),
+                    contentDescription = stringResource(R.string.app_name),
+                    modifier = Modifier.size(84.dp),
                 )
             }
             Spacer(Modifier.height(20.dp))
@@ -243,12 +238,6 @@ fun LoginScreen(
                 stringResource(R.string.login_oauth_description),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(4.dp))
-            HyperlinkLabel(
-                url = stringResource(R.string.login_get_oauth_link),
-                linkText = stringResource(R.string.login_get_oauth_link_text),
-                modifier = Modifier.fillMaxWidth(),
             )
 
             // Error message

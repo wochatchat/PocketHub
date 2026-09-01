@@ -10,9 +10,7 @@
     <string name="login_description_scopes">需要拥有 repo、read:user、user:email、read:org、read:notifications 权限的 Token。</string>
     <string name="login_get_token_link">https://github.com/settings/tokens/new</string>
     <string name="login_get_token_link_text">创建新 Token →</string>
-    <string name="login_oauth_description">通过 OAuth App 授权 PocketHub 登录，无需手动创建 Token。</string>
-    <string name="login_get_oauth_link">https://github.com/settings/applications/new</string>
-    <string name="login_get_oauth_link_text">创建 OAuth App →</string>
+    <string name="login_oauth_description">通过 GitHub OAuth 授权登录，无需创建 Token 或 OAuth 应用。
 
     <!-- Common actions -->
     <string name="action_search">搜索</string>
@@ -604,7 +602,6 @@
     <string name="mirror_prefix_not_set">未启用 — 直连</string>
     <string name="mirror_prefix_set">%1$s</string>
     <string name="mirror_prefix_summary">在 GitHub 文件下载(Release 附件、raw 文件、zip 源码包)前拼接 gh-proxy 类加速前缀。API 请求不受影响。示例:https://gh-proxy.com/ — 留空则关闭。</string>
-    <string name="mirror_prefix_label">加速前缀 URL</string>
     <string name="mirror_pick_hint">选择加速站。测速会实际下载数据（不只是测延迟），结果仅代表当前网络。</string>
     <string name="mirror_direct">直连（关闭加速）</string>
     <string name="mirror_speed_test">测速</string>

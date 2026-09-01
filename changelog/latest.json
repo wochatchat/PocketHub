@@ -1,19 +1,24 @@
 {
-  "version": "0.3.93",
+  "version": "0.3.94",
   "summary": {
-    "zh": "修复登出后被立即弹回主页的问题：登录成功信号改为一次性消费，登出后稳定停留在登录页。",
-    "en": "Fixed being bounced back to Home right after sign-out: the login-success signal is now consumed once, so the app stays on the login page after signing out."
+    "zh": "界面细节优化：登录页改用应用图标，移除已无用的“创建 OAuth App”入口与冗余代码。",
+    "en": "UI polish: the login screen now shows the app icon; removed the obsolete \"Create OAuth App\" link and leftover code from the recent fixes."
   },
   "items": [
     {
-      "type": "fix",
-      "zh": "修复退出登录后未停留登录页、被自动弹回主页的问题",
-      "en": "Fixed the app bouncing back to Home instead of staying on the login page after sign-out"
+      "type": "improve",
+      "zh": "登录页顶部改用与桌面图标一致的 GitHub 猫应用图标",
+      "en": "Login screen header now uses the same app icon as the launcher"
     },
     {
       "type": "improve",
-      "zh": "登录页按钮文案调整为「GitHub 授权登录」，并移除上一版的诊断提示",
-      "en": "Login button copy updated to “Authorize with GitHub”; diagnostic traces removed"
+      "zh": "移除“创建 OAuth App”引导链接——登录已无需用户自行创建应用",
+      "en": "Removed the obsolete “Create OAuth App” link — no user setup needed anymore"
+    },
+    {
+      "type": "fix",
+      "zh": "清理近期多轮修复残留的无效代码与无用资源",
+      "en": "Cleaned up leftover code and unused resources from recent fix rounds"
     }
   ]
 }
