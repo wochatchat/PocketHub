@@ -126,7 +126,10 @@ private fun CommitRow(
     onClick: () -> Unit = {},
 ) {
     val dateFmt = remember { DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault()) }
-    val authorLogin = commit.author?.login
+    // GitHub returns author = {} (empty object) for commits whose author
+    // account was deleted/hidden — treat a blank login like "no GitHub user"
+    // and fall back to the raw git author name.
+    val authorLogin = commit.author?.login?.takeIf { it.isNotBlank() }
     val authorClick = authorLogin?.let { Modifier.clickable { onNavigateToUser(it) } } ?: Modifier
 
     com.pockethub.ui.components.PhCard(
@@ -165,7 +168,7 @@ private fun CommitRow(
                         Spacer(Modifier.width(4.dp))
                     }
                     Text(
-                        commit.author?.login ?: commit.commit?.author?.name ?: stringResource(R.string.unknown),
+                        authorLogin ?: commit.commit?.author?.name ?: stringResource(R.string.unknown),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = authorClick,

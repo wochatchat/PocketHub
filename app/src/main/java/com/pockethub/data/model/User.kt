@@ -5,10 +5,15 @@ import kotlinx.serialization.Serializable
 
 /**
  * Minimal owner / author payload shared across repo / issue / comment endpoints.
+ *
+ * [login] needs a default: GitHub returns an EMPTY OBJECT (`"author": {}`) for
+ * commits whose author account was deleted or hidden (seen on
+ * Wxjxpp/pockethub-oauth-backend) — a required login would kill the whole
+ * commits list parse.
  */
 @Serializable
 data class User(
-    val login: String,
+    val login: String = "",
     val id: Long? = null,
     @SerialName("avatar_url") val avatarUrl: String? = null,
     @SerialName("html_url") val htmlUrl: String? = null,
