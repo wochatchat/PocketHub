@@ -56,6 +56,7 @@ object Routes {
     const val PR_DETAIL = "repo/{owner}/{repo}/pulls/{number}"
     const val COMMIT_DETAIL = "repo/{owner}/{repo}/commits/{sha}"
     const val WORKFLOW_RUN_DETAIL = "repo/{owner}/{repo}/actions/runs/{runId}"
+    const val WORKFLOW_LOGS = "repo/{owner}/{repo}/actions/runs/{runId}/logs/{jobId}?name={name}&conclusion={conclusion}&status={status}"
     const val USER_DETAIL = "user/{login}?followTab={followTab}"
     const val HISTORY = "history"
     const val DOWNLOADS = "downloads?tab={tab}"
@@ -83,6 +84,18 @@ object Routes {
     fun prDetail(owner: String, repo: String, number: Int) = "repo/$owner/$repo/pulls/$number"
     fun commitDetail(owner: String, repo: String, sha: String) = "repo/$owner/$repo/commits/$sha"
     fun workflowRunDetail(owner: String, repo: String, runId: Long) = "repo/$owner/$repo/actions/runs/$runId"
+    fun workflowLogs(
+        owner: String,
+        repo: String,
+        runId: Long,
+        jobId: Long,
+        name: String,
+        conclusion: String?,
+        status: String?,
+    ) = "repo/$owner/$repo/actions/runs/$runId/logs/$jobId" +
+        "?name=${java.net.URLEncoder.encode(name, "UTF-8")}" +
+        "&conclusion=${conclusion.orEmpty()}" +
+        "&status=${status.orEmpty()}"
 
     fun search(query: String = "") = "search?query=${java.net.URLEncoder.encode(query, "UTF-8")}"
     fun userDetail(login: String, followTab: Int = -1) = if (followTab < 0) "user/$login" else "user/$login?followTab=$followTab"
@@ -525,6 +538,36 @@ fun PocketHubApp(
                         owner = owner,
                         repo = repo,
                         runId = runId,
+                        onBack = { navController.popBackStack() },
+                        onOpenJobLogs = { job ->
+                            navController.navigate(
+                                Routes.workflowLogs(owner, repo, runId, job.id, job.name, job.conclusion, job.status)
+                            )
+                        },
+                    )
+                }
+
+                composable(
+                    Routes.WORKFLOW_LOGS,
+                    arguments = listOf(
+                        navArgument("owner") { type = NavType.StringType },
+                        navArgument("repo") { type = NavType.StringType },
+                        navArgument("runId") { type = NavType.LongType },
+                        navArgument("jobId") { type = NavType.LongType },
+                        navArgument("name") { type = NavType.StringType; defaultValue = "" },
+                        navArgument("conclusion") { type = NavType.StringType; defaultValue = "" },
+                        navArgument("status") { type = NavType.StringType; defaultValue = "" },
+                    ),
+                ) { backStackEntry ->
+                    val owner = backStackEntry.arguments?.getString("owner") ?: return@composable
+                    val repo = backStackEntry.arguments?.getString("repo") ?: return@composable
+                    val runId = backStackEntry.arguments?.getLong("runId") ?: return@composable
+                    val jobId = backStackEntry.arguments?.getLong("jobId") ?: return@composable
+                    com.pockethub.ui.repo.WorkflowLogScreen(
+                        owner = owner,
+                        repo = repo,
+                        runId = runId,
+                        jobId = jobId,
                         onBack = { navController.popBackStack() },
                     )
                 }

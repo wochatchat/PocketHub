@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Pending
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.StopCircle
+import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -74,6 +75,7 @@ fun WorkflowRunDetailScreen(
     repo: String,
     runId: Long,
     onBack: () -> Unit,
+    onOpenJobLogs: (GitHubApi.WorkflowJob) -> Unit = {},
     vm: WorkflowRunDetailViewModel = hiltViewModel(),
 ) {
     val run by vm.run.collectAsState()
@@ -204,7 +206,7 @@ fun WorkflowRunDetailScreen(
                 }
             } else {
                 items(jobs, key = { it.id }) { job ->
-                    JobCard(job = job, dateFmt = dateFmt, onOpenLogs = { open(job.htmlUrl) })
+                    JobCard(job = job, dateFmt = dateFmt, onOpenLogs = { onOpenJobLogs(job) })
                 }
             }
 
@@ -291,7 +293,7 @@ private fun JobCard(
                 overflow = TextOverflow.Ellipsis,
             )
             IconButton(onClick = onOpenLogs, modifier = Modifier.size(24.dp)) {
-                Icon(Icons.AutoMirrored.Outlined.OpenInNew, null, modifier = Modifier.size(16.dp))
+                Icon(Icons.Outlined.Terminal, stringResource(R.string.logs_open), modifier = Modifier.size(16.dp))
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {

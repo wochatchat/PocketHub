@@ -618,4 +618,15 @@
     <string name="md_alert_important">重要</string>
     <string name="md_alert_warning">警告</string>
     <string name="md_alert_caution">危险</string>
+    <string name="logs_search_hint">搜索日志</string>
+    <string name="logs_matches">%1$d 处匹配</string>
+    <string name="logs_no_matches">无匹配</string>
+    <string name="logs_truncated">日志过长，仅显示前 %1$s，完整内容可通过分享/下载获取</string>
+    <string name="logs_unavailable">日志已过期或该任务不可用</string>
+    <string name="logs_open_browser">在浏览器中打开</string>
+    <string name="logs_setup">启动准备</string>
+    <string name="logs_line_count">· %1$d 行</string>
+    <string name="action_share_logs">分享日志</string>
+    <string name="action_download_logs">下载日志</string>
+    <string name="logs_open">查看日志</string>
 </resources>

@@ -620,4 +620,15 @@
     <string name="md_alert_important">Important</string>
     <string name="md_alert_warning">Warning</string>
     <string name="md_alert_caution">Caution</string>
+    <string name="logs_search_hint">Search in logs</string>
+    <string name="logs_matches">%1$d matches</string>
+    <string name="logs_no_matches">No matches</string>
+    <string name="logs_truncated">Log too large — showing the first %1$s. Use share/download for the full output.</string>
+    <string name="logs_unavailable">Logs are expired or not available for this job</string>
+    <string name="logs_open_browser">Open in browser</string>
+    <string name="logs_setup">Set up job</string>
+    <string name="logs_line_count">· %1$d lines</string>
+    <string name="action_share_logs">Share logs</string>
+    <string name="action_download_logs">Download logs</string>
+    <string name="logs_open">View logs</string>
 </resources>
