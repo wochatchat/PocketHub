@@ -81,7 +81,7 @@ class MainActivity : AppCompatActivity() {
                 val deepLinkUri = remember { mutableStateOf<Uri?>(null) }
                 val incomingData by pendingData.collectAsState()
                 LaunchedEffect(incomingData) {
-                    val data: Uri? = incomingData ?: return@LaunchedEffect
+                    val data = incomingData ?: return@LaunchedEffect
                     if (data.scheme == "pockethub" && data.host == "oauth") {
                         handleOAuthCallbackData(data) { code, state ->
                             oauthCode.value = code
