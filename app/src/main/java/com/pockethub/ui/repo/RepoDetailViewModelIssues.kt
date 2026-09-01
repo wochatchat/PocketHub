@@ -53,18 +53,13 @@ internal fun RepoDetailViewModel.fetchPullsPage(owner: String, repo: String, fil
             val apiState = if (filter == PRStateFilter.MERGED) "closed" else filter.apiValue
             var pulls = api.getPullRequests(owner, repo, state = apiState, page = prPage)
             if (filter == PRStateFilter.MERGED) pulls = pulls.filter { it.isMerged }
-            if (append) {
-                val existingIds = _pulls.value.map { it.id }.toSet()
-                _pulls.update { it + pulls.filter { n -> n.id !in existingIds } }
-            } else {
-                _pulls.update { pulls }
-            }
             pullsCanLoadMore = pulls.size >= 30
             // The /pulls LIST endpoint omits the `comments` field entirely (it
-            // only exists on /issues and PR detail), so deserialized rows would
-            // always show "0 条评论". Harvest real counts from /issues — it also
-            // returns PRs — and patch them in. Best-effort: on failure rows
-            // simply keep showing 0 instead of failing the whole list load.
+            // only exists on /issues and PR detail), so rows would render "0 条评论"
+            // and flicker to the real count after a post-publish patch. Harvest the
+            // real counts from /issues — it also returns PRs — BEFORE publishing,
+            // so the list appears once, already correct. Best-effort: on failure
+            // the list still loads, just with 0s.
             if (pulls.isNotEmpty()) {
                 runCatching {
                     val needed = pulls.map { it.number }.toSet()
@@ -79,11 +74,17 @@ internal fun RepoDetailViewModel.fetchPullsPage(owner: String, repo: String, fil
                         if (counts.keys.containsAll(needed) || page.size < 100) break
                     }
                     if (counts.isNotEmpty()) {
-                        _pulls.update { list -> list.map { pr ->
+                        pulls = pulls.map { pr ->
                             counts[pr.number]?.let { if (it != pr.comments) pr.copy(comments = it) else pr } ?: pr
-                        } }
+                        }
                     }
                 }.onFailure { issueReporter.reportError("RepoDetail", "hydratePullCommentCounts", it) }
+            }
+            if (append) {
+                val existingIds = _pulls.value.map { it.id }.toSet()
+                _pulls.update { it + pulls.filter { n -> n.id !in existingIds } }
+            } else {
+                _pulls.update { pulls }
             }
         } catch (e: Exception) {
             issueReporter.reportError("RepoDetail", "fetchPullsPage", e)
