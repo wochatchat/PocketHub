@@ -62,6 +62,13 @@ Tabs: Overview (README) · Code (file tree) · Issues · PRs · Commits · Relea
 ## License
 Apache 2.0 (see [LICENSE](LICENSE)).
 
+## Acknowledgements
+- [@Wxjxpp](https://github.com/Wxjxpp) contributed the core code and design ideas for several features, ported from [PR #32](https://github.com/wochatchat/PocketHub/pull/32):
+  - Configurable **DNS over HTTPS** with a built-in provider picker (see [commit 00976c7](https://github.com/wochatchat/PocketHub/commit/00976c7))
+  - Preset **download accelerator mirrors** with a real-throughput speed test (see [commit f54348e](https://github.com/wochatchat/PocketHub/commit/f54348e))
+  - The **self-hosted OAuth exchange backend** protocol (`/config` + `/oauth/exchange`) and the app's backend client (see [commit f8fbb47](https://github.com/wochatchat/PocketHub/commit/f8fbb47))
+  - The **OAuth `state` CSRF check**, plus two login-flow fixes: callback delivery via `onNewIntent` ([2a878e3](https://github.com/wochatchat/PocketHub/commit/2a878e3)) and a shared `LoginViewModel` between the activity and the login screen ([dd8c6cf](https://github.com/wochatchat/PocketHub/commit/dd8c6cf))
+
 ## Contributing
 - Found a bug or have an idea? Open an [issue](https://github.com/wochatchat/PocketHub/issues/new/choose) — templates are built-in.
 - Want to contribute code? Fork → branch → PR.

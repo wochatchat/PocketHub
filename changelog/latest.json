@@ -1,19 +1,19 @@
 {
-  "version": "0.3.89",
+  "version": "0.3.90",
   "summary": {
-    "zh": "修复 OAuth 登录在授权后停留在登录页的问题：登录状态现已由正确的实例驱动，完整登录链路可用。",
-    "en": "Fixed OAuth sign-in stalling on the login page after authorization: the login state is now driven by the correct instance end to end."
+    "zh": "正式整合社区贡献：可配置加密 DNS、下载镜像测速、自托管 OAuth 后端与回调防伪，移除诊断提示。",
+    "en": "Community contributions merged in: configurable encrypted DNS, mirror speed test, self-hosted OAuth backend with callback verification; diagnostic traces removed."
   },
   "items": [
     {
-      "type": "fix",
-      "zh": "修复授权完成后界面无响应、无法进入应用的问题",
-      "en": "Fixed the UI not reacting after completing authorization"
+      "type": "feat",
+      "zh": "整合社区贡献的加密 DNS 配置、下载镜像测速与 OAuth 后端代理（见 README 致谢）",
+      "en": "Community contributions integrated: DoH configuration, mirror speed test, and OAuth backend proxy (see README acknowledgements)"
     },
     {
       "type": "fix",
-      "zh": "修复应用运行中从浏览器返回时 OAuth 回调被丢弃的问题",
-      "en": "Fixed OAuth callbacks dropped when returning from the browser while the app was running"
+      "zh": "移除登录链路上的临时诊断提示",
+      "en": "Removed temporary diagnostic traces from the login flow"
     }
   ]
 }

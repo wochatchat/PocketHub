@@ -62,6 +62,13 @@
 ## 开源协议
 Apache 2.0（见 [LICENSE](LICENSE)）。
 
+## 致谢
+- 感谢 [@Wxjxpp](https://github.com/Wxjxpp) 在 [PR #32](https://github.com/wochatchat/PocketHub/pull/32) 中贡献了以下几处重要功能的核心代码与实现思路（已整合进主干）：
+  - **加密 DNS（DoH）可配置化**，内置服务商选择（见 [commit 00976c7](https://github.com/wochatchat/PocketHub/commit/00976c7)）
+  - **下载加速镜像预设**与真实下载测速（见 [commit f54348e](https://github.com/wochatchat/PocketHub/commit/f54348e)）
+  - **自托管 OAuth 交换后端**协议（`/config` + `/oauth/exchange`）及应用侧客户端实现（见 [commit f8fbb47](https://github.com/wochatchat/PocketHub/commit/f8fbb47)）
+  - **OAuth state 回调防伪校验**，以及两处登录链路修复：浏览器返回时回调经 `onNewIntent` 送达（[2a878e3](https://github.com/wochatchat/PocketHub/commit/2a878e3)）、登录页与主活动共享同一 ViewModel（[dd8c6cf](https://github.com/wochatchat/PocketHub/commit/dd8c6cf)）
+
 ## 贡献指南
 - 发现 bug 或有想法？直接 [提 issue](https://github.com/wochatchat/PocketHub/issues/new/choose)，已内置模板帮你把话讲清楚：
   - 🐛 **Bug 报告** — 仓库详情/下载/通知等任何模块炸了或显示乱码，选这个
