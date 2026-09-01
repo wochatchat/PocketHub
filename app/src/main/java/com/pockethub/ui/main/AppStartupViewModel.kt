@@ -78,15 +78,6 @@ class AppStartupViewModel @Inject constructor(
         }
     }
 
-    /** Sign out the ACTIVE session: delete the active row and deactivate every
-     *  remaining one so no stale row auto-restores a session on next launch
-     *  (removeAccount alone would silently promote another stored account).
-     *  The account-manager rows themselves are kept. */
-    suspend fun signOutActive() {
-        accountDao.getActiveAccountSync()?.let { accountDao.deleteById(it.id) }
-        accountDao.deactivateAll()
-    }
-
     /** Sign out the active account and trigger return to login. */
     fun signOut() {
         viewModelScope.launch {
