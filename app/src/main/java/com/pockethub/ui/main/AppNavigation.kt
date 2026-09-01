@@ -162,10 +162,18 @@ fun PocketHubApp(
     }
 
     // Observe signedOut to empty the nav stack back to Login when the user signs out.
+    // popUpTo the graph's actual start destination rather than the HOME route string:
+    // sign-out can be initiated from deep-link screens whose back stack never
+    // contained HOME, where popping to HOME pops nothing and the user stays
+    // "signed in". (Fix ported from #32 by @Wxjxpp.)
     androidx.compose.runtime.LaunchedEffect(signedOut) {
         if (signedOut) {
             navController.navigate(Routes.LOGIN) {
-                popUpTo(Routes.HOME) { inclusive = true }
+                popUpTo(navController.graph.findStartDestination().id) {
+                    inclusive = true
+                }
+                launchSingleTop = true
+                restoreState = false
             }
             appVm.clearSignedOut()
         }

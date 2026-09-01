@@ -44,12 +44,12 @@ class AccountRepository @Inject constructor(
                 scopes = scopes,
             )
         )
-        // If this is the first account, set it active explicitly
-        if (existing.isEmpty()) {
-            accountDao.deactivateAll()
-            val account = accountDao.getById(id) ?: return id
-            accountDao.update(account.copy(isActive = true))
-        }
+        // Logging in means THIS account becomes the active one — last login
+        // wins. (The old "activate only the first row" rule left repeat logins
+        // pointing at a stale active row, so sessions didn't survive restart.)
+        accountDao.deactivateAll()
+        val account = accountDao.getById(id) ?: return id
+        accountDao.update(account.copy(isActive = true))
         return id
     }
 
