@@ -93,8 +93,15 @@ private fun HyperlinkLabel(
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
-    vm: LoginViewModel = hiltViewModel(),
+    vmPlaceholder: LoginViewModel? = null,
 ) {
+    // Activity-scoped VM: MainActivity exchanges the OAuth code on the SAME
+    // instance, so the UI actually observes isLoading/success/error. The
+    // default (navigation-scoped) instance splits the brain — the exchange
+    // succeeds on one VM while the screen stares at another. (Ported from
+    // #32 by @Wxjxpp.)
+    val activity = LocalContext.current as androidx.activity.ComponentActivity
+    val vm: LoginViewModel = vmPlaceholder ?: androidx.hilt.navigation.compose.hiltViewModel(activity)
     val ui by vm.ui.collectAsState()
     val context = LocalContext.current
     var token by rememberSaveable { mutableStateOf("") }
