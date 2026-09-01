@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.staticCompositionLocalOf
+import kotlinx.coroutines.flow.MutableStateFlow
 import coil.ImageLoader
 import com.pockethub.data.remote.AccountRepository
 import com.pockethub.data.remote.AuthInterceptor
@@ -49,10 +50,17 @@ class MainActivity : AppCompatActivity() {
     private val notifPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* no-op — setting stays accessible */ }
 
+    // Deep-link intents (OAuth callback, pockethub://notifications, ...) can
+    // arrive via onNewIntent while the activity is already running — a plain
+    // LaunchedEffect(intent) never re-fires then. Funnel every incoming data
+    // URI through this state so Compose reacts (ported from #32 by @Wxjxpp).
+    private val pendingData = MutableStateFlow<Uri?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         requestNotificationPermissionIfNeeded()
+        pendingData.value = intent?.data
         setContent {
             CompositionLocalProvider(LocalAppImageLoader provides imageLoader) {
                 val settingsVm: SettingsViewModel = hiltViewModel()
@@ -71,14 +79,15 @@ class MainActivity : AppCompatActivity() {
                 val oauthCode = remember { mutableStateOf<String?>(null) }
                 val oauthState = remember { mutableStateOf<String?>(null) }
                 val deepLinkUri = remember { mutableStateOf<Uri?>(null) }
-                LaunchedEffect(intent) {
-                    val data: Uri? = intent?.data
-                    if (data != null && data.scheme == "pockethub" && data.host == "oauth") {
-                        handleOAuthCallback(intent) { code, state ->
+                val incomingData by pendingData.collectAsState()
+                LaunchedEffect(incomingData) {
+                    val data: Uri? = incomingData ?: return@LaunchedEffect
+                    if (data.scheme == "pockethub" && data.host == "oauth") {
+                        handleOAuthCallbackData(data) { code, state ->
                             oauthCode.value = code
                             oauthState.value = state
                         }
-                    } else if (data != null && data.scheme == "pockethub") {
+                    } else if (data.scheme == "pockethub") {
                         // Non-OAuth pockethub:// deep link — forward to the NavHost for routing.
                         deepLinkUri.value = data
                     }
@@ -105,11 +114,11 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        pendingData.value = intent.data
     }
 
     /** Inspect intent data for ?code=xxx from the pockethub://oauth/callback URI. */
-    private fun handleOAuthCallback(intent: Intent?, onResult: (code: String, state: String?) -> Unit) {
-        val data: Uri = intent?.data ?: return
+    private fun handleOAuthCallbackData(data: Uri, onResult: (code: String, state: String?) -> Unit) {
         if (data.scheme != "pockethub") return
         if (data.host != "oauth") return
         val code = data.getQueryParameter("code") ?: return
