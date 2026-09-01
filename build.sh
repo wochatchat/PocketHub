@@ -30,9 +30,16 @@ if [ "$BUMP" = true ] && [ -f "$VERSION_FILE" ]; then
     CODE=$(grep '^versionCode=' "$VERSION_FILE" | cut -d= -f2)
     NAME=$(grep '^versionName=' "$VERSION_FILE" | cut -d= -f2)
     NEW_CODE=$((CODE + 1))
-    # Bump patch version: 0.1.0 → 0.1.1 → 0.1.2 ...
+    # Bump patch version, carrying into minor at 100: 0.3.99 → 0.3.100 → 0.4.0
     IFS='.' read -r MAJOR MINOR PATCH <<< "$NAME"
-    NEW_NAME="$MAJOR.$MINOR.$((PATCH + 1))"
+    NEW_PATCH=$((PATCH + 1))
+    if [ "$NEW_PATCH" -ge 100 ]; then
+        NEW_MINOR=$((MINOR + 1))
+        NEW_PATCH=0
+    else
+        NEW_MINOR=$MINOR
+    fi
+    NEW_NAME="$MAJOR.$NEW_MINOR.$NEW_PATCH"
     cat > "$VERSION_FILE" << EOF
 # Auto-managed by build.sh — do not edit manually
 versionCode=$NEW_CODE
