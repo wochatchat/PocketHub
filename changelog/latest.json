@@ -1,12 +1,13 @@
 {
-  "version": "0.3.83",
+  "version": "0.3.85",
   "summary": {
-    "zh": "本次更新新增了应用内查看 GitHub Actions 工作流运行日志的能力，按构建步骤分节展示，无需跳出应用。",
-    "en": "This update adds an in-app viewer for GitHub Actions workflow run logs, organized per build step, without leaving the app."
+    "zh": "本次更新聚焦网络体验：加密 DNS 支持自选服务商，下载加速镜像改为内置预设并支持真实测速。",
+    "en": "This update focuses on networking: the encrypted DNS resolver is now provider-selectable, and download accelerator mirrors come as presets with a real speed test."
   },
   "items": [
-    { "type": "feat", "zh": "工作流运行详情页新增“查看日志”入口，应用内直接阅读 Actions 构建日志", "en": "New log viewer entry on workflow run detail pages to read Actions logs in-app" },
-    { "type": "feat", "zh": "日志按 Job 和构建步骤分节折叠展示，支持关键字定位", "en": "Logs are grouped per job and build step with collapsible sections" },
-    { "type": "fix", "zh": "修复日志页面滚动状态的一处状态委托问题", "en": "Fixed a state delegation issue in the log viewer scroll state" }
+    { "type": "feat", "zh": "设置新增“加密 DNS（DoH）”：可在内置服务商（国内优先）中自选解析端点，重启应用后生效", "en": "New Encrypted DNS (DoH) setting: pick a built-in resolver endpoint (CN-friendly providers first), applied after restart" },
+    { "type": "feat", "zh": "下载加速镜像改为内置预设一键选择，并支持真实下载测速（不再是手动输入前缀）", "en": "Download accelerator mirrors are now one-tap presets with a real download speed test (replaces manual prefix input)" },
+    { "type": "feat", "zh": "测速通过每个镜像实际下载样本数据并展示吞吐速度，直接连接选项一键关闭加速", "en": "Speed test downloads a sample through each mirror and shows throughput; a direct-connection option disables acceleration" },
+    { "type": "fix", "zh": "DoH 解析器端点真正接入网络层：保存的选择现在会在重启后实际生效", "en": "The chosen DoH endpoint is now actually wired into the network stack and takes effect after restart" }
   ]
 }
