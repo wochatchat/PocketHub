@@ -87,6 +87,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import com.pockethub.ui.components.LinkLabel
 import com.pockethub.ui.components.SectionHeader
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -725,7 +726,14 @@ private fun OAuthClientSheet(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(stringResource(R.string.custom_oauth_client_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.custom_oauth_client_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.weight(1f))
+                LinkLabel(
+                    url = stringResource(R.string.oauth_app_new_link),
+                    text = stringResource(R.string.oauth_app_new_link_text),
+                )
+            }
             Text(
                 stringResource(R.string.custom_oauth_client_summary),
                 style = MaterialTheme.typography.bodySmall,

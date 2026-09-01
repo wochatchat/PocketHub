@@ -25,10 +25,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.foundation.text.ClickableText
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -62,34 +58,18 @@ import androidx.hilt.navigation.compose.hiltViewModel
  * Custom Tab. The link text is rendered in the primary color with an underline,
  * matching GitHub mobile's login helper style.
  */
-@Composable
-private fun HyperlinkLabel(
-    url: String,
-    linkText: String,
-    modifier: Modifier = Modifier,
-) {
-    val context = LocalContext.current
-    val primary = MaterialTheme.colorScheme.primary
-    val style = MaterialTheme.typography.labelMedium
-    val annotated = buildAnnotatedString {
-        pushStringAnnotation(tag = "URL", annotation = url)
-        addStyle(
-            SpanStyle(color = primary, textDecoration = TextDecoration.Underline),
-            start = 0,
-            end = linkText.length,
-        )
-        append(linkText)
-        pop()
-    }
-    ClickableText(
-        text = annotated,
-        style = style,
-        modifier = modifier,
-        onClick = { _ ->
-            val intent = CustomTabsIntent.Builder().build()
-            intent.launchUrl(context, Uri.parse(url))
-        },
-    )
+/** Render the launcher icon (foreground vector over launcher background) as a
+ *  48px bitmap for the Custom Tab close button. Bounds are expanded by 25% to
+ *  compensate for the adaptive-icon safe-zone padding baked into the vector. */
+private fun oauthCloseIcon(context: android.content.Context): android.graphics.Bitmap {
+    val size = 48
+    val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bmp)
+    canvas.drawColor(android.graphics.Color.parseColor("#161B22"))
+    val d = androidx.core.content.ContextCompat.getDrawable(context, R.drawable.ic_launcher_foreground)
+    d?.setBounds(-size / 4, -size / 4, size + size / 4, size + size / 4)
+    d?.draw(canvas)
+    return bmp
 }
 
 @Composable
@@ -111,7 +91,13 @@ fun LoginScreen(
     // Handle OAuth URL
     LaunchedEffect(ui.oauthUrl) {
         ui.oauthUrl?.let {
-            val customTabsIntent = CustomTabsIntent.Builder().build()
+            // Brand the Custom Tab: launcher background color for the toolbar
+            // and the app icon as the close button — makes the authorization
+            // page clearly feel like PocketHub's flow, not a random browser.
+            val customTabsIntent = CustomTabsIntent.Builder()
+                .setToolbarColor(android.graphics.Color.parseColor("#161B22"))
+                .setCloseButtonIcon(oauthCloseIcon(context))
+                .build()
             customTabsIntent.launchUrl(context, Uri.parse(it))
             vm.clearOAuthUrl()
         }
@@ -197,9 +183,10 @@ fun LoginScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(4.dp))
-            HyperlinkLabel(
+            LinkLabel(
                 url = stringResource(R.string.login_get_token_link),
-                linkText = stringResource(R.string.login_get_token_link_text),
+                text = stringResource(R.string.login_get_token_link_text),
+            )
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(12.dp))

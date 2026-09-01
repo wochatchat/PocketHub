@@ -1,14 +1,19 @@
 {
-  "version": "0.3.95",
+  "version": "0.3.96",
   "summary": {
-    "zh": "界面细节：修复登录按钮加载动画尺寸异常的问题。",
-    "en": "UI polish: fixed the oversized loading spinner on the login button."
+    "zh": "自定义 OAuth 弹框新增「创建 OAuth App」快捷入口；授权浏览器页面加入应用品牌标识。",
+    "en": "The custom OAuth sheet gains a \"Create an OAuth App\" shortcut; the authorization browser page is now branded with the app icon."
   },
   "items": [
     {
-      "type": "fix",
-      "zh": "修复授权登录时按钮内加载圆圈尺寸过大的问题",
-      "en": "Fixed the oversized loading spinner inside the login button"
+      "type": "improve",
+      "zh": "自定义 OAuth 客户端弹框右上角新增「创建 OAuth App」快捷链接",
+      "en": "Added a \"Create an OAuth App\" shortcut to the custom OAuth client sheet header"
+    },
+    {
+      "type": "improve",
+      "zh": "授权登录的浏览器页使用应用图标配色与图标，识别度更高",
+      "en": "The authorization browser tab now uses the app icon and brand colors for clear recognition"
     }
   ]
 }

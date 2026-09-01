@@ -11,6 +11,8 @@
     <string name="login_get_token_link">https://github.com/settings/tokens/new</string>
     <string name="login_get_token_link_text">Create a new token →</string>
     <string name="login_oauth_description">Sign in with GitHub OAuth — no token or OAuth App setup needed.</string>
+    <string name="oauth_app_new_link">https://github.com/settings/applications/new</string>
+    <string name="oauth_app_new_link_text">Create an OAuth App →</string>
 
     <!-- Common actions -->
     <string name="action_search">Search</string>

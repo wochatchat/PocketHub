@@ -11,6 +11,8 @@
     <string name="login_get_token_link">https://github.com/settings/tokens/new</string>
     <string name="login_get_token_link_text">创建新 Token →</string>
     <string name="login_oauth_description">通过 GitHub OAuth 授权登录，无需创建 Token 或 OAuth 应用。</string>
+    <string name="oauth_app_new_link">https://github.com/settings/applications/new</string>
+    <string name="oauth_app_new_link_text">创建 OAuth App →</string>
 
     <!-- Common actions -->
     <string name="action_search">搜索</string>
