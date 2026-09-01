@@ -605,6 +605,10 @@
     <string name="mirror_prefix_set">%1$s</string>
     <string name="mirror_prefix_summary">在 GitHub 文件下载(Release 附件、raw 文件、zip 源码包)前拼接 gh-proxy 类加速前缀。API 请求不受影响。示例:https://gh-proxy.com/ — 留空则关闭。</string>
     <string name="mirror_prefix_label">加速前缀 URL</string>
+    <string name="mirror_pick_hint">选择加速站。测速会实际下载数据（不只是测延迟），结果仅代表当前网络。</string>
+    <string name="mirror_direct">直连（关闭加速）</string>
+    <string name="mirror_speed_test">测速</string>
+    <string name="mirror_unavailable">不可用 · HTTP %1$d</string>
     <string name="doh_title">加密 DNS（DoH）</string>
     <string name="doh_summary">解析器端点：%1$s</string>
     <string name="doh_restart_hint">国内服务优先。重启应用后生效；解析器不可用时自动回退系统 DNS。</string>

@@ -44,6 +44,7 @@ import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -562,6 +563,30 @@ private fun DohSettingsSheet(
     }
 }
 
+/**
+ * Download-accelerator picker. Ported from upstream #32 by @Wxjxpp —
+ * preset mirrors instead of free-text input, plus a real-throughput speed
+ * test (downloads actual bytes through each mirror, not just latency).
+ *
+ * Speed-test sample: deliberately points at THIS repo's archive so traffic
+ * stays on the user's own repository. Swap [SAMPLE_URL] to any single file
+ * URL if you prefer another target (a release asset is the most realistic).
+ */
+private const val SAMPLE_URL = "https://github.com/wochatchat/PocketHub/archive/refs/heads/main.zip"
+
+/** Hard per-mirror download cap so the speed test never pulls big data on metered networks. */
+private const val SPEED_TEST_MAX_BYTES = 8L * 1024 * 1024
+
+private data class MirrorOption(val name: String, val prefix: String)
+private data class MirrorSpeed(val option: MirrorOption, val bytesPerSecond: Long, val code: Int)
+
+private val builtInMirrors = listOf(
+    MirrorOption("gh-proxy.com", "https://gh-proxy.com/"),
+    MirrorOption("v6.gh-proxy.org", "https://v6.gh-proxy.org/"),
+    MirrorOption("gh.1s.fan", "https://gh.1s.fan/"),
+    MirrorOption("ghproxy.net", "https://ghproxy.net/"),
+)
+
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun MirrorPrefixSheet(
@@ -569,8 +594,10 @@ private fun MirrorPrefixSheet(
     onDismiss: () -> Unit,
     onSave: (String) -> Unit,
 ) {
-    var value by rememberSaveable { mutableStateOf(initial) }
-
+    var selected by rememberSaveable { mutableStateOf(initial) }
+    var testing by remember { mutableStateOf(false) }
+    var results by remember { mutableStateOf<List<MirrorSpeed>>(emptyList()) }
+    val scope = rememberCoroutineScope()
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
         Column(
             Modifier
@@ -578,7 +605,7 @@ private fun MirrorPrefixSheet(
                 .padding(16.dp)
                 .imePadding()
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(stringResource(R.string.mirror_prefix_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(
@@ -586,22 +613,87 @@ private fun MirrorPrefixSheet(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            OutlinedTextField(
-                value = value,
-                onValueChange = { value = it },
-                label = { Text(stringResource(R.string.mirror_prefix_label)) },
-                placeholder = { Text("https://gh-proxy.com/") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+            Text(
+                stringResource(R.string.mirror_pick_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            builtInMirrors.forEach { option ->
+                val result = results.firstOrNull { it.option == option }
+                ListItem(
+                    headlineContent = { Text(option.name) },
+                    supportingContent = {
+                        Text(
+                            result?.let {
+                                if (it.code in 200..299 && it.bytesPerSecond > 0) "${formatSpeed(it.bytesPerSecond)} · HTTP ${it.code}"
+                                else stringResource(R.string.mirror_unavailable, it.code)
+                            } ?: option.prefix,
+                        )
+                    },
+                    leadingContent = { RadioButton(selected == option.prefix, onClick = { selected = option.prefix }) },
+                    modifier = Modifier.clickable { selected = option.prefix },
+                )
+            }
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.mirror_direct)) },
+                leadingContent = { RadioButton(selected.isBlank(), onClick = { selected = "" }) },
+                modifier = Modifier.clickable { selected = "" },
             )
             androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { onSave(value.trim()) }) { Text(stringResource(R.string.action_save)) }
+                Button(
+                    enabled = !testing,
+                    onClick = {
+                        testing = true
+                        scope.launch {
+                            results = withContext(Dispatchers.IO) { builtInMirrors.map { testMirror(it) } }
+                            testing = false
+                        }
+                    },
+                ) {
+                    if (testing) {
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text(stringResource(R.string.mirror_speed_test))
+                    }
+                }
+                Button(onClick = { onSave(selected) }) { Text(stringResource(R.string.action_save)) }
                 OutlinedButton(onClick = { onSave("") }) { Text(stringResource(R.string.action_clear)) }
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
             }
             Spacer(Modifier.height(24.dp))
         }
     }
+}
+
+/** Download [SAMPLE_URL] through the mirror for at most 5 s / [SPEED_TEST_MAX_BYTES], report throughput. */
+private fun testMirror(option: MirrorOption): MirrorSpeed {
+    val started = System.nanoTime()
+    var bytes = 0L
+    var code = 0
+    runCatching {
+        val connection = java.net.URL(option.prefix + SAMPLE_URL).openConnection() as java.net.HttpURLConnection
+        connection.connectTimeout = 8_000
+        connection.readTimeout = 12_000
+        connection.instanceFollowRedirects = true
+        code = connection.responseCode
+        if (code in 200..299) connection.inputStream.use { input ->
+            val buffer = ByteArray(32 * 1024)
+            while (System.nanoTime() - started < 5_000_000_000L && bytes < SPEED_TEST_MAX_BYTES) {
+                val count = input.read(buffer)
+                if (count <= 0) break
+                bytes += count
+            }
+        }
+        connection.disconnect()
+    }
+    val seconds = (System.nanoTime() - started).coerceAtLeast(1L) / 1_000_000_000.0
+    return MirrorSpeed(option, (bytes / seconds).toLong(), code)
+}
+
+private fun formatSpeed(bytesPerSecond: Long): String = when {
+    bytesPerSecond >= 1_048_576 -> "%.1f MB/s".format(bytesPerSecond / 1_048_576.0)
+    bytesPerSecond >= 1024 -> "%.0f KB/s".format(bytesPerSecond / 1024.0)
+    else -> "$bytesPerSecond B/s"
 }
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
