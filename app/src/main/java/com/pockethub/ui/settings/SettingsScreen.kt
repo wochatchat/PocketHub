@@ -114,7 +114,6 @@ fun SettingsScreen(
     var showDohSheet by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     var showSignOutDialog by remember { mutableStateOf(false) }
-    var showAccountSheet by remember { mutableStateOf(false) }
     val issueCount by vm.issueCount.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -225,8 +224,39 @@ fun SettingsScreen(
                 leadingContent = { Icon(Icons.Outlined.ManageAccounts, contentDescription = null) },
                 headlineContent = { Text(stringResource(R.string.accounts)) },
                 supportingContent = { Text(stringResource(R.string.accounts_summary, accountCount)) },
-                modifier = Modifier.clickable { showAccountSheet = true },
             )
+            // Multi-account switcher — always visible, no conditions: tapping a
+            // row switches the active session, the trailing button removes the
+            // stored row (deactivated, not deleted — re-enabled at login).
+            Text(
+                stringResource(R.string.account_switch_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+            )
+            allAccounts.forEach { account ->
+                ListItem(
+                    leadingContent = {
+                        com.pockethub.ui.components.PhAsyncImage(
+                            model = account.avatarUrl,
+                            contentDescription = account.login,
+                            modifier = Modifier.size(36.dp).clip(androidx.compose.foundation.shape.CircleShape),
+                        )
+                    },
+                    headlineContent = { Text(account.login) },
+                    supportingContent = { account.name?.let { Text(it) } },
+                    trailingContent = {
+                        if (account.isActive) {
+                            Icon(Icons.Outlined.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        } else {
+                            IconButton(onClick = { vm.removeAccount(account.id) }) {
+                                Icon(Icons.Outlined.Delete, contentDescription = null)
+                            }
+                        }
+                    },
+                    modifier = Modifier.clickable { vm.switchAccount(account.id) },
+                )
+            }
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.Logout, contentDescription = null) },
                 headlineContent = { Text(stringResource(R.string.action_sign_out)) },
@@ -413,46 +443,6 @@ fun SettingsScreen(
     if (showAbout) {
         ModalBottomSheet(onDismissRequest = { showAbout = false }, sheetState = rememberModalBottomSheetState()) {
             AboutContent()
-        }
-    }
-
-    if (showAccountSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showAccountSheet = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        ) {
-            Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                Text(
-                    stringResource(R.string.account_switch_hint),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-                allAccounts.forEach { account ->
-                    ListItem(
-                        leadingContent = {
-                            com.pockethub.ui.components.PhAsyncImage(
-                                model = account.avatarUrl,
-                                contentDescription = account.login,
-                                modifier = Modifier.size(36.dp).clip(androidx.compose.foundation.shape.CircleShape),
-                            )
-                        },
-                        headlineContent = { Text(account.login) },
-                        supportingContent = { account.name?.let { Text(it) } },
-                        trailingContent = {
-                            if (account.isActive) {
-                                Icon(Icons.Outlined.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            } else {
-                                IconButton(onClick = { vm.removeAccount(account.id) }) {
-                                    Icon(Icons.Outlined.Delete, contentDescription = null)
-                                }
-                            }
-                        },
-                        modifier = Modifier.clickable { vm.switchAccount(account.id) },
-                    )
-                }
-                Spacer(Modifier.height(16.dp))
-            }
         }
     }
 
