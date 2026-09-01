@@ -187,8 +187,6 @@ fun LoginScreen(
                 url = stringResource(R.string.login_get_token_link),
                 text = stringResource(R.string.login_get_token_link_text),
             )
-                modifier = Modifier.fillMaxWidth(),
-            )
             Spacer(Modifier.height(12.dp))
 
             // Sign in with token
