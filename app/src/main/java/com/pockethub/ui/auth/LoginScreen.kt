@@ -211,7 +211,7 @@ fun LoginScreen(
                 enabled = token.isNotBlank() && !ui.isLoading,
             ) {
                 if (ui.isLoading) {
-                    CircularProgressIndicator(Modifier.height(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                 } else {
                     Text(stringResource(R.string.login_with_token))
                 }

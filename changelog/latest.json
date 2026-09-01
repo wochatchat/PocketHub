@@ -1,24 +1,14 @@
 {
-  "version": "0.3.94",
+  "version": "0.3.95",
   "summary": {
-    "zh": "界面细节优化：登录页改用应用图标，移除已无用的“创建 OAuth App”入口与冗余代码。",
-    "en": "UI polish: the login screen now shows the app icon; removed the obsolete \"Create OAuth App\" link and leftover code from the recent fixes."
+    "zh": "界面细节：修复登录按钮加载动画尺寸异常的问题。",
+    "en": "UI polish: fixed the oversized loading spinner on the login button."
   },
   "items": [
     {
-      "type": "improve",
-      "zh": "登录页顶部改用与桌面图标一致的 GitHub 猫应用图标",
-      "en": "Login screen header now uses the same app icon as the launcher"
-    },
-    {
-      "type": "improve",
-      "zh": "移除“创建 OAuth App”引导链接——登录已无需用户自行创建应用",
-      "en": "Removed the obsolete “Create OAuth App” link — no user setup needed anymore"
-    },
-    {
       "type": "fix",
-      "zh": "清理近期多轮修复残留的无效代码与无用资源",
-      "en": "Cleaned up leftover code and unused resources from recent fix rounds"
+      "zh": "修复授权登录时按钮内加载圆圈尺寸过大的问题",
+      "en": "Fixed the oversized loading spinner inside the login button"
     }
   ]
 }
