@@ -8,7 +8,10 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,10 +22,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
@@ -308,15 +309,20 @@ fun PullRequestDetailScreen(
             return@Scaffold
         }
 
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .padding(padding)
-                .fillMaxSize()
-                .verticalScroll(com.pockethub.ui.components.rememberRestorableScrollState(contentReady = pr != null))
-                .padding(16.dp),
+                .fillMaxSize(),
+            state = rememberLazyListState(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(16.dp),
         ) {
+            // Lazy timeline: only on-screen rows are composed/measured — the old
+            // Column+verticalScroll composed the ENTIRE PR (body, every diff
+            // line, every comment) in one frame, stalling complex PRs. Keys keep
+            // per-item state (expanded diffs, drafts) across data refreshes.
             pr?.let { data ->
+item(key = "title") {
                 // Title + state badge
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val stateColor = when {
@@ -339,7 +345,10 @@ fun PullRequestDetailScreen(
                     Spacer(Modifier.width(8.dp))
                     Text(data.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 }
+                }
 
+
+item(key = "author") {
                 // Author info
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val user = data.user
@@ -367,7 +376,10 @@ fun PullRequestDetailScreen(
                         )
                     }
                 }
+                }
 
+
+item(key = "state-toggle") {
                 // Close / Reopen PR — mirrors GitHub web's primary affordance above
                 // the PR description. Merged PRs cannot be toggled. While the toggle is
                 // in flight, show a small spinner in place of the button label.
@@ -398,7 +410,10 @@ fun PullRequestDetailScreen(
                         }
                     }
                 }
+                }
 
+
+item(key = "branch") {
                 // Branch info: head → base
                 if (data.head != null && data.base != null) {
                     Row(
@@ -433,7 +448,10 @@ fun PullRequestDetailScreen(
                         )
                     }
                 }
+                }
 
+
+item(key = "labels") {
                 // Labels
                 if (data.labels.isNotEmpty()) {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -452,7 +470,10 @@ fun PullRequestDetailScreen(
                         }
                     }
                 }
+                }
 
+
+item(key = "checks") {
                 // Checks summary — one-line banner showing CI status for the PR head SHA.
                 ChecksCard(
                     summary = checkSummary,
@@ -460,7 +481,10 @@ fun PullRequestDetailScreen(
                     isRefreshing = isRefreshingCheckRuns,
                     onRefresh = { vm.refreshCheckRuns(owner, repo) },
                 )
+                }
 
+
+                item(key = "reviewers") {
                 // Requested reviewers
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -516,7 +540,9 @@ fun PullRequestDetailScreen(
                     Spacer(Modifier.height(4.dp))
                     Text(msg, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                 }
+                }
 
+                item(key = "body", contentType = "markdown") {
                 // Body
                 MarkdownText(
                     markdown = data.body ?: stringResource(R.string.no_description),
@@ -524,12 +550,15 @@ fun PullRequestDetailScreen(
                     repoContext = "$owner/$repo",
                     onLinkClick = onLinkClick,
                 )
+                }
 
-                // ── Files Changed ──
-                if (files.isNotEmpty()) {
+                // ── Files Changed ── (lazy: one item per file)
+                item(key = "files-header", contentType = "header") {
                     HorizontalDivider()
                     Text(stringResource(R.string.pr_files_changed, files.size), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    files.forEach { file ->
+                }
+                files.forEachIndexed { fi, file ->
+                    item(key = "file-$fi-${file.sha}", contentType = "diff") {
                         FileDiffItem(
                             file = file,
                             commitId = pr?.head?.sha,
@@ -548,123 +577,143 @@ fun PullRequestDetailScreen(
                             busyCommentIds = busyReviewComments,
                         )
                     }
-                } else if (filesError != null) {
-                    // files list is empty AND there's a load error — show retry.
-                    // (Empty without error is just an empty PR diff; we don't warn.)
-                    HorizontalDivider()
-                    SectionError(message = filesError!!, onRetry = { vm.retryFiles() })
+                }
+                if (files.isEmpty() && filesError != null) {
+                    item(key = "files-error", contentType = "error") {
+                        HorizontalDivider()
+                        SectionError(message = filesError!!, onRetry = { vm.retryFiles() })
+                    }
                 }
 
                 // ── Inline Review Comments (root-level view for comments not
                 // tied to a specific file shown above) ──
+                item(key = "inline-comments-error", contentType = "error") {
                 if (reviewComments.isEmpty() && reviewCommentsError != null) {
                     HorizontalDivider()
                     SectionError(message = reviewCommentsError!!, onRetry = { vm.retryReviewComments() })
                 }
-
-                // ── Reviews ──
-                HorizontalDivider()
-                // R5 — merge warning if any non-dismissed CHANGES_REQUESTED review exists.
-                val changesRequestedCount = reviews.count { it.state == "CHANGES_REQUESTED" && it.state != "DISMISSED" }
-                if (changesRequestedCount > 0 && data.state == "open" && !data.merged) {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.error.copy(alpha = 0.12f))
-                            .clickable { showMergeWarningDialog = true }
-                            .padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(Icons.Outlined.Warning, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            stringResource(R.string.pr_changes_requested_warning, changesRequestedCount),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                    Spacer(Modifier.height(4.dp))
                 }
-                Text(stringResource(R.string.pr_reviews, reviews.size), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
 
-                // Review submit entry (R1) — open PR only. ModalBottomSheet opened on tap.
-                if (data.state == "open" && !data.merged) {
-                    val currentLogin = vm.currentLogin.collectAsState().value
-                    val alreadyReviewedByMe = currentLogin != null &&
-                        reviews.any { it.user?.login == currentLogin && it.state in setOf("APPROVED", "CHANGES_REQUESTED", "COMMENTED") }
-                    OutlinedButton(
-                        onClick = {
-                            reviewEvent = if (alreadyReviewedByMe) ReviewEvent.COMMENT else ReviewEvent.APPROVE
-                            showReviewDialog = true
-                        },
-                        enabled = !isSendingReview,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        if (isSendingReview) {
-                            CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
-                            Spacer(Modifier.width(6.dp))
-                        } else {
-                            Icon(Icons.Outlined.RateReview, null, modifier = Modifier.size(14.dp))
-                            Spacer(Modifier.width(6.dp))
+                // ── Reviews ── (lazy: one item per review)
+                item(key = "reviews-header", contentType = "header") {
+                    HorizontalDivider()
+                    // R5 — merge warning if any non-dismissed CHANGES_REQUESTED review exists.
+                    val changesRequestedCount = reviews.count { it.state == "CHANGES_REQUESTED" && it.state != "DISMISSED" }
+                    if (changesRequestedCount > 0 && data.state == "open" && !data.merged) {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.error.copy(alpha = 0.12f))
+                                .clickable { showMergeWarningDialog = true }
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Outlined.Warning, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                stringResource(R.string.pr_changes_requested_warning, changesRequestedCount),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.weight(1f),
+                            )
                         }
-                        Text(
-                            if (alreadyReviewedByMe) stringResource(R.string.pr_review_already)
-                            else stringResource(R.string.pr_review_action_open),
-                            style = MaterialTheme.typography.labelMedium,
-                        )
+                        Spacer(Modifier.height(4.dp))
+                    }
+                    Text(stringResource(R.string.pr_reviews, reviews.size), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+
+                    // Review submit entry (R1) — open PR only. ModalBottomSheet opened on tap.
+                    if (data.state == "open" && !data.merged) {
+                        val currentLogin = vm.currentLogin.collectAsState().value
+                        val alreadyReviewedByMe = currentLogin != null &&
+                            reviews.any { it.user?.login == currentLogin && it.state in setOf("APPROVED", "CHANGES_REQUESTED", "COMMENTED") }
+                        OutlinedButton(
+                            onClick = {
+                                reviewEvent = if (alreadyReviewedByMe) ReviewEvent.COMMENT else ReviewEvent.APPROVE
+                                showReviewDialog = true
+                            },
+                            enabled = !isSendingReview,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            if (isSendingReview) {
+                                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(6.dp))
+                            } else {
+                                Icon(Icons.Outlined.RateReview, null, modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(6.dp))
+                            }
+                            Text(
+                                if (alreadyReviewedByMe) stringResource(R.string.pr_review_already)
+                                else stringResource(R.string.pr_review_action_open),
+                                style = MaterialTheme.typography.labelMedium,
+                            )
+                        }
                     }
                 }
 
                 if (reviews.isEmpty()) {
-                    if (reviewsError != null) {
-                        SectionError(message = reviewsError!!, onRetry = { vm.retryReviews() })
-                    } else {
-                        Text(stringResource(R.string.pr_no_reviews), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    item(key = "reviews-empty", contentType = "error") {
+                        if (reviewsError != null) {
+                            SectionError(message = reviewsError!!, onRetry = { vm.retryReviews() })
+                        } else {
+                            Text(stringResource(R.string.pr_no_reviews), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 } else {
                     reviews.forEach { review ->
-                        ReviewItem(review, onNavigateToUser = onNavigateToUser, dateFmt = dateFmt, onLinkClick = onLinkClick)
+                        item(key = "review-${review.id}", contentType = "review") {
+                            ReviewItem(review, onNavigateToUser = onNavigateToUser, dateFmt = dateFmt, onLinkClick = onLinkClick)
+                        }
                     }
-                    if (reviewsError != null) {
-                        SectionError(message = reviewsError!!, onRetry = { vm.retryReviews() })
+                    reviewsError?.let { err ->
+                        item(key = "reviews-error", contentType = "error") {
+                            SectionError(message = err, onRetry = { vm.retryReviews() })
+                        }
                     }
                 }
 
-                // ── Comments ──
-                HorizontalDivider()
-                Text(stringResource(R.string.comments_title, comments.size), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                // ── Comments ── (lazy: one item per comment)
+                item(key = "comments-header", contentType = "header") {
+                    HorizontalDivider()
+                    Text(stringResource(R.string.comments_title, comments.size), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                }
 
                 if (comments.isEmpty()) {
-                    if (commentsError != null) {
-                        SectionError(message = commentsError!!, onRetry = { vm.retryComments() })
-                    } else {
-                        Text(stringResource(R.string.no_comments_yet), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    item(key = "comments-empty", contentType = "error") {
+                        if (commentsError != null) {
+                            SectionError(message = commentsError!!, onRetry = { vm.retryComments() })
+                        } else {
+                            Text(stringResource(R.string.no_comments_yet), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 } else {
                     vm.commentStates().forEach { state ->
-                        CommentItem(
-                            state = state,
-                            onNavigateToUser = onNavigateToUser,
-                            onLinkClick = onLinkClick,
-                            onCopy = {
-                                val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                cm.setPrimaryClip(ClipData.newPlainText("comment", state.comment.body))
-                                scope.launch { snackbarHostState.showSnackbar("Copied") }
-                            },
-                            onEdit = { editingCommentId = state.comment.id; editingBody = state.comment.body },
-                            onDelete = { pendingDeleteId = state.comment.id },
-                            onAddReaction = { content -> vm.toggleReaction(state.comment.id, content) },
-                            onRemoveReaction = { content -> vm.toggleReaction(state.comment.id, content) },
-                        )
+                        item(key = "comment-${state.comment.id}", contentType = "comment") {
+                            CommentItem(
+                                state = state,
+                                onNavigateToUser = onNavigateToUser,
+                                onLinkClick = onLinkClick,
+                                onCopy = {
+                                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    cm.setPrimaryClip(ClipData.newPlainText("comment", state.comment.body))
+                                    scope.launch { snackbarHostState.showSnackbar("Copied") }
+                                },
+                                onEdit = { editingCommentId = state.comment.id; editingBody = state.comment.body },
+                                onDelete = { pendingDeleteId = state.comment.id },
+                                onAddReaction = { content -> vm.toggleReaction(state.comment.id, content) },
+                                onRemoveReaction = { content -> vm.toggleReaction(state.comment.id, content) },
+                            )
+                        }
                     }
-                    if (commentsError != null) {
-                        SectionError(message = commentsError!!, onRetry = { vm.retryComments() })
+                    commentsError?.let { err ->
+                        item(key = "comments-error", contentType = "error") {
+                            SectionError(message = err, onRetry = { vm.retryComments() })
+                        }
                     }
                 }
 
+item(key = "events", contentType = "events") {
                 // ── Timeline events (labeled / assigned / closed / merged / review_requested / …) ──
                 if (events.isNotEmpty()) {
                     HorizontalDivider()
@@ -678,14 +727,17 @@ fun PullRequestDetailScreen(
                         )
                     }
                 }
+                }
 
-                // Comment input
-                CommentInput(
-                    isSending = isSendingComment,
-                    onSend = { body -> vm.postComment(body) },
-                )
+                item(key = "comment-input") {
+                    // Comment input
+                    CommentInput(
+                        isSending = isSendingComment,
+                        onSend = { body -> vm.postComment(body) },
+                    )
 
-                Spacer(Modifier.height(60.dp))
+                    Spacer(Modifier.height(60.dp))
+                }
             }
         }
     }

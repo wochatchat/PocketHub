@@ -26,6 +26,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Pending
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.CircularProgressIndicator
@@ -40,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -147,6 +150,13 @@ internal fun ReviewItem(
     }
 }
 
+/**
+ * Patches larger than this (≈40-60 diff lines) start collapsed on the PR
+ * detail screen — a 30+ file PR used to compose every diff line at once on
+ * first entry, freezing the main thread (jank / ANR on complex PRs).
+ */
+private const val AUTO_COLLAPSE_PATCH_CHARS = 2000
+
 @Composable
 internal fun FileDiffItem(
     file: GitHubApi.PullRequestFile,
@@ -177,6 +187,13 @@ internal fun FileDiffItem(
         "renamed" -> "R"
         else -> "?"
     }
+    // Big patches start collapsed (tap the header to expand); small ones keep
+    // the old always-expanded behavior. rememberSaveable so the choice survives
+    // configuration changes while the screen is on the back stack.
+    var expanded by rememberSaveable(file.filename, file.sha) {
+        mutableStateOf((file.patch?.length ?: 0) <= AUTO_COLLAPSE_PATCH_CHARS)
+    }
+    val rootThreadCount = remember(reviewComments) { reviewComments.count { it.inReplyToId == null } }
 
     Column(
         Modifier.fillMaxWidth()
@@ -184,8 +201,13 @@ internal fun FileDiffItem(
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
             .padding(8.dp),
     ) {
-        // File header
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // File header — tappable to expand/collapse the patch
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = !file.patch.isNullOrBlank()) { expanded = !expanded },
+        ) {
             Box(
                 Modifier.clip(RoundedCornerShape(4.dp))
                     .background(statusColor.copy(alpha = 0.15f))
@@ -202,15 +224,31 @@ internal fun FileDiffItem(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
+            if (rootThreadCount > 0) {
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    "💬 $rootThreadCount",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Spacer(Modifier.width(6.dp))
             Text(
                 "+${file.additions} -${file.deletions}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
-        // Patch — line-commentable
-        if (!file.patch.isNullOrBlank()) {
+        // Patch — line-commentable; only composed while expanded so collapsed
+        // files cost one header row each.
+        if (expanded && !file.patch.isNullOrBlank()) {
             Spacer(Modifier.height(6.dp))
             DiffPatchWithComment(
                 patch = file.patch,

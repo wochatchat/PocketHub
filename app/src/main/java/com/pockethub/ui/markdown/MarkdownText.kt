@@ -143,7 +143,7 @@ fun MarkdownText(
                     if (block.level <= 2) Spacer(Modifier.height(if (block.level == 1) 10.dp else 6.dp))
                     // Render inline markdown (links, code, bold) inside headings so `## Getting `code``
                     // shows a code chip instead of literal backticks.
-                    val parts = renderRichInline(block.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
+                    val parts = rememberRichInline(block.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
                     RenderInlineParts(parts, style.copy(
                         fontWeight = FontWeight.SemiBold,
                         lineHeight = when (block.level) {
@@ -156,7 +156,7 @@ fun MarkdownText(
                 }
 
                 is MdBlock.Paragraph -> {
-                    val parts = renderRichInline(block.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
+                    val parts = rememberRichInline(block.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
                     RichParagraph(parts, onTap, paragraphSpacing = 4.dp)
                 }
 
@@ -192,12 +192,12 @@ fun MarkdownText(
                 }
 
                 is MdBlock.Alert -> {
-                    val parts = renderRichInline(block.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
+                    val parts = rememberRichInline(block.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
                     SimpleAlertCard(block.kind, parts, onTap)
                 }
 
                 is MdBlock.Blockquote -> {
-                    val parts = renderRichInline(block.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
+                    val parts = rememberRichInline(block.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
                     SimpleBlockquote(parts, mutedColor, onTap)
                 }
 
@@ -208,7 +208,7 @@ fun MarkdownText(
                         block.task == ' ' -> "☐ "
                         else -> "• "
                     }
-                    val parts = renderRichInline(block.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
+                    val parts = rememberRichInline(block.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
                     SimpleListItem(bullet, parts, (block.level - 1) * 14, onTap)
                 }
 

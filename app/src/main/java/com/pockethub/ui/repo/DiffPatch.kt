@@ -60,6 +60,9 @@ data class DiffLine(
     val content: String,
 )
 
+/** Hunk header of a unified diff; compiled once (used to be per-hunk in [parsePatch]). */
+private val HUNK_HEADER_REGEX = Regex("@@ -(\\d+)(?:,\\d+)? \\+(\\d+)(?:,\\d+)? @@")
+
 /**
  * Parse a GitHub unified-diff `patch` field into [DiffLine]s.
  *
@@ -72,7 +75,7 @@ fun parsePatch(patch: String): List<DiffLine> {
     var newLine = 0
     for (raw in patch.lines()) {
         if (raw.startsWith("@@")) {
-            val m = Regex("@@ -(\\d+)(?:,\\d+)? \\+(\\d+)(?:,\\d+)? @@").find(raw) ?: continue
+            val m = HUNK_HEADER_REGEX.find(raw) ?: continue
             oldLine = m.groupValues[1].toInt()
             newLine = m.groupValues[2].toInt()
             result.add(DiffLine(type = '@', content = raw))
@@ -123,6 +126,20 @@ fun DiffPatchWithComment(
     modifier: Modifier = Modifier,
 ) {
     val lines = remember(patch) { parsePatch(patch) }
+    // Group review comments by anchored new line ONCE per (patch, comments)
+    // change — the per-line filter inside the loop used to be O(lines ×
+    // comments) on every recomposition of large diffs. Key is Int? on purpose:
+    // comments on deleted lines carry line=null and the old code anchored them
+    // on every '-'/'@@' row (newNumber==null) — that quirk is preserved.
+    val threadsByLine = remember(reviewComments, filename) {
+        val byLine = mutableMapOf<Int?, MutableList<List<GitHubApi.ReviewComment>>>()
+        val roots = reviewComments.filter { it.path == filename && it.inReplyToId == null }
+        for (root in roots) {
+            val replies = reviewComments.filter { it.path == filename && it.inReplyToId == root.id }
+            byLine.getOrPut(root.line) { mutableListOf() }.add(listOf(root) + replies)
+        }
+        byLine
+    }
     // Track which line is currently being commented — show an inline input below it.
     var activeLine by remember { mutableStateOf<Int?>(null) }
     var draftBody by remember { mutableStateOf("") }
@@ -145,18 +162,9 @@ fun DiffPatchWithComment(
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
         lines.forEachIndexed { idx, line ->
-            // Pull all comments anchored at this line, AS WELL AS every reply in the
-            // same thread (matching root id) — render them as a single thread block.
-            val anchoredHere = remember(reviewComments, line.newNumber) {
-                val direct = reviewComments.filter { rc ->
-                    rc.path == filename && rc.line == line.newNumber && rc.inReplyToId == null
-                }
-                direct.map { root ->
-                    val rootId = root.id
-                    val replies = reviewComments.filter { it.path == filename && it.inReplyToId == rootId }
-                    listOf(root) + replies
-                }
-            }
+            // Threads pre-grouped by anchor line above — O(1) lookup here.
+            // Null key matches null newNumber ('-' / '@@' rows) as before.
+            val anchoredHere = threadsByLine[line.newNumber] ?: emptyList()
 
             // Background color tuned per line type.
             val bg = when (line.type) {
