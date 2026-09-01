@@ -62,6 +62,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.foundation.text.ClickableText
@@ -363,7 +364,7 @@ private fun OAuthClientSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        windowInsets = WindowInsets.ime,
+        contentWindowInsets = WindowInsets.ime,
     ) {
         Column(
             Modifier
