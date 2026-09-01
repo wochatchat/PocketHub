@@ -1,8 +1,8 @@
 {
   "version": "0.3.96",
   "summary": {
-    "zh": "自定义 OAuth 弹框新增「创建 OAuth App」快捷入口；授权浏览器页面加入应用品牌标识。",
-    "en": "The custom OAuth sheet gains a \"Create an OAuth App\" shortcut; the authorization browser page is now branded with the app icon."
+    "zh": "自定义 OAuth 弹框新增「创建 OAuth App」快捷入口；授权浏览器页加入应用品牌标识。",
+    "en": "The custom OAuth sheet gains a \"Create an OAuth App\" shortcut; the authorization browser tab is now branded with the app icon."
   },
   "items": [
     {
@@ -12,8 +12,13 @@
     },
     {
       "type": "improve",
-      "zh": "授权登录的浏览器页使用应用图标配色与图标，识别度更高",
-      "en": "The authorization browser tab now uses the app icon and brand colors for clear recognition"
+      "zh": "授权登录的浏览器标签页使用应用图标配色与图标，识别度更高",
+      "en": "The authorization browser tab now uses the app icon and brand colors"
+    },
+    {
+      "type": "fix",
+      "zh": "修复登录按钮加载动画尺寸异常的问题",
+      "en": "Fixed the oversized loading spinner on the login button"
     }
   ]
 }
