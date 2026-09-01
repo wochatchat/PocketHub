@@ -59,6 +59,9 @@ class SettingsViewModel @Inject constructor(
     val downloadMirrorPrefix: StateFlow<String> = settings.downloadMirrorPrefix
         .stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
+    val dohUrl: StateFlow<String> = settings.dohUrl
+        .stateIn(viewModelScope, SharingStarted.Eagerly, SettingsRepository.DEFAULT_DOH_URL)
+
     val notifPollMinutes: StateFlow<Int> = settings.notifPollMinutes
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
 
@@ -118,6 +121,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setDownloadMirrorPrefix(prefix: String) {
         viewModelScope.launch { settings.setDownloadMirrorPrefix(prefix) }
+    }
+
+    fun setDohUrl(url: String) {
+        viewModelScope.launch { settings.setDohUrl(url) }
     }
 
     fun setNotifPollMinutes(minutes: Int) {

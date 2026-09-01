@@ -47,6 +47,7 @@ class SettingsRepository @Inject constructor(
         val PINNED_REPOS = stringPreferencesKey("pinned_repos_json")
         val DOWNLOAD_FOLDER_URI = stringPreferencesKey("download_folder_tree_uri")
         val DOWNLOAD_MIRROR_PREFIX = stringPreferencesKey("download_mirror_prefix")
+        val DOH_URL = stringPreferencesKey("doh_url")
         val ISSUE_REPORT_ENABLED = intPreferencesKey("issue_report_enabled")
         val ISSUE_REPORT_INTERVAL_DAYS = intPreferencesKey("issue_report_interval_days")
         val ISSUE_REPORT_EMAIL = stringPreferencesKey("issue_report_email")
@@ -101,6 +102,19 @@ class SettingsRepository @Inject constructor(
     suspend fun setAppLocale(locale: String) {
         context.dataStore.edit { prefs ->
             prefs[Keys.APP_LOCALE] = locale
+        }
+    }
+
+    // ── Encrypted DNS (DoH) ───────────────────────────────
+    /** DoH resolver endpoint; falls back to AliDNS (CN-reachable) when unset. */
+    val dohUrl: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[Keys.DOH_URL] ?: DEFAULT_DOH_URL
+    }
+
+    suspend fun setDohUrl(url: String) {
+        context.dataStore.edit { prefs ->
+            val value = url.trim()
+            if (value.isBlank()) prefs.remove(Keys.DOH_URL) else prefs[Keys.DOH_URL] = value
         }
     }
 
@@ -354,7 +368,11 @@ class SettingsRepository @Inject constructor(
         context.dataStore.edit { it[Keys.ISSUE_REPORT_TARGET_REPO] = slug.trim().lowercase() }
     }
 
-    private companion object {
+    companion object {
         const val KEEP = 200
+
+        /** Default DoH endpoint — identical to the pre-configuration hardcoded URL,
+         *  so existing users see zero behavior change until they pick a provider. */
+        const val DEFAULT_DOH_URL = "https://dns.alidns.com/dns-query"
     }
 }

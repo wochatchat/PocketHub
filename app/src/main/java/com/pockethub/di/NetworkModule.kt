@@ -15,6 +15,9 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.json.Json
+import com.pockethub.data.remote.SettingsRepository
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -37,33 +40,43 @@ object NetworkModule {
     }
 
     /**
-     * DoH-backed resolver with system-DNS fallback (net branch experiment).
+     * DoH-backed resolver with system-DNS fallback.
      *
      * Mainland ISPs poison GitHub DNS records; resolving through an encrypted
      * public resolver (AliDNS — reachable in CN, no account) returns the real
      * IPs and sidesteps that. If DoH itself is unreachable we fall back to the
      * system resolver so the app never hard-fails because of this feature.
+     *
+     * The endpoint is user-configurable (Settings → DoH). The resolver is
+     * built lazily on the FIRST DNS lookup — always an OkHttp worker thread —
+     * so reading DataStore there never blocks the main thread (same intent as
+     * upstream #32 commit 91f131c). Changing the provider takes effect on the
+     * next app start: the OkHttpClient (and this resolver) are singletons.
      */
     @Provides
     @Singleton
-    fun provideDns(): okhttp3.Dns {
+    fun provideDns(settings: SettingsRepository): okhttp3.Dns {
         val bootstrapClient = OkHttpClient.Builder()
             .connectTimeout(5, TimeUnit.SECONDS)
             .readTimeout(5, TimeUnit.SECONDS)
             .build()
-        val doh = okhttp3.dnsoverhttps.DnsOverHttps.Builder()
-            .client(bootstrapClient)
-            .url("https://dns.alidns.com/dns-query".toHttpUrl())
-            .bootstrapDnsHosts(
-                java.net.InetAddress.getByName("223.5.5.5"),
-                java.net.InetAddress.getByName("223.6.6.6"),
-            )
-            .includeIPv6(false)
-            .build()
+        val resolver by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+            val url = runCatching { runBlocking { settings.dohUrl.first() } }
+                .getOrDefault(SettingsRepository.DEFAULT_DOH_URL)
+            okhttp3.dnsoverhttps.DnsOverHttps.Builder()
+                .client(bootstrapClient)
+                .url(url.toHttpUrl())
+                .bootstrapDnsHosts(
+                    java.net.InetAddress.getByName("223.5.5.5"),
+                    java.net.InetAddress.getByName("223.6.6.6"),
+                )
+                .includeIPv6(false)
+                .build()
+        }
         return object : okhttp3.Dns {
             override fun lookup(hostname: String): List<java.net.InetAddress> =
                 try {
-                    doh.lookup(hostname)
+                    resolver.lookup(hostname)
                 } catch (_: Throwable) {
                     okhttp3.Dns.SYSTEM.lookup(hostname)
                 }

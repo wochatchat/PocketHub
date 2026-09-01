@@ -79,6 +79,10 @@
     <string name="mirror_prefix_set">%1$s</string>
     <string name="mirror_prefix_summary">Prepends a gh-proxy-style accelerator in front of GitHub FILE downloads (release assets, raw files, zips). API traffic is untouched. Example: https://gh-proxy.com/ — leave blank to disable.</string>
     <string name="mirror_prefix_label">Accelerator base URL</string>
+    <string name="doh_title">Encrypted DNS (DoH)</string>
+    <string name="doh_summary">Resolver endpoint: %1$s</string>
+    <string name="doh_restart_hint">CN-reachable providers first. Takes effect after restarting the app; if the resolver fails, lookups fall back to system DNS automatically.</string>
+    <string name="doh_custom_label">Custom DoH URL</string>
     <string name="update_changelog_generic">UI improvements, bug fixes and feature updates.</string>
     <string name="update_changelog_title">What\'s new</string>
     <string name="download_folder_label">Download location</string>

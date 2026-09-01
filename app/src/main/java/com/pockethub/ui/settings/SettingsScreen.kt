@@ -104,6 +104,7 @@ fun SettingsScreen(
     val customClientId by vm.customClientId.collectAsState()
     val downloadMirrorPrefix by vm.downloadMirrorPrefix.collectAsState()
     val customClientSecret by vm.customClientSecret.collectAsState()
+    val dohUrl by vm.dohUrl.collectAsState()
     val accountCount by vm.accountCount.collectAsState()
     val cacheSizeBytes by vm.cacheSizeBytes.collectAsState()
     val translateTarget by vm.translateTarget.collectAsState()
@@ -112,6 +113,7 @@ fun SettingsScreen(
     var showTranslateSheet by remember { mutableStateOf(false) }
     var showOAuthSheet by remember { mutableStateOf(false) }
     var showMirrorSheet by remember { mutableStateOf(false) }
+    var showDohSheet by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     var showSignOutDialog by remember { mutableStateOf(false) }
     val issueCount by vm.issueCount.collectAsState()
@@ -256,6 +258,12 @@ fun SettingsScreen(
                 headlineContent = { Text(stringResource(R.string.mirror_prefix_title)) },
                 supportingContent = { Text(if (downloadMirrorPrefix.isBlank()) stringResource(R.string.mirror_prefix_not_set) else stringResource(R.string.mirror_prefix_set, downloadMirrorPrefix)) },
                 modifier = Modifier.clickable { showMirrorSheet = true },
+            )
+            ListItem(
+                leadingContent = { Icon(Icons.Outlined.Public, contentDescription = null) },
+                headlineContent = { Text(stringResource(R.string.doh_title)) },
+                supportingContent = { Text(stringResource(R.string.doh_summary, dohUrl)) },
+                modifier = Modifier.clickable { showDohSheet = true },
             )
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.CleaningServices, contentDescription = null) },
@@ -409,6 +417,14 @@ fun SettingsScreen(
         )
     }
 
+    if (showDohSheet) {
+        DohSettingsSheet(
+            initial = dohUrl,
+            onDismiss = { showDohSheet = false },
+            onSave = { url -> vm.setDohUrl(url); showDohSheet = false },
+        )
+    }
+
     if (showAbout) {
         ModalBottomSheet(onDismissRequest = { showAbout = false }, sheetState = rememberModalBottomSheetState()) {
             AboutContent()
@@ -459,6 +475,93 @@ fun SettingsScreen(
         else -> Unit
     }
 }
+/** A selectable built-in DoH provider shown in [DohSettingsSheet]. */
+private data class DohOption(val name: String, val url: String)
+
+// CN-reachable providers first (unpoisoned, no account), then global ones.
+private val builtInDoh = listOf(
+    DohOption("AliDNS", "https://dns.alidns.com/dns-query"),
+    DohOption("DNSPod", "https://doh.pub/dns-query"),
+    DohOption("360 DNS", "https://doh.360.cn"),
+    DohOption("Cloudflare", "https://1.1.1.1/dns-query"),
+    DohOption("Google Public DNS", "https://dns.google/dns-query"),
+    DohOption("Quad9", "https://dns.quad9.net/dns-query"),
+    DohOption("AdGuard DNS", "https://dns.adguard-dns.com/dns-query"),
+)
+
+/**
+ * DoH provider picker. Ported from upstream #32 by @Wxjxpp — radio list of
+ * built-in providers plus a free-form custom endpoint; saving a blank value
+ * resets to the default (AliDNS). Takes effect on next app start because the
+ * OkHttpClient/DNS resolver are singletons.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DohSettingsSheet(
+    initial: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    var selected by rememberSaveable { mutableStateOf(initial) }
+    var custom by rememberSaveable {
+        mutableStateOf(if (builtInDoh.none { it.url == initial }) initial else "")
+    }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .imePadding()
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                stringResource(R.string.doh_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                stringResource(R.string.doh_restart_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            builtInDoh.forEach { option ->
+                ListItem(
+                    headlineContent = { Text(option.name) },
+                    supportingContent = { Text(option.url) },
+                    leadingContent = {
+                        RadioButton(selected = selected == option.url, onClick = {
+                            selected = option.url
+                            custom = ""
+                        })
+                    },
+                    modifier = Modifier.clickable {
+                        selected = option.url
+                        custom = ""
+                    },
+                )
+            }
+            OutlinedTextField(
+                value = custom,
+                onValueChange = {
+                    custom = it
+                    selected = it
+                },
+                label = { Text(stringResource(R.string.doh_custom_label)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+                Button(
+                    enabled = selected.startsWith("https://"),
+                    onClick = { onSave(selected.trim()) },
+                ) { Text(stringResource(R.string.action_save)) }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun MirrorPrefixSheet(
