@@ -11,6 +11,7 @@
     <string name="login_get_token_link">https://github.com/settings/tokens/new</string>
     <string name="login_get_token_link_text">创建新 Token →</string>
     <string name="login_oauth_description">通过 GitHub OAuth 授权登录，无需创建 Token 或 OAuth 应用。</string>
+    <string name="login_selfhost_link_text">自部署 OAuth 登录设置 →</string>
     <string name="oauth_app_new_link">https://github.com/settings/applications/new</string>
     <string name="oauth_app_new_link_text">创建 OAuth App →</string>
 
@@ -407,7 +408,6 @@
     <string name="system_notification_settings_summary">打开 Android 设置管理 PocketHub 通知</string>
     <string name="section_account">账号</string>
     <string name="sign_out_summary">退出当前账号并返回登录页</string>
-    <string name="custom_oauth_client">自定义 OAuth Client</string>
     <string name="custom_oauth_client_not_configured">未配置（仅使用 PAT）</string>
     <string name="custom_oauth_client_configured">Client ID %1$s…</string>
     <string name="clear_cache">清除缓存</string>

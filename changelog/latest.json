@@ -1,24 +1,24 @@
 {
-  "version": "0.3.96",
+  "version": "0.3.97",
   "summary": {
-    "zh": "自定义 OAuth 弹框新增「创建 OAuth App」快捷入口；授权浏览器页加入应用品牌标识。",
-    "en": "The custom OAuth sheet gains a \"Create an OAuth App\" shortcut; the authorization browser tab is now branded with the app icon."
+    "zh": "登录方式重新梳理：自部署 OAuth 设置从设置页迁移至登录页（登录前即可配置），设置页移除该入口。",
+    "en": "Login flow reorganized: the self-hosted OAuth configuration moved from Settings to the login page (configurable before signing in); the Settings entry is removed."
   },
   "items": [
     {
       "type": "improve",
-      "zh": "自定义 OAuth 客户端弹框右上角新增「创建 OAuth App」快捷链接",
-      "en": "Added a \"Create an OAuth App\" shortcut to the custom OAuth client sheet header"
+      "zh": "登录页新增「自部署 OAuth 登录设置」入口，弹出配置弹窗，作为第三种登录方式",
+      "en": "Login page gains a self-hosted OAuth entry opening the config sheet, as a third sign-in method"
     },
     {
       "type": "improve",
-      "zh": "授权登录的浏览器标签页使用应用图标配色与图标，识别度更高",
-      "en": "The authorization browser tab now uses the app icon and brand colors"
+      "zh": "设置页移除「自定义 OAuth Client」入口（登录前无法到达，位置不合理）",
+      "en": "Removed the \"Custom OAuth Client\" entry from Settings (unreachable before signing in)"
     },
     {
       "type": "fix",
-      "zh": "修复登录按钮加载动画尺寸异常的问题",
-      "en": "Fixed the oversized loading spinner on the login button"
+      "zh": "修复登录页组件链接未导入导致的构建失败",
+      "en": "Fixed a build failure from a missing component import"
     }
   ]
 }

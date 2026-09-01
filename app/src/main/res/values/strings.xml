@@ -11,6 +11,7 @@
     <string name="login_get_token_link">https://github.com/settings/tokens/new</string>
     <string name="login_get_token_link_text">Create a new token →</string>
     <string name="login_oauth_description">Sign in with GitHub OAuth — no token or OAuth App setup needed.</string>
+    <string name="login_selfhost_link_text">Self-hosted OAuth settings →</string>
     <string name="oauth_app_new_link">https://github.com/settings/applications/new</string>
     <string name="oauth_app_new_link_text">Create an OAuth App →</string>
 
@@ -472,7 +473,6 @@
     <string name="system_notification_settings_summary">Open Android settings to manage PocketHub notifications</string>
     <string name="section_account">Account</string>
     <string name="sign_out_summary">Sign out of the current account and return to login</string>
-    <string name="custom_oauth_client">Custom OAuth Client</string>
     <string name="custom_oauth_client_not_configured">Not configured (using PAT-only)</string>
     <string name="custom_oauth_client_configured">Client ID %1$s…</string>
     <string name="clear_cache">Clear cache</string>

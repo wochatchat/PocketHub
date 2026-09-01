@@ -11,7 +11,9 @@ import com.pockethub.data.remote.OAuthEndpoints
 import com.pockethub.data.remote.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -47,6 +49,24 @@ class LoginViewModel @Inject constructor(
 
     private val _ui = MutableStateFlow(UiState())
     val ui: StateFlow<UiState> = _ui
+
+    // Custom (self-hosted) OAuth client config — edited from the login screen;
+    // the settings page is only reachable while signed in, which is useless for
+    // a login-time setting. Fields moved here from SettingsViewModel.
+    val customClientId: StateFlow<String> = settings.customClientId
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+    val customClientSecret: StateFlow<String> = settings.customClientSecret
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+    val oauthBackendUrl: StateFlow<String> = settings.oauthBackendUrl
+        .stateIn(viewModelScope, SharingStarted.Eagerly, SettingsRepository.DEFAULT_OAUTH_BACKEND_URL)
+
+    fun setCustomOAuthClient(id: String, secret: String) {
+        viewModelScope.launch { settings.setCustomOAuthClient(id, secret) }
+    }
+
+    fun setOAuthBackendUrl(url: String) {
+        viewModelScope.launch { settings.setOAuthBackendUrl(url) }
+    }
 
     /**
      * Sign in with a Personal Access Token.

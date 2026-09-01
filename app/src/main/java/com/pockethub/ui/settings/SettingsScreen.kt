@@ -33,7 +33,6 @@ import androidx.compose.material.icons.outlined.FolderZip
 import androidx.compose.material.icons.outlined.GTranslate
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.RocketLaunch
-import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Logout
 import androidx.compose.material.icons.outlined.ManageAccounts
 import androidx.compose.material.icons.outlined.Notifications
@@ -41,7 +40,6 @@ import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.Translate
-import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -76,8 +74,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.pockethub.BuildConfig
@@ -87,7 +83,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import com.pockethub.ui.components.LinkLabel
 import com.pockethub.ui.components.SectionHeader
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -103,10 +98,7 @@ fun SettingsScreen(
     val appStyle by vm.appStyle.collectAsState()
     val followSystemTheme by vm.followSystemTheme.collectAsState()
     val appLocale by vm.appLocale.collectAsState()
-    val customClientId by vm.customClientId.collectAsState()
     val downloadMirrorPrefix by vm.downloadMirrorPrefix.collectAsState()
-    val customClientSecret by vm.customClientSecret.collectAsState()
-    val oauthBackendUrl by vm.oauthBackendUrl.collectAsState()
     val dohUrl by vm.dohUrl.collectAsState()
     val accountCount by vm.accountCount.collectAsState()
     val cacheSizeBytes by vm.cacheSizeBytes.collectAsState()
@@ -114,7 +106,6 @@ fun SettingsScreen(
     var showStyleSheet by remember { mutableStateOf(false) }
     var showLanguageSheet by remember { mutableStateOf(false) }
     var showTranslateSheet by remember { mutableStateOf(false) }
-    var showOAuthSheet by remember { mutableStateOf(false) }
     var showMirrorSheet by remember { mutableStateOf(false) }
     var showDohSheet by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
@@ -229,12 +220,6 @@ fun SettingsScreen(
                 leadingContent = { Icon(Icons.Outlined.ManageAccounts, contentDescription = null) },
                 headlineContent = { Text(stringResource(R.string.accounts)) },
                 supportingContent = { Text(stringResource(R.string.accounts_summary, accountCount)) },
-            )
-            ListItem(
-                leadingContent = { Icon(Icons.Outlined.VpnKey, contentDescription = null) },
-                headlineContent = { Text(stringResource(R.string.custom_oauth_client)) },
-                supportingContent = { Text(if (customClientId.isBlank()) stringResource(R.string.custom_oauth_client_not_configured) else stringResource(R.string.custom_oauth_client_configured, customClientId.take(8))) },
-                modifier = Modifier.clickable { showOAuthSheet = true },
             )
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.Logout, contentDescription = null) },
@@ -401,20 +386,6 @@ fun SettingsScreen(
                 TranslateOption(stringResource(R.string.translate_to_english), translateTarget == "en") { vm.setTranslateTarget("en"); showTranslateSheet = false }
             }
         }
-    }
-
-    if (showOAuthSheet) {
-        OAuthClientSheet(
-            initialId = customClientId,
-            initialSecret = customClientSecret,
-            initialBackendUrl = oauthBackendUrl,
-            onDismiss = { showOAuthSheet = false },
-            onSave = { id, secret, backendUrl ->
-                vm.setCustomOAuthClient(id, secret)
-                vm.setOAuthBackendUrl(backendUrl)
-                showOAuthSheet = false
-            },
-        )
     }
 
     if (showMirrorSheet) {
@@ -701,85 +672,6 @@ private fun formatSpeed(bytesPerSecond: Long): String = when {
     bytesPerSecond >= 1_048_576 -> "%.1f MB/s".format(bytesPerSecond / 1_048_576.0)
     bytesPerSecond >= 1024 -> "%.0f KB/s".format(bytesPerSecond / 1024.0)
     else -> "$bytesPerSecond B/s"
-}
-
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
-@Composable
-private fun OAuthClientSheet(
-    initialId: String,
-    initialSecret: String,
-    initialBackendUrl: String,
-    onDismiss: () -> Unit,
-    onSave: (String, String, String) -> Unit,
-) {
-    var id by rememberSaveable { mutableStateOf(initialId) }
-    var secret by rememberSaveable { mutableStateOf(initialSecret) }
-    var backendUrl by rememberSaveable { mutableStateOf(initialBackendUrl) }
-    var showSecret by rememberSaveable { mutableStateOf(false) }
-
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-                .imePadding()
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.custom_oauth_client_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.weight(1f))
-                LinkLabel(
-                    url = stringResource(R.string.oauth_app_new_link),
-                    text = stringResource(R.string.oauth_app_new_link_text),
-                )
-            }
-            Text(
-                stringResource(R.string.custom_oauth_client_summary),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            OutlinedTextField(
-                value = id,
-                onValueChange = { id = it },
-                label = { Text(stringResource(R.string.client_id)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                leadingIcon = { Icon(Icons.Outlined.VpnKey, null, modifier = Modifier.size(18.dp)) },
-            )
-            OutlinedTextField(
-                value = secret,
-                onValueChange = { secret = it },
-                label = { Text(stringResource(R.string.client_secret)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                visualTransformation = if (showSecret) VisualTransformation.None else PasswordVisualTransformation(),
-                leadingIcon = { Icon(Icons.Outlined.Lock, null, modifier = Modifier.size(18.dp)) },
-                trailingIcon = {
-                    TextButton(onClick = { showSecret = !showSecret }) {
-                        Text(stringResource(if (showSecret) R.string.action_hide else R.string.action_show), style = MaterialTheme.typography.labelMedium)
-                    }
-                },
-            )
-            OutlinedTextField(
-                value = backendUrl,
-                onValueChange = { backendUrl = it },
-                label = { Text(stringResource(R.string.oauth_backend_url)) },
-                supportingText = { Text(stringResource(R.string.oauth_backend_url_hint)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-            )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = { onSave(id.trim(), secret.trim(), backendUrl.trim()) },
-                    enabled = id.isNotBlank(),
-                ) { Text(stringResource(R.string.action_save)) }
-                OutlinedButton(onClick = { onSave("", "", "") }) { Text(stringResource(R.string.action_clear)) }
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
-            }
-            Spacer(Modifier.height(24.dp))
-        }
-    }
 }
 
 @Composable

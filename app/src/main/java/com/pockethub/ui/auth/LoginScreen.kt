@@ -1,6 +1,7 @@
 package com.pockethub.ui.auth
 
 import com.pockethub.R
+import com.pockethub.ui.components.LinkLabel
 
 import androidx.compose.ui.res.stringResource
 
@@ -52,6 +53,18 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.VpnKey
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDecoration
 
 /**
  * Small clickable hyperlink built from a single line of text. Opens [url] in a
@@ -84,8 +97,12 @@ fun LoginScreen(
     val activity = LocalContext.current as ComponentActivity
     val vm: LoginViewModel = hiltViewModel(activity)
     val ui by vm.ui.collectAsState()
+    val customClientId by vm.customClientId.collectAsState()
+    val customClientSecret by vm.customClientSecret.collectAsState()
+    val oauthBackendUrl by vm.oauthBackendUrl.collectAsState()
     val context = LocalContext.current
     var token by rememberSaveable { mutableStateOf("") }
+    var showSelfHostSheet by rememberSaveable { mutableStateOf(false) }
     var showToken by rememberSaveable { mutableStateOf(false) }
 
     // Handle OAuth URL
@@ -224,6 +241,24 @@ fun LoginScreen(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            SheetLink(
+                text = stringResource(R.string.login_selfhost_link_text),
+                onClick = { showSelfHostSheet = true },
+            )
+
+            if (showSelfHostSheet) {
+                OAuthClientSheet(
+                    initialId = customClientId,
+                    initialSecret = customClientSecret,
+                    initialBackendUrl = oauthBackendUrl,
+                    onDismiss = { showSelfHostSheet = false },
+                    onSave = { id, secret, backendUrl ->
+                        vm.setCustomOAuthClient(id, secret)
+                        vm.setOAuthBackendUrl(backendUrl)
+                        showSelfHostSheet = false
+                    },
+                )
+            }
 
             // Error message
             if (ui.error != null) {
@@ -244,6 +279,102 @@ fun LoginScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+/** Small link-styled text that opens the self-hosted OAuth sheet. */
+@Composable
+private fun SheetLink(text: String, onClick: () -> Unit) {
+    val annotated = buildAnnotatedString {
+        addStyle(
+            SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline),
+            start = 0, end = text.length,
+        )
+        append(text)
+    }
+    ClickableText(
+        text = annotated,
+        style = MaterialTheme.typography.labelMedium,
+        onClick = { onClick() },
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@Composable
+private fun OAuthClientSheet(
+    initialId: String,
+    initialSecret: String,
+    initialBackendUrl: String,
+    onDismiss: () -> Unit,
+    onSave: (String, String, String) -> Unit,
+) {
+    var id by rememberSaveable { mutableStateOf(initialId) }
+    var secret by rememberSaveable { mutableStateOf(initialSecret) }
+    var backendUrl by rememberSaveable { mutableStateOf(initialBackendUrl) }
+    var showSecret by rememberSaveable { mutableStateOf(false) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .imePadding()
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.custom_oauth_client_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.weight(1f))
+                LinkLabel(
+                    url = stringResource(R.string.oauth_app_new_link),
+                    text = stringResource(R.string.oauth_app_new_link_text),
+                )
+            }
+            Text(
+                stringResource(R.string.custom_oauth_client_summary),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedTextField(
+                value = id,
+                onValueChange = { id = it },
+                label = { Text(stringResource(R.string.client_id)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                leadingIcon = { Icon(Icons.Outlined.VpnKey, null, modifier = Modifier.size(18.dp)) },
+            )
+            OutlinedTextField(
+                value = secret,
+                onValueChange = { secret = it },
+                label = { Text(stringResource(R.string.client_secret)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                visualTransformation = if (showSecret) VisualTransformation.None else PasswordVisualTransformation(),
+                leadingIcon = { Icon(Icons.Outlined.Lock, null, modifier = Modifier.size(18.dp)) },
+                trailingIcon = {
+                    TextButton(onClick = { showSecret = !showSecret }) {
+                        Text(stringResource(if (showSecret) R.string.action_hide else R.string.action_show), style = MaterialTheme.typography.labelMedium)
+                    }
+                },
+            )
+            OutlinedTextField(
+                value = backendUrl,
+                onValueChange = { backendUrl = it },
+                label = { Text(stringResource(R.string.oauth_backend_url)) },
+                supportingText = { Text(stringResource(R.string.oauth_backend_url_hint)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { onSave(id.trim(), secret.trim(), backendUrl.trim()) },
+                    enabled = id.isNotBlank(),
+                ) { Text(stringResource(R.string.action_save)) }
+                OutlinedButton(onClick = { onSave("", "", "") }) { Text(stringResource(R.string.action_clear)) }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+            }
+            Spacer(Modifier.height(24.dp))
         }
     }
 }

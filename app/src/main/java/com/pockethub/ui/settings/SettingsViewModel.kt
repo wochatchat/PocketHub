@@ -49,11 +49,7 @@ class SettingsViewModel @Inject constructor(
         .map { AppLocale.fromKey(it) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, AppLocale.SYSTEM)
 
-    val customClientId: StateFlow<String> = settings.customClientId
-        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
-    val customClientSecret: StateFlow<String> = settings.customClientSecret
-        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
     /** GitHub file-download accelerator prefix (net branch experiment). */
     val downloadMirrorPrefix: StateFlow<String> = settings.downloadMirrorPrefix
@@ -62,8 +58,6 @@ class SettingsViewModel @Inject constructor(
     val dohUrl: StateFlow<String> = settings.dohUrl
         .stateIn(viewModelScope, SharingStarted.Eagerly, SettingsRepository.DEFAULT_DOH_URL)
 
-    val oauthBackendUrl: StateFlow<String> = settings.oauthBackendUrl
-        .stateIn(viewModelScope, SharingStarted.Eagerly, SettingsRepository.DEFAULT_OAUTH_BACKEND_URL)
 
     val notifPollMinutes: StateFlow<Int> = settings.notifPollMinutes
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
@@ -118,20 +112,12 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun setCustomOAuthClient(id: String, secret: String) {
-        viewModelScope.launch { settings.setCustomOAuthClient(id, secret) }
-    }
-
     fun setDownloadMirrorPrefix(prefix: String) {
         viewModelScope.launch { settings.setDownloadMirrorPrefix(prefix) }
     }
 
     fun setDohUrl(url: String) {
         viewModelScope.launch { settings.setDohUrl(url) }
-    }
-
-    fun setOAuthBackendUrl(url: String) {
-        viewModelScope.launch { settings.setOAuthBackendUrl(url) }
     }
 
     fun setNotifPollMinutes(minutes: Int) {
