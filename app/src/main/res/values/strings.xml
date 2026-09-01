@@ -5,7 +5,7 @@
     <!-- Login -->
     <string name="login_subtitle">Sign in to your GitHub account</string>
     <string name="login_with_token">Sign in with Token</string>
-    <string name="login_with_oauth">Sign in with GitHub</string>
+    <string name="login_with_oauth">Authorize with GitHub</string>
     <string name="login_token_hint">Personal Access Token</string>
     <string name="login_description_scopes">A token with repo, read:user, user:email, read:org, read:notifications scopes is required.</string>
     <string name="login_get_token_link">https://github.com/settings/tokens/new</string>

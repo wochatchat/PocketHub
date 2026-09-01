@@ -1,11 +1,19 @@
 {
-  "version": "0.3.92",
+  "version": "0.3.93",
   "summary": {
-    "zh": "继续修复登出链路：登出时强制重建导航图并重置回登录页，不再依赖弹栈行为；附诊断提示。",
-    "en": "Continued sign-out fix: the nav graph is force-rebuilt on sign-out so the back stack resets to the login page; diagnostic toasts included."
+    "zh": "修复登出后被立即弹回主页的问题：登录成功信号改为一次性消费，登出后稳定停留在登录页。",
+    "en": "Fixed being bounced back to Home right after sign-out: the login-success signal is now consumed once, so the app stays on the login page after signing out."
   },
   "items": [
-    { "type": "fix", "zh": "登出时导航图强制重建，返回登录页不再依赖返回栈弹栈", "en": "Sign-out force-rebuilds the nav graph, guaranteeing return to login without relying on stack popping" },
-    { "type": "fix", "zh": "诊断构建：包含临时屏幕提示以定位剩余问题（正式版移除）", "en": "Diagnostic build with temporary screen traces (removed in the release build)" }
+    {
+      "type": "fix",
+      "zh": "修复退出登录后未停留登录页、被自动弹回主页的问题",
+      "en": "Fixed the app bouncing back to Home instead of staying on the login page after sign-out"
+    },
+    {
+      "type": "improve",
+      "zh": "登录页按钮文案调整为「GitHub 授权登录」，并移除上一版的诊断提示",
+      "en": "Login button copy updated to “Authorize with GitHub”; diagnostic traces removed"
+    }
   ]
 }

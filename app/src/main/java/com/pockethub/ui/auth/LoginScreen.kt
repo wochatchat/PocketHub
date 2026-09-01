@@ -118,7 +118,10 @@ fun LoginScreen(
 
     // Handle success
     LaunchedEffect(ui.success) {
-        if (ui.success) onLoginSuccess()
+        if (ui.success) {
+            onLoginSuccess()
+            vm.consumeLoginSuccess()
+        }
     }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {

@@ -5,7 +5,7 @@
     <!-- Login -->
     <string name="login_subtitle">登录你的 GitHub 账号</string>
     <string name="login_with_token">使用 Token 登录</string>
-    <string name="login_with_oauth">使用 GitHub 登录</string>
+    <string name="login_with_oauth">GitHub 授权登录</string>
     <string name="login_token_hint">Personal Access Token</string>
     <string name="login_description_scopes">需要拥有 repo、read:user、user:email、read:org、read:notifications 权限的 Token。</string>
     <string name="login_get_token_link">https://github.com/settings/tokens/new</string>

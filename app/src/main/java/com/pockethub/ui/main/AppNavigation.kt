@@ -169,26 +169,12 @@ fun PocketHubApp(
     // "signed in". (Fix ported from #32 by @Wxjxpp.)
     androidx.compose.runtime.LaunchedEffect(signedOut) {
         if (signedOut) {
-            if (true) { // SIGNOUT_DIAG
-                android.widget.Toast.makeText(
-                    context,
-                    "[diag] signedOut observed, navigating to login",
-                    android.widget.Toast.LENGTH_LONG,
-                ).show()
-            }
             navController.navigate(Routes.LOGIN) {
                 popUpTo(navController.graph.findStartDestination().id) {
                     inclusive = true
                 }
                 launchSingleTop = true
                 restoreState = false
-            }
-            if (true) { // SIGNOUT_DIAG
-                android.widget.Toast.makeText(
-                    context,
-                    "[diag] navigate done, clearing flag",
-                    android.widget.Toast.LENGTH_LONG,
-                ).show()
             }
             appVm.clearSignedOut()
         }

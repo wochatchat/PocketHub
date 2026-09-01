@@ -240,4 +240,10 @@ class LoginViewModel @Inject constructor(
 
     fun clearError() { _ui.update { it.copy(error = null) } }
     fun clearOAuthUrl() { _ui.update { it.copy(oauthUrl = null) } }
+
+    /** Consume the success signal after the login screen has navigated away.
+     *  Without this, the SHARED activity-scoped VM still reports success=true
+     *  the next time the login screen appears (e.g. right after sign-out),
+     *  which instantly bounced the user back to Home. */
+    fun consumeLoginSuccess() { _ui.update { it.copy(success = false) } }
 }
