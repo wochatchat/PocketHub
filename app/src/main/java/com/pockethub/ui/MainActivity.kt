@@ -82,10 +82,24 @@ class MainActivity : AppCompatActivity() {
                 val incomingData by pendingData.collectAsState()
                 LaunchedEffect(incomingData) {
                     val data = incomingData ?: return@LaunchedEffect
+                    if (true) { // OAUTH_DIAG
+                        android.widget.Toast.makeText(
+                            this@MainActivity,
+                            "[diag] intent: " + data.toString().take(120),
+                            android.widget.Toast.LENGTH_LONG,
+                        ).show()
+                    }
                     if (data.scheme == "pockethub" && data.host == "oauth") {
                         handleOAuthCallbackData(data) { code, state ->
                             oauthCode.value = code
                             oauthState.value = state
+                            if (true) { // OAUTH_DIAG
+                                android.widget.Toast.makeText(
+                                    this@MainActivity,
+                                    "[diag] got code=" + code.take(6) + "… state=" + (state?.take(8) ?: "NULL"),
+                                    android.widget.Toast.LENGTH_LONG,
+                                ).show()
+                            }
                         }
                     } else if (data.scheme == "pockethub") {
                         // Non-OAuth pockethub:// deep link — forward to the NavHost for routing.
@@ -94,6 +108,13 @@ class MainActivity : AppCompatActivity() {
                 }
                 LaunchedEffect(oauthCode.value) {
                     oauthCode.value?.let { code ->
+                        if (true) { // OAUTH_DIAG
+                            android.widget.Toast.makeText(
+                                this@MainActivity,
+                                "[diag] exchanging code…",
+                                android.widget.Toast.LENGTH_LONG,
+                            ).show()
+                        }
                         loginVm.exchangeOAuthCode(code, oauthState.value)
                         oauthCode.value = null
                         oauthState.value = null

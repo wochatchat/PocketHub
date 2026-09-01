@@ -1,34 +1,10 @@
 {
-  "version": "0.3.87",
+  "version": "0.3.88",
   "summary": {
-    "zh": "本次更新重新设计了 OAuth 登录：授权交换改走自托管后端，App 密钥不再保存在手机上，并加入回调防伪校验。",
-    "en": "This update redesigns OAuth sign-in: the token exchange now runs through a self-hosted backend so the app secret never touches the device, with callback forgery protection added."
+    "zh": "诊断版本：OAuth 回调链路加入临时提示信息，用于定位登录卡住问题。",
+    "en": "Diagnostic build: temporary on-screen traces along the OAuth callback chain to locate the login stall."
   },
   "items": [
-    {
-      "type": "fix",
-      "zh": "修复从浏览器授权后跳回应用时登录不生效的问题",
-      "en": "Fixed OAuth login not completing when returning from the browser"
-    },
-    {
-      "type": "feat",
-      "zh": "OAuth 登录开箱即用：无需再自己创建 OAuth 应用，授权页自动配置",
-      "en": "OAuth sign-in works out of the box — no manual OAuth app setup required"
-    },
-    {
-      "type": "feat",
-      "zh": "授权回调加入一次性 state 校验，伪造回调无法换取令牌",
-      "en": "One-time state verification on the OAuth callback blocks forged callbacks"
-    },
-    {
-      "type": "improve",
-      "zh": "自定义 OAuth 客户端仍然可用：填写后自动切换为设备直连交换",
-      "en": "Custom OAuth clients still work — setting one switches to direct on-device exchange"
-    },
-    {
-      "type": "fix",
-      "zh": "设置页可查看和修改 OAuth 后端地址，清除后自动恢复默认",
-      "en": "OAuth backend URL is now visible and editable in settings; clearing restores the default"
-    }
+    { "type": "fix", "zh": "诊断构建（仅供测试，正式版会移除屏幕提示）", "en": "Diagnostic build (screen traces for testing only, removed in the release build)" }
   ]
 }
