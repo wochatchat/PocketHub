@@ -1,11 +1,12 @@
 {
-  "version": "0.3.67",
+  "version": "0.3.83",
   "summary": {
-    "zh": "设置新增\"数据\"栏，离线仓库上线：已下载的 zip 可以断网浏览代码了。",
-    "en": "Settings gains a Data section and offline repositories: downloaded repo zips are now browsable without a network."
+    "zh": "本次更新新增了应用内查看 GitHub Actions 工作流运行日志的能力，按构建步骤分节展示，无需跳出应用。",
+    "en": "This update adds an in-app viewer for GitHub Actions workflow run logs, organized per build step, without leaving the app."
   },
   "items": [
-    { "type": "feat", "zh": "新增离线仓库：列表展示已下载的 zip 归档，点击进入全屏代码浏览器（带 IDE 风格文件树），全程离线可用", "en": "New offline repositories: downloaded zips are listed and open in the full-screen code viewer with the IDE-style file tree, fully offline" },
-    { "type": "improve", "zh": "设置新增\"数据\"栏，下载加速镜像与清除缓存移入其中", "en": "Settings gains a Data section; the download mirror and clear-cache entries moved there" }
+    { "type": "feat", "zh": "工作流运行详情页新增“查看日志”入口，应用内直接阅读 Actions 构建日志", "en": "New log viewer entry on workflow run detail pages to read Actions logs in-app" },
+    { "type": "feat", "zh": "日志按 Job 和构建步骤分节折叠展示，支持关键字定位", "en": "Logs are grouped per job and build step with collapsible sections" },
+    { "type": "fix", "zh": "修复日志页面滚动状态的一处状态委托问题", "en": "Fixed a state delegation issue in the log viewer scroll state" }
   ]
 }
