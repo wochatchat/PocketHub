@@ -1,24 +1,11 @@
 {
-  "version": "0.3.91",
+  "version": "0.3.92",
   "summary": {
-    "zh": "本次更新修复登出功能失效的问题：登出现在会可靠返回登录页，且残留的旧登录记录不会再自动恢复会话。",
-    "en": "This update fixes sign-out not working: signing out now reliably returns to the login page, and stale stored accounts no longer auto-restore a session."
+    "zh": "继续修复登出链路：登出时强制重建导航图并重置回登录页，不再依赖弹栈行为；附诊断提示。",
+    "en": "Continued sign-out fix: the nav graph is force-rebuilt on sign-out so the back stack resets to the login page; diagnostic toasts included."
   },
   "items": [
-    {
-      "type": "fix",
-      "zh": "修复点击登出后仍显示登录状态的问题",
-      "en": "Fixed the app still appearing signed in after tapping sign out"
-    },
-    {
-      "type": "fix",
-      "zh": "登出后再次登录的会话现在能在重启后正确保持",
-      "en": "Sessions from a fresh login now correctly persist across app restarts"
-    },
-    {
-      "type": "fix",
-      "zh": "从任意页面（含深链进入的页面）登出都会正确回到登录页",
-      "en": "Signing out from any screen (including deep-linked ones) now returns to the login page"
-    }
+    { "type": "fix", "zh": "登出时导航图强制重建，返回登录页不再依赖返回栈弹栈", "en": "Sign-out force-rebuilds the nav graph, guaranteeing return to login without relying on stack popping" },
+    { "type": "fix", "zh": "诊断构建：包含临时屏幕提示以定位剩余问题（正式版移除）", "en": "Diagnostic build with temporary screen traces (removed in the release build)" }
   ]
 }

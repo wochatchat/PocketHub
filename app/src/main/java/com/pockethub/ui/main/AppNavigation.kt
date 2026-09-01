@@ -13,6 +13,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -168,12 +169,26 @@ fun PocketHubApp(
     // "signed in". (Fix ported from #32 by @Wxjxpp.)
     androidx.compose.runtime.LaunchedEffect(signedOut) {
         if (signedOut) {
+            if (true) { // SIGNOUT_DIAG
+                android.widget.Toast.makeText(
+                    context,
+                    "[diag] signedOut observed, navigating to login",
+                    android.widget.Toast.LENGTH_LONG,
+                ).show()
+            }
             navController.navigate(Routes.LOGIN) {
                 popUpTo(navController.graph.findStartDestination().id) {
                     inclusive = true
                 }
                 launchSingleTop = true
                 restoreState = false
+            }
+            if (true) { // SIGNOUT_DIAG
+                android.widget.Toast.makeText(
+                    context,
+                    "[diag] navigate done, clearing flag",
+                    android.widget.Toast.LENGTH_LONG,
+                ).show()
             }
             appVm.clearSignedOut()
         }
@@ -234,6 +249,11 @@ fun PocketHubApp(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {}
                 return@Surface
             }
+            // key(route): when startRoute flips (sign-out → LOGIN), rebuild the
+            // whole graph so the back stack is RESET to [LOGIN] instead of
+            // relying on popUpTo, which silently pops nothing from stacks that
+            // never contained HOME (deep-link screens). Deterministic logout.
+            key(route) {
             NavHost(
                 navController = navController,
                 startDestination = route,
@@ -625,6 +645,7 @@ fun PocketHubApp(
                     )
                 }
             }
+            } // key(route)
         }
 
         // Update dialog — surfaced on top of the nav graph whenever a newer
