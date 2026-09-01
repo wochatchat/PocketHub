@@ -69,11 +69,15 @@ class MainActivity : AppCompatActivity() {
                 // or other deep links (pockethub://notifications, etc.) that should land on the
                 // matching Compose destination.
                 val oauthCode = remember { mutableStateOf<String?>(null) }
+                val oauthState = remember { mutableStateOf<String?>(null) }
                 val deepLinkUri = remember { mutableStateOf<Uri?>(null) }
                 LaunchedEffect(intent) {
                     val data: Uri? = intent?.data
                     if (data != null && data.scheme == "pockethub" && data.host == "oauth") {
-                        handleOAuthCallback(intent) { code -> oauthCode.value = code }
+                        handleOAuthCallback(intent) { code, state ->
+                            oauthCode.value = code
+                            oauthState.value = state
+                        }
                     } else if (data != null && data.scheme == "pockethub") {
                         // Non-OAuth pockethub:// deep link — forward to the NavHost for routing.
                         deepLinkUri.value = data
@@ -81,8 +85,9 @@ class MainActivity : AppCompatActivity() {
                 }
                 LaunchedEffect(oauthCode.value) {
                     oauthCode.value?.let { code ->
-                        loginVm.exchangeOAuthCode(code)
+                        loginVm.exchangeOAuthCode(code, oauthState.value)
                         oauthCode.value = null
+                        oauthState.value = null
                     }
                 }
 
@@ -103,12 +108,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Inspect intent data for ?code=xxx from the pockethub://oauth/callback URI. */
-    private fun handleOAuthCallback(intent: Intent?, onCode: (String) -> Unit) {
+    private fun handleOAuthCallback(intent: Intent?, onResult: (code: String, state: String?) -> Unit) {
         val data: Uri = intent?.data ?: return
         if (data.scheme != "pockethub") return
         if (data.host != "oauth") return
         val code = data.getQueryParameter("code") ?: return
-        onCode(code)
+        onResult(code, data.getQueryParameter("state"))
     }
 
     /** Ask once for POST_NOTIFICATIONS on Android 13+ when not yet granted. */

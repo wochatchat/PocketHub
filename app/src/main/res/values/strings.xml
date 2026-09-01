@@ -83,6 +83,8 @@
     <string name="mirror_direct">Direct (no accelerator)</string>
     <string name="mirror_speed_test">Speed test</string>
     <string name="mirror_unavailable">Unavailable · HTTP %1$d</string>
+    <string name="oauth_backend_url">OAuth backend URL</string>
+    <string name="oauth_backend_url_hint">Used when no custom client is set. Leave as-is for the built-in backend; your OAuth App secret never touches the device on this path.</string>
     <string name="doh_title">Encrypted DNS (DoH)</string>
     <string name="doh_summary">Resolver endpoint: %1$s</string>
     <string name="doh_restart_hint">CN-reachable providers first. Takes effect after restarting the app; if the resolver fails, lookups fall back to system DNS automatically.</string>

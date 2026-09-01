@@ -105,6 +105,7 @@ fun SettingsScreen(
     val customClientId by vm.customClientId.collectAsState()
     val downloadMirrorPrefix by vm.downloadMirrorPrefix.collectAsState()
     val customClientSecret by vm.customClientSecret.collectAsState()
+    val oauthBackendUrl by vm.oauthBackendUrl.collectAsState()
     val dohUrl by vm.dohUrl.collectAsState()
     val accountCount by vm.accountCount.collectAsState()
     val cacheSizeBytes by vm.cacheSizeBytes.collectAsState()
@@ -405,8 +406,13 @@ fun SettingsScreen(
         OAuthClientSheet(
             initialId = customClientId,
             initialSecret = customClientSecret,
+            initialBackendUrl = oauthBackendUrl,
             onDismiss = { showOAuthSheet = false },
-            onSave = { id, secret -> vm.setCustomOAuthClient(id, secret); showOAuthSheet = false },
+            onSave = { id, secret, backendUrl ->
+                vm.setCustomOAuthClient(id, secret)
+                vm.setOAuthBackendUrl(backendUrl)
+                showOAuthSheet = false
+            },
         )
     }
 
@@ -701,11 +707,13 @@ private fun formatSpeed(bytesPerSecond: Long): String = when {
 private fun OAuthClientSheet(
     initialId: String,
     initialSecret: String,
+    initialBackendUrl: String,
     onDismiss: () -> Unit,
-    onSave: (String, String) -> Unit,
+    onSave: (String, String, String) -> Unit,
 ) {
     var id by rememberSaveable { mutableStateOf(initialId) }
     var secret by rememberSaveable { mutableStateOf(initialSecret) }
+    var backendUrl by rememberSaveable { mutableStateOf(initialBackendUrl) }
     var showSecret by rememberSaveable { mutableStateOf(false) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
@@ -745,12 +753,20 @@ private fun OAuthClientSheet(
                     }
                 },
             )
+            OutlinedTextField(
+                value = backendUrl,
+                onValueChange = { backendUrl = it },
+                label = { Text(stringResource(R.string.oauth_backend_url)) },
+                supportingText = { Text(stringResource(R.string.oauth_backend_url_hint)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
-                    onClick = { onSave(id.trim(), secret.trim()) },
+                    onClick = { onSave(id.trim(), secret.trim(), backendUrl.trim()) },
                     enabled = id.isNotBlank(),
                 ) { Text(stringResource(R.string.action_save)) }
-                OutlinedButton(onClick = { onSave("", "") }) { Text(stringResource(R.string.action_clear)) }
+                OutlinedButton(onClick = { onSave("", "", "") }) { Text(stringResource(R.string.action_clear)) }
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
             }
             Spacer(Modifier.height(24.dp))

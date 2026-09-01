@@ -609,6 +609,8 @@
     <string name="mirror_direct">直连（关闭加速）</string>
     <string name="mirror_speed_test">测速</string>
     <string name="mirror_unavailable">不可用 · HTTP %1$d</string>
+    <string name="oauth_backend_url">OAuth 后端地址</string>
+    <string name="oauth_backend_url_hint">未填写自定义客户端时使用。保持默认即可；该模式下 OAuth App 密钥不会出现在设备上。</string>
     <string name="doh_title">加密 DNS（DoH）</string>
     <string name="doh_summary">解析器端点：%1$s</string>
     <string name="doh_restart_hint">国内服务优先。重启应用后生效；解析器不可用时自动回退系统 DNS。</string>

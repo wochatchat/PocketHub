@@ -62,6 +62,9 @@ class SettingsViewModel @Inject constructor(
     val dohUrl: StateFlow<String> = settings.dohUrl
         .stateIn(viewModelScope, SharingStarted.Eagerly, SettingsRepository.DEFAULT_DOH_URL)
 
+    val oauthBackendUrl: StateFlow<String> = settings.oauthBackendUrl
+        .stateIn(viewModelScope, SharingStarted.Eagerly, SettingsRepository.DEFAULT_OAUTH_BACKEND_URL)
+
     val notifPollMinutes: StateFlow<Int> = settings.notifPollMinutes
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
 
@@ -125,6 +128,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setDohUrl(url: String) {
         viewModelScope.launch { settings.setDohUrl(url) }
+    }
+
+    fun setOAuthBackendUrl(url: String) {
+        viewModelScope.launch { settings.setOAuthBackendUrl(url) }
     }
 
     fun setNotifPollMinutes(minutes: Int) {
