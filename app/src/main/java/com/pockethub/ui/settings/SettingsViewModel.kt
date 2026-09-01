@@ -5,6 +5,7 @@ import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockethub.data.local.AccountDao
+import com.pockethub.data.local.AccountEntity
 import com.pockethub.data.remote.NotifScheduler
 import com.pockethub.data.remote.SettingsRepository
 import com.pockethub.data.reporting.IssueKind
@@ -27,6 +28,8 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val accountDao: AccountDao,
+    private val accounts: com.pockethub.data.remote.AccountRepository,
+    private val authInterceptor: com.pockethub.data.remote.AuthInterceptor,
     private val notifScheduler: NotifScheduler,
     private val issueReporter: IssueReporter,
     private val issueReportScheduler: IssueReportScheduler,
@@ -40,6 +43,24 @@ class SettingsViewModel @Inject constructor(
 
     val followSystemTheme: StateFlow<Boolean> = settings.followSystemTheme
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /** Stored accounts for the in-settings switcher (sign-in state independent). */
+    val allAccounts: StateFlow<List<AccountEntity>> = accounts.allAccounts
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun switchAccount(id: Long) {
+        viewModelScope.launch {
+            accounts.switchAccount(id)
+            authInterceptor.token = accounts.getActiveToken()
+        }
+    }
+
+    fun removeAccount(id: Long) {
+        viewModelScope.launch {
+            accounts.removeAccount(id)
+            if (accounts.getActiveToken().isBlank()) authInterceptor.token = ""
+        }
+    }
 
     fun setFollowSystemTheme(on: Boolean) {
         viewModelScope.launch { settings.setFollowSystemTheme(on) }

@@ -55,6 +55,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.outlined.Lock
@@ -145,16 +147,16 @@ fun LoginScreen(
                     alpha = entrance
                     translationY = (1f - entrance) * 48f
                 }
+                .imePadding()
                 .padding(horizontal = 24.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
+            horizontalAlignment = Alignment.Start,
         ) {
-            // Logo plate
-            // Launcher icon — same adaptive-icon assets as the home screen icon:
-            // foreground vector over the launcher background color.
+            Spacer(Modifier.height(48.dp))
+            // Logo plate — centered header on a left-aligned body.
             Box(
                 modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
                     .size(84.dp)
                     .clip(androidx.compose.foundation.shape.RoundedCornerShape(24.dp))
                     .background(colorResource(R.color.ic_launcher_background)),
@@ -167,15 +169,20 @@ fun LoginScreen(
                 )
             }
             Spacer(Modifier.height(20.dp))
-            // Logo / Title
-            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.displayLarge, fontWeight = FontWeight.Bold)
+            Text(
+                stringResource(R.string.app_name),
+                style = MaterialTheme.typography.displayLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            )
             Spacer(Modifier.height(8.dp))
             Text(
                 stringResource(R.string.login_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
             )
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(40.dp))
 
             // Token input
             OutlinedTextField(
@@ -257,9 +264,14 @@ fun LoginScreen(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            // Visually separated third-method section so it does not read as
-            // part of the default OAuth flow above.
-            Spacer(Modifier.height(24.dp))
+            // Third method — separated by a hairline divider so it reads as its
+            // own group rather than a stray label under the OAuth button.
+            Spacer(Modifier.height(28.dp))
+            HorizontalDivider(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+            )
+            Spacer(Modifier.height(20.dp))
             Text(
                 stringResource(R.string.login_selfhost_description),
                 style = MaterialTheme.typography.labelSmall,
@@ -270,6 +282,7 @@ fun LoginScreen(
                 text = stringResource(R.string.login_selfhost_link_text),
                 onClick = { showSelfHostSheet = true },
             )
+            Spacer(Modifier.height(40.dp))
 
             if (showSelfHostSheet) {
                 OAuthClientSheet(
@@ -344,12 +357,18 @@ private fun OAuthClientSheet(
     var backendUrl by rememberSaveable { mutableStateOf(initialBackendUrl) }
     var showSecret by rememberSaveable { mutableStateOf(false) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+    // windowInsets = ime: the sheet rides above the keyboard (the default
+    // bottom-only insets leave the fields behind it); skipPartiallyExpanded
+    // avoids the half-open state where inputs are already clipped.
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        windowInsets = WindowInsets.ime,
+    ) {
         Column(
             Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
-                .imePadding()
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {

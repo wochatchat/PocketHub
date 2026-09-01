@@ -485,6 +485,7 @@
     <string name="offline_repos_empty">No offline repositories yet\nDownload a repo zip first</string>
     <string name="offline_extract_failed">Failed to extract the zip archive</string>
     <string name="accounts_summary">%1$d account(s) stored</string>
+    <string name="account_switch_hint">Tap to switch the active account. Rows are deactivated, not deleted — re-enable them from the login page.</string>
     <string name="section_privacy_security">Privacy &amp; Security</string>
     <string name="section_about">About</string>
     <string name="section_severe_issues">Severe-issue reporting</string>

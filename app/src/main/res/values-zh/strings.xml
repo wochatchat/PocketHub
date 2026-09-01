@@ -420,6 +420,7 @@
     <string name="offline_repos_empty">还没有离线仓库\n先下载一个仓库 zip 吧</string>
     <string name="offline_extract_failed">解压 zip 归档失败</string>
     <string name="accounts_summary">已存储 %1$d 个账号</string>
+    <string name="account_switch_hint">点击切换当前账号；移除仅停用记录，可在登录页重新启用。</string>
     <string name="section_privacy_security">隐私与安全</string>
     <string name="section_about">关于</string>
     <string name="section_severe_issues">严重问题上报</string>

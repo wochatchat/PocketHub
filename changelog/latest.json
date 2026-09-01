@@ -1,34 +1,24 @@
 {
-  "version": "0.3.97",
+  "version": "0.3.98",
   "summary": {
-    "zh": "登录页细节与自部署登录流程完善：修复自定义客户端直连交换的解析错误，弹框保存后直接进入登录。",
-    "en": "Login page polish and self-hosted flow completion: fixed a parse error in direct client exchange, and the sheet now signs in right after saving."
+    "zh": "界面优化：登录页布局重排更美观，自部署弹窗不再被输入法遮挡，设置页账号栏新增多账号切换入口。",
+    "en": "UI polish: the login page layout is redesigned, the self-hosted sheet no longer hides behind the keyboard, and the Settings account section gains a multi-account switcher."
   },
   "items": [
     {
-      "type": "fix",
-      "zh": "修复配置自定义 OAuth 客户端后授权交换失败的问题（GitHub 返回格式解析错误）",
-      "en": "Fixed the exchange failure when a custom OAuth client is configured (GitHub response format parse error)"
-    },
-    {
       "type": "improve",
-      "zh": "自部署弹框保存按钮改为「登录」，保存后立即发起完整授权流程",
-      "en": "The sheet's save button is now “Sign in” and immediately starts the full OAuth flow"
-    },
-    {
-      "type": "improve",
-      "zh": "自部署验证地址输入框默认留空，留空时使用内置后端",
-      "en": "The self-hosted verification URL field starts empty; blank falls back to the built-in backend"
-    },
-    {
-      "type": "improve",
-      "zh": "登录页「创建新 Token」链接内联到说明文字后，自部署区块增加说明与间隔",
-      "en": "Token link now flows inline after the scopes text; self-hosted section gains a description and spacing"
+      "zh": "登录页重排：固定顶部区域、内容顶部对齐、自部署区块用分隔线独立成组",
+      "en": "Login page redesigned: fixed header block, top-aligned content, self-hosted section as its own group with a divider"
     },
     {
       "type": "fix",
-      "zh": "「我」页账号管理区在仅有一个账号时也保持可见，切换账号后立即刷新凭据",
-      "en": "The profile account manager stays visible with a single account; switching now refreshes credentials immediately"
+      "zh": "修复自部署 OAuth 弹窗被输入法遮挡、无法滚动到输入框的问题",
+      "en": "Fixed the self-hosted OAuth sheet being covered by the keyboard with fields unreachable"
+    },
+    {
+      "type": "feat",
+      "zh": "设置页账号栏新增多账号切换：点头像行切换当前账号，支持移除未激活账号",
+      "en": "New multi-account switcher in Settings: tap a row to switch, remove inactive accounts"
     }
   ]
 }

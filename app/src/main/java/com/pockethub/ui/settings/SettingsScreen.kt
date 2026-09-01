@@ -33,6 +33,8 @@ import androidx.compose.material.icons.outlined.FolderZip
 import androidx.compose.material.icons.outlined.GTranslate
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.RocketLaunch
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Logout
 import androidx.compose.material.icons.outlined.ManageAccounts
 import androidx.compose.material.icons.outlined.Notifications
@@ -101,6 +103,7 @@ fun SettingsScreen(
     val downloadMirrorPrefix by vm.downloadMirrorPrefix.collectAsState()
     val dohUrl by vm.dohUrl.collectAsState()
     val accountCount by vm.accountCount.collectAsState()
+    val allAccounts by vm.allAccounts.collectAsState()
     val cacheSizeBytes by vm.cacheSizeBytes.collectAsState()
     val translateTarget by vm.translateTarget.collectAsState()
     var showStyleSheet by remember { mutableStateOf(false) }
@@ -110,6 +113,7 @@ fun SettingsScreen(
     var showDohSheet by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     var showSignOutDialog by remember { mutableStateOf(false) }
+    var showAccountSheet by remember { mutableStateOf(false) }
     val issueCount by vm.issueCount.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -220,6 +224,7 @@ fun SettingsScreen(
                 leadingContent = { Icon(Icons.Outlined.ManageAccounts, contentDescription = null) },
                 headlineContent = { Text(stringResource(R.string.accounts)) },
                 supportingContent = { Text(stringResource(R.string.accounts_summary, accountCount)) },
+                modifier = Modifier.clickable { showAccountSheet = true },
             )
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.Logout, contentDescription = null) },
@@ -407,6 +412,46 @@ fun SettingsScreen(
     if (showAbout) {
         ModalBottomSheet(onDismissRequest = { showAbout = false }, sheetState = rememberModalBottomSheetState()) {
             AboutContent()
+        }
+    }
+
+    if (showAccountSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showAccountSheet = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
+            Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                Text(
+                    stringResource(R.string.account_switch_hint),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+                allAccounts.forEach { account ->
+                    ListItem(
+                        leadingContent = {
+                            com.pockethub.ui.components.PhAsyncImage(
+                                model = account.avatarUrl,
+                                contentDescription = account.login,
+                                modifier = Modifier.size(36.dp).clip(androidx.compose.foundation.shape.CircleShape),
+                            )
+                        },
+                        headlineContent = { Text(account.login) },
+                        supportingContent = { account.name?.let { Text(it) } },
+                        trailingContent = {
+                            if (account.isActive) {
+                                Icon(Icons.Outlined.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            } else {
+                                IconButton(onClick = { vm.removeAccount(account.id) }) {
+                                    Icon(Icons.Outlined.Delete, contentDescription = null)
+                                }
+                            }
+                        },
+                        modifier = Modifier.clickable { vm.switchAccount(account.id) },
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+            }
         }
     }
 
