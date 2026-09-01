@@ -51,6 +51,13 @@ internal fun RepoDetailViewModel.fetchPullsPage(owner: String, repo: String, fil
             // MERGED: the /pulls list endpoint has no merged param — fetch
             // closed and filter on merged_at client-side.
             val apiState = if (filter == PRStateFilter.MERGED) "closed" else filter.apiValue
+            val issuesState = if (filter == PRStateFilter.MERGED) "closed" else apiState
+            // Both the pulls page and the comment counts are needed before the
+            // list can publish, so run the two requests in parallel — total
+            // latency is max(the two) instead of their sum.
+            val issuesDeferred = async {
+                runCatching { api.getIssues(owner, repo, state = issuesState, page = 1, perPage = 100) }
+            }
             var pulls = api.getPullRequests(owner, repo, state = apiState, page = prPage)
             if (filter == PRStateFilter.MERGED) pulls = pulls.filter { it.isMerged }
             pullsCanLoadMore = pulls.size >= 30
@@ -64,14 +71,19 @@ internal fun RepoDetailViewModel.fetchPullsPage(owner: String, repo: String, fil
                 runCatching {
                     val needed = pulls.map { it.number }.toSet()
                     val counts = mutableMapOf<Int, Int>()
-                    // MERGED filters closed PRs client-side; /issues state only
-                    // accepts open/closed/all.
-                    val issuesState = if (filter == PRStateFilter.MERGED) "closed" else apiState
-                    for (p in 1..5) {
-                        val page = api.getIssues(owner, repo, state = issuesState, page = p, perPage = 100)
-                        page.filter { it.pullRequest != null && it.number in needed }
-                            .forEach { counts[it.number] = it.comments }
-                        if (counts.keys.containsAll(needed) || page.size < 100) break
+                    // Consume the parallel /issues fetch; deeper pages only if
+                    // the first 100 issues don't cover all PRs on this page
+                    // (issue-heavy repos — appended PR pages sort older).
+                    issuesDeferred.await().getOrDefault(emptyList())
+                        .filter { it.pullRequest != null && it.number in needed }
+                        .forEach { counts[it.number] = it.comments }
+                    if (!counts.keys.containsAll(needed)) {
+                        for (p in 2..5) {
+                            val page = api.getIssues(owner, repo, state = issuesState, page = p, perPage = 100)
+                            page.filter { it.pullRequest != null && it.number in needed }
+                                .forEach { counts[it.number] = it.comments }
+                            if (counts.keys.containsAll(needed) || page.size < 100) break
+                        }
                     }
                     if (counts.isNotEmpty()) {
                         pulls = pulls.map { pr ->
