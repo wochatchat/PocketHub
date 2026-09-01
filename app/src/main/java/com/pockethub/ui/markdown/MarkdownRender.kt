@@ -37,6 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,6 +63,15 @@ import coil.compose.SubcomposeAsyncImageContent
 import com.pockethub.R
 import com.pockethub.ui.LocalAppImageLoader
 import com.pockethub.ui.components.PhAsyncImage
+
+// Pre-compiled hot-path patterns for the inline tokenizer. These used to be
+// constructed inside the per-character loop of emitInline — one Pattern.compile
+// per word start / @ / # occurrence is disastrous on long PR bodies (main
+// thread, during composition). Compiled once here instead.
+private val EMAIL_AUTOLINK_REGEX = Regex("[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}")
+private val ISSUE_REF_REGEX = Regex("#(\\d+)")
+private val MENTION_REGEX = Regex("@[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})")
+private val IMG_ALT_DIMENSION_REGEX = Regex("(\\d+)x(\\d+)")
 
 @Composable
 internal fun RenderInlineParts(parts: List<InlineToken>, style: androidx.compose.ui.text.TextStyle, onTap: (String, LinkKind) -> Unit) {
@@ -142,7 +152,7 @@ private fun splitAltHint(alt: String): Triple<String, Int?, Int?> {
     val marker = alt.indexOf('\u0001')
     if (marker == -1) return Triple(alt, null, null)
     val display = alt.substring(0, marker)
-    val m = Regex("(\\d+)x(\\d+)").find(alt.substring(marker + 1))
+    val m = IMG_ALT_DIMENSION_REGEX.find(alt, marker + 1)
         ?: return Triple(display, null, null)
     return Triple(display, m.groupValues[1].toIntOrNull(), m.groupValues[2].toIntOrNull())
 }
@@ -385,7 +395,7 @@ internal fun TableBlock(
     ) {
         Row(Modifier.fillMaxWidth().background(headerBg)) {
             table.headers.forEachIndexed { col, cell ->
-                val parts = renderRichInline(cell, resolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
+                val parts = rememberRichInline(cell, resolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
                 TableCell(parts, Modifier.width(0.dp).weight(1f), bold = true, align = table.alignments.getOrNull(col) ?: 0, onTap = onTap)
             }
         }
@@ -394,7 +404,7 @@ internal fun TableBlock(
             val padded = (row + List((colCount - row.size).coerceAtLeast(0)) { "" }).take(colCount)
             Row(Modifier.fillMaxWidth()) {
                 padded.forEachIndexed { col, cell ->
-                    val parts = renderRichInline(cell, resolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
+                    val parts = rememberRichInline(cell, resolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
                     TableCell(parts, Modifier.width(0.dp).weight(1f), bold = false, align = table.alignments.getOrNull(col) ?: 0, onTap = onTap)
                 }
             }
@@ -517,6 +527,29 @@ internal fun renderRichInline(
     return out
 }
 
+/**
+ * Composition-scoped cache for [renderRichInline]. Inline tokenization is pure
+ * text→tokens work, but it runs on the main thread during composition; without
+ * this, every recomposition of a markdown block (image load finishing, any
+ * upstream state change) re-parses the whole paragraph. The resolvers are
+ * themselves remembered upstream, so they are stable keys.
+ */
+@Composable
+internal fun rememberRichInline(
+    text: String,
+    resolver: LinkResolver,
+    imageResolver: ImageResolver,
+    codeBackgroundColor: Color,
+    linkColor: Color,
+    downloadColor: Color,
+    imageLinkColor: Color,
+    externalColor: Color,
+): List<InlineToken> = remember(
+    text, resolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor,
+) {
+    renderRichInline(text, resolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
+}
+
 /** Markdown punctuation that can be backslash-escaped outside code spans. */
 private val ESCAPABLE_CHARS = "\\`*_{}[]()<>#+-.!|~".toSet()
 
@@ -622,7 +655,9 @@ private fun AnnotatedString.Builder.emitInline(
         if (src[i] == '@' || src[i].isLetterOrDigit()) {
             val preceded = i > 0 && (src[i - 1].isLetterOrDigit() || src[i - 1] == '.' || src[i - 1] == '@')
             if (!preceded) {
-                val m = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}").find(src.substring(i))
+                // find(src, i) anchors the ^-anchored pattern at i without
+                // substring-copying the rest of the document (was O(n²) allocs).
+                val m = EMAIL_AUTOLINK_REGEX.find(src, i)?.takeIf { it.range.first == i }
                 if (m != null) {
                     val email = m.value.trimEnd('.')
                     appendLink("mailto:$email", "mailto:$email", LinkKind.EXTERNAL, linkColor, downloadColor, imageLinkColor, externalColor)
@@ -632,8 +667,8 @@ private fun AnnotatedString.Builder.emitInline(
         }
         // GitHub shortcut #123 / @user
         if (src[i] == '#' || src[i] == '@') {
-            val m = if (src[i] == '#') Regex("^#(\\d+)").find(src.substring(i))
-            else Regex("^@[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})").find(src.substring(i))
+            val m = if (src[i] == '#') ISSUE_REF_REGEX.find(src, i)?.takeIf { it.range.first == i }
+            else MENTION_REGEX.find(src, i)?.takeIf { it.range.first == i }
             if (m != null) {
                 val ref = m.value
                 val url = resolver(ref)
