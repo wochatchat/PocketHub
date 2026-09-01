@@ -1,13 +1,13 @@
 {
-  "version": "0.3.85",
+  "version": "0.3.86",
   "summary": {
-    "zh": "本次更新聚焦网络体验：加密 DNS 支持自选服务商，下载加速镜像改为内置预设并支持真实测速。",
-    "en": "This update focuses on networking: the encrypted DNS resolver is now provider-selectable, and download accelerator mirrors come as presets with a real speed test."
+    "zh": "本次更新重新设计了 OAuth 登录：授权交换改走自托管后端，App 密钥不再保存在手机上，并加入回调防伪校验。",
+    "en": "This update redesigns OAuth sign-in: the token exchange now runs through a self-hosted backend so the app secret never touches the device, with callback forgery protection added."
   },
   "items": [
-    { "type": "feat", "zh": "设置新增“加密 DNS（DoH）”：可在内置服务商（国内优先）中自选解析端点，重启应用后生效", "en": "New Encrypted DNS (DoH) setting: pick a built-in resolver endpoint (CN-friendly providers first), applied after restart" },
-    { "type": "feat", "zh": "下载加速镜像改为内置预设一键选择，并支持真实下载测速（不再是手动输入前缀）", "en": "Download accelerator mirrors are now one-tap presets with a real download speed test (replaces manual prefix input)" },
-    { "type": "feat", "zh": "测速通过每个镜像实际下载样本数据并展示吞吐速度，直接连接选项一键关闭加速", "en": "Speed test downloads a sample through each mirror and shows throughput; a direct-connection option disables acceleration" },
-    { "type": "fix", "zh": "DoH 解析器端点真正接入网络层：保存的选择现在会在重启后实际生效", "en": "The chosen DoH endpoint is now actually wired into the network stack and takes effect after restart" }
+    { "type": "feat", "zh": "OAuth 登录开箱即用：无需再自己创建 OAuth 应用，授权页自动配置", "en": "OAuth sign-in works out of the box — no manual OAuth app setup required" },
+    { "type": "feat", "zh": "授权回调加入一次性 state 校验，伪造回调无法换取令牌", "en": "One-time state verification on the OAuth callback blocks forged callbacks" },
+    { "type": "improve", "zh": "自定义 OAuth 客户端仍然可用：填写后自动切换为设备直连交换", "en": "Custom OAuth clients still work — setting one switches to direct on-device exchange" },
+    { "type": "fix", "zh": "设置页可查看和修改 OAuth 后端地址，清除后自动恢复默认", "en": "OAuth backend URL is now visible and editable in settings; clearing restores the default" }
   ]
 }
