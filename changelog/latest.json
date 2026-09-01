@@ -1,10 +1,19 @@
 {
-  "version": "0.3.88",
+  "version": "0.3.89",
   "summary": {
-    "zh": "诊断版本：OAuth 回调链路加入临时提示信息，用于定位登录卡住问题。",
-    "en": "Diagnostic build: temporary on-screen traces along the OAuth callback chain to locate the login stall."
+    "zh": "修复 OAuth 登录在授权后停留在登录页的问题：登录状态现已由正确的实例驱动，完整登录链路可用。",
+    "en": "Fixed OAuth sign-in stalling on the login page after authorization: the login state is now driven by the correct instance end to end."
   },
   "items": [
-    { "type": "fix", "zh": "诊断构建（仅供测试，正式版会移除屏幕提示）", "en": "Diagnostic build (screen traces for testing only, removed in the release build)" }
+    {
+      "type": "fix",
+      "zh": "修复授权完成后界面无响应、无法进入应用的问题",
+      "en": "Fixed the UI not reacting after completing authorization"
+    },
+    {
+      "type": "fix",
+      "zh": "修复应用运行中从浏览器返回时 OAuth 回调被丢弃的问题",
+      "en": "Fixed OAuth callbacks dropped when returning from the browser while the app was running"
+    }
   ]
 }
