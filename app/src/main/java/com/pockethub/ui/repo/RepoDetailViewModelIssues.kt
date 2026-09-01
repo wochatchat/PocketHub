@@ -60,6 +60,31 @@ internal fun RepoDetailViewModel.fetchPullsPage(owner: String, repo: String, fil
                 _pulls.update { pulls }
             }
             pullsCanLoadMore = pulls.size >= 30
+            // The /pulls LIST endpoint omits the `comments` field entirely (it
+            // only exists on /issues and PR detail), so deserialized rows would
+            // always show "0 条评论". Harvest real counts from /issues — it also
+            // returns PRs — and patch them in. Best-effort: on failure rows
+            // simply keep showing 0 instead of failing the whole list load.
+            if (pulls.isNotEmpty()) {
+                runCatching {
+                    val needed = pulls.map { it.number }.toSet()
+                    val counts = mutableMapOf<Int, Int>()
+                    // MERGED filters closed PRs client-side; /issues state only
+                    // accepts open/closed/all.
+                    val issuesState = if (filter == PRStateFilter.MERGED) "closed" else apiState
+                    for (p in 1..5) {
+                        val page = api.getIssues(owner, repo, state = issuesState, page = p, perPage = 100)
+                        page.filter { it.pullRequest != null && it.number in needed }
+                            .forEach { counts[it.number] = it.comments }
+                        if (counts.keys.containsAll(needed) || page.size < 100) break
+                    }
+                    if (counts.isNotEmpty()) {
+                        _pulls.update { list -> list.map { pr ->
+                            counts[pr.number]?.let { if (it != pr.comments) pr.copy(comments = it) else pr } ?: pr
+                        } }
+                    }
+                }.onFailure { issueReporter.reportError("RepoDetail", "hydratePullCommentCounts", it) }
+            }
         } catch (e: Exception) {
             issueReporter.reportError("RepoDetail", "fetchPullsPage", e)
             if (!append) _pulls.update { emptyList() }
