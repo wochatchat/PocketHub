@@ -7,6 +7,7 @@ import com.pockethub.BuildConfig
 import com.pockethub.data.remote.AccountRepository
 import com.pockethub.data.remote.AuthInterceptor
 import com.pockethub.data.remote.GitHubApi
+import com.pockethub.data.remote.OAuthEndpoints
 import com.pockethub.data.remote.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
