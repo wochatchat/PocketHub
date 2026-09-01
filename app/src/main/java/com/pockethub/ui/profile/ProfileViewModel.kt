@@ -214,6 +214,9 @@ class ProfileViewModel @Inject constructor(
     fun switchAccount(id: Long) {
         viewModelScope.launch {
             accounts.switchAccount(id)
+            // Refresh the in-memory token too — the interceptor keeps serving
+            // the previous account's credentials otherwise.
+            authInterceptor.token = accounts.getActiveToken()
             loadProfile()
         }
     }

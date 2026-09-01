@@ -126,8 +126,22 @@ class LoginViewModel @Inject constructor(
     }
 
     fun startOAuth() {
+        viewModelScope.launch { doStartOAuth() }
+    }
+
+    /** Save the self-hosted config and immediately run the full OAuth login —
+     *  the sheet's 登录 button (sequential in one coroutine, so startOAuth
+     *  observes the just-saved values). */
+    fun saveAndStartSelfHostedOAuth(id: String, secret: String, backendUrl: String) {
         viewModelScope.launch {
-            try {
+            settings.setCustomOAuthClient(id, secret)
+            settings.setOAuthBackendUrl(backendUrl)
+            doStartOAuth()
+        }
+    }
+
+    private suspend fun doStartOAuth() {
+        try {
                 val state = newOAuthState()
                 oauthState = state
                 settings.setPendingOAuthState(state)
@@ -142,11 +156,11 @@ class LoginViewModel @Inject constructor(
                         "&scope=$encodedScope" +
                         "&state=$encodedState"
                 } else {
-                    val backend = settings.oauthBackendUrl.first()
+                    val backend = settings.oauthBackendUrl.first().ifBlank { SettingsRepository.DEFAULT_OAUTH_BACKEND_URL }
                     val config = api.getOAuthBackendConfig("$backend/config")
                     if (config.clientId.isBlank()) {
                         _ui.update { it.copy(error = "OAuth backend is reachable but has no client_id configured.") }
-                        return@launch
+                        return
                     }
                     val redirectUri = config.redirectUri.ifBlank { BuildConfig.GITHUB_OAUTH_REDIRECT_URI }
                     config.authorizeUrl +
@@ -162,7 +176,6 @@ class LoginViewModel @Inject constructor(
                     it.copy(error = e.userMessage("Could not start OAuth sign-in. Check your connection or the backend URL in Settings."))
                 }
             }
-        }
     }
 
     /**
@@ -216,7 +229,7 @@ class LoginViewModel @Inject constructor(
                     )
                 } else {
                     // Backend exchange (#32 by @Wxjxpp) — secret stays server-side.
-                    val backend = settings.oauthBackendUrl.first()
+                    val backend = settings.oauthBackendUrl.first().ifBlank { SettingsRepository.DEFAULT_OAUTH_BACKEND_URL }
                     api.exchangeOAuthCodeViaBackend(
                         url = "$backend/oauth/exchange",
                         body = OAuthEndpoints.BackendExchangeRequest(

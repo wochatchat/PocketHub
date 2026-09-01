@@ -28,8 +28,11 @@ data class OAuthBackendConfig(
 
 interface OAuthEndpoints {
 
-    /** Exchange OAuth code for access token (POST to GitHub, not api.github.com). */
+    /** Exchange OAuth code for access token (POST to GitHub, not api.github.com).
+     *  Accept: application/json is REQUIRED — GitHub answers form-encoded
+     *  (`access_token=…`) otherwise, which breaks the JSON converter. */
     @FormUrlEncoded
+    @Headers("Accept: application/json")
     @POST("https://github.com/login/oauth/access_token")
     suspend fun exchangeOAuthCode(
         @Field("client_id") clientId: String,

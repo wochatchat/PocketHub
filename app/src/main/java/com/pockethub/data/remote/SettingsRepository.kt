@@ -124,8 +124,10 @@ class SettingsRepository @Inject constructor(
     /** Base URL of the OAuth exchange backend (protocol from #32 by @Wxjxpp).
      *  The dispatch rule lives in LoginViewModel: a user-configured custom
      *  client always wins over the backend path. */
+    /** Stored backend URL — blank when the user has not configured one (the
+     *  built-in default worker is used as fallback at call sites). */
     val oauthBackendUrl: Flow<String> = context.dataStore.data.map {
-        it[Keys.OAUTH_BACKEND_URL] ?: DEFAULT_OAUTH_BACKEND_URL
+        it[Keys.OAUTH_BACKEND_URL].orEmpty()
     }
 
     suspend fun setOAuthBackendUrl(url: String) {

@@ -195,15 +195,30 @@ fun LoginScreen(
                 },
             )
             Spacer(Modifier.height(8.dp))
-            Text(
-                stringResource(R.string.login_description_scopes),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(4.dp))
-            LinkLabel(
-                url = stringResource(R.string.login_get_token_link),
-                text = stringResource(R.string.login_get_token_link_text),
+            val scopeText = stringResource(R.string.login_description_scopes)
+            val tokenLinkText = stringResource(R.string.login_get_token_link_text)
+            val tokenLinkUrl = stringResource(R.string.login_get_token_link)
+            val scopeWithLink = buildAnnotatedString {
+                append(scopeText)
+                append(" ")
+                pushStringAnnotation(tag = "URL", annotation = tokenLinkUrl)
+                addStyle(
+                    SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline),
+                    start = scopeText.length + 1,
+                    end = scopeText.length + 1 + tokenLinkText.length,
+                )
+                append(tokenLinkText)
+                pop()
+            }
+            ClickableText(
+                text = scopeWithLink,
+                style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                onClick = { offset ->
+                    scopeWithLink.getStringAnnotations("URL", offset, offset).firstOrNull()?.let {
+                        CustomTabsIntent.Builder().build()
+                            .launchUrl(context, Uri.parse(it.item))
+                    }
+                },
             )
             Spacer(Modifier.height(12.dp))
 
@@ -242,6 +257,15 @@ fun LoginScreen(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            // Visually separated third-method section so it does not read as
+            // part of the default OAuth flow above.
+            Spacer(Modifier.height(24.dp))
+            Text(
+                stringResource(R.string.login_selfhost_description),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(4.dp))
             SheetLink(
                 text = stringResource(R.string.login_selfhost_link_text),
                 onClick = { showSelfHostSheet = true },
@@ -257,6 +281,10 @@ fun LoginScreen(
                         vm.setCustomOAuthClient(id, secret)
                         vm.setOAuthBackendUrl(backendUrl)
                         showSelfHostSheet = false
+                    },
+                    onStartLogin = { id, secret, backendUrl ->
+                        showSelfHostSheet = false
+                        vm.saveAndStartSelfHostedOAuth(id, secret, backendUrl)
                     },
                 )
             }
@@ -309,6 +337,7 @@ private fun OAuthClientSheet(
     initialBackendUrl: String,
     onDismiss: () -> Unit,
     onSave: (String, String, String) -> Unit,
+    onStartLogin: (String, String, String) -> Unit,
 ) {
     var id by rememberSaveable { mutableStateOf(initialId) }
     var secret by rememberSaveable { mutableStateOf(initialSecret) }
@@ -369,9 +398,9 @@ private fun OAuthClientSheet(
             )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
-                    onClick = { onSave(id.trim(), secret.trim(), backendUrl.trim()) },
+                    onClick = { onStartLogin(id.trim(), secret.trim(), backendUrl.trim()) },
                     enabled = id.isNotBlank(),
-                ) { Text(stringResource(R.string.action_save)) }
+                ) { Text(stringResource(R.string.action_login)) }
                 OutlinedButton(onClick = { onSave("", "", "") }) { Text(stringResource(R.string.action_clear)) }
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
             }

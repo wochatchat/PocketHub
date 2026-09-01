@@ -281,8 +281,9 @@ fun ProfileScreen(
             // Contact / extra info
             item { AdditionalInfo(user) }
 
-            // Multi-account section
-            if (allAccounts.size > 1) {
+            // Multi-account section — account manager; show even for a single
+            // account so it stays discoverable (rows come and go with sign-out).
+            if (allAccounts.isNotEmpty()) {
                 item {
                     Text(
                         stringResource(R.string.accounts),

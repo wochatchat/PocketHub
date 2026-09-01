@@ -1,24 +1,34 @@
 {
   "version": "0.3.97",
   "summary": {
-    "zh": "登录方式重新梳理：自部署 OAuth 设置从设置页迁移至登录页（登录前即可配置），设置页移除该入口。",
-    "en": "Login flow reorganized: the self-hosted OAuth configuration moved from Settings to the login page (configurable before signing in); the Settings entry is removed."
+    "zh": "登录页细节与自部署登录流程完善：修复自定义客户端直连交换的解析错误，弹框保存后直接进入登录。",
+    "en": "Login page polish and self-hosted flow completion: fixed a parse error in direct client exchange, and the sheet now signs in right after saving."
   },
   "items": [
     {
-      "type": "improve",
-      "zh": "登录页新增「自部署 OAuth 登录设置」入口，弹出配置弹窗，作为第三种登录方式",
-      "en": "Login page gains a self-hosted OAuth entry opening the config sheet, as a third sign-in method"
+      "type": "fix",
+      "zh": "修复配置自定义 OAuth 客户端后授权交换失败的问题（GitHub 返回格式解析错误）",
+      "en": "Fixed the exchange failure when a custom OAuth client is configured (GitHub response format parse error)"
     },
     {
       "type": "improve",
-      "zh": "设置页移除「自定义 OAuth Client」入口（登录前无法到达，位置不合理）",
-      "en": "Removed the \"Custom OAuth Client\" entry from Settings (unreachable before signing in)"
+      "zh": "自部署弹框保存按钮改为「登录」，保存后立即发起完整授权流程",
+      "en": "The sheet's save button is now “Sign in” and immediately starts the full OAuth flow"
+    },
+    {
+      "type": "improve",
+      "zh": "自部署验证地址输入框默认留空，留空时使用内置后端",
+      "en": "The self-hosted verification URL field starts empty; blank falls back to the built-in backend"
+    },
+    {
+      "type": "improve",
+      "zh": "登录页「创建新 Token」链接内联到说明文字后，自部署区块增加说明与间隔",
+      "en": "Token link now flows inline after the scopes text; self-hosted section gains a description and spacing"
     },
     {
       "type": "fix",
-      "zh": "修复登录页组件链接未导入导致的构建失败",
-      "en": "Fixed a build failure from a missing component import"
+      "zh": "「我」页账号管理区在仅有一个账号时也保持可见，切换账号后立即刷新凭据",
+      "en": "The profile account manager stays visible with a single account; switching now refreshes credentials immediately"
     }
   ]
 }
