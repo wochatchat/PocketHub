@@ -155,8 +155,8 @@ fun WorkflowLogScreen(
             pendingJumpLine = null
             return@LaunchedEffect
         }
-        if (followBottom.value && entries.isNotEmpty()) {
-            followBottom.value = false
+        if (followBottom && entries.isNotEmpty()) {
+            followBottom = false
             listState.scrollToItem(entries.lastIndex)
         }
     }
@@ -178,7 +178,7 @@ fun WorkflowLogScreen(
         if (j.status == "completed") return@LaunchedEffect
         while (true) {
             delay(5_000)
-            followBottom.value = !listState.canScrollForward
+            followBottom = !listState.canScrollForward
             vm.refresh()
         }
     }
