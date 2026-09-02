@@ -1,59 +1,20 @@
 {
   "version": "0.4.2",
   "summary": {
-    "zh": "安全加固与会话续期：凭据加密存储，令牌过期自动刷新，升级不再丢登录",
-    "en": "Security hardening + session renewal: encrypted credentials, auto token refresh, upgrades keep your login"
+    "zh": "安全升级：凭据加密、令牌自动续期。因签名安全更换需卸载重装，抱歉！",
+    "en": "Security upgrade: encrypted credentials + auto token refresh. Signing key rotated — uninstall & reinstall required. Sorry!"
   },
   "items": [
-    {
-      "type": "feat",
-      "zh": "新增登录令牌自动续期，过期不再掉登录",
-      "en": "Auto-renew expiring OAuth tokens so sessions survive"
-    },
-    {
-      "type": "fix",
-      "zh": "修复登录令牌明文保存的问题，改为系统密钥库加密存储",
-      "en": "Encrypt account tokens with Android Keystore"
-    },
-    {
-      "type": "fix",
-      "zh": "修复自定义登录密钥明文保存的问题，旧数据自动迁移",
-      "en": "Encrypt custom OAuth client secret, migrate legacy data"
-    },
-    {
-      "type": "fix",
-      "zh": "修复下载镜像误判导致自动登出",
-      "en": "Mirror 401s no longer sign you out"
-    },
-    {
-      "type": "fix",
-      "zh": "修复后台轮询失败误删已存账号",
-      "en": "Background 401 no longer deletes stored accounts"
-    },
-    {
-      "type": "fix",
-      "zh": "修复升级安装后登录记录被清空",
-      "en": "App updates no longer wipe saved logins"
-    },
-    {
-      "type": "fix",
-      "zh": "修复已登录时添加第二个账号失败",
-      "en": "Fix adding a second account while signed in"
-    },
-    {
-      "type": "improve",
-      "zh": "登出改为停用账号，重登自动恢复",
-      "en": "Sign-out now deactivates instead of deleting"
-    },
-    {
-      "type": "improve",
-      "zh": "应用签名密钥移出代码仓库，改由 CI 安全通道注入",
-      "en": "Move the APK signing key out of the repo into CI secrets"
-    },
-    {
-      "type": "improve",
-      "zh": "云备份与设备迁移不再携带任何登录凭据",
-      "en": "Keep credentials out of cloud backups and device transfers"
-    }
+    { "type": "improve", "zh": "签名安全更换：需卸载旧版重装并重新登录，深表歉意", "en": "Signing key rotated for safety: uninstall, reinstall and sign in again — our sincere apologies" },
+    { "type": "feat", "zh": "新增登录令牌自动续期，过期不再掉登录", "en": "Auto-renew expiring OAuth tokens so sessions survive" },
+    { "type": "fix", "zh": "修复登录令牌明文保存的问题，改为系统密钥库加密存储", "en": "Encrypt account tokens with Android Keystore" },
+    { "type": "fix", "zh": "修复自定义登录密钥明文保存的问题，旧数据自动迁移", "en": "Encrypt custom OAuth client secret, migrate legacy data" },
+    { "type": "fix", "zh": "修复下载镜像误判导致自动登出", "en": "Mirror 401s no longer sign you out" },
+    { "type": "fix", "zh": "修复后台轮询失败误删已存账号", "en": "Background 401 no longer deletes stored accounts" },
+    { "type": "fix", "zh": "修复升级安装后登录记录被清空", "en": "App updates no longer wipe saved logins" },
+    { "type": "fix", "zh": "修复已登录时添加第二个账号失败", "en": "Fix adding a second account while signed in" },
+    { "type": "improve", "zh": "登出改为停用账号，重登自动恢复", "en": "Sign-out now deactivates instead of deleting" },
+    { "type": "improve", "zh": "应用签名密钥移出代码仓库，改由 CI 安全通道注入", "en": "Move the APK signing key out of the repo into CI secrets" },
+    { "type": "improve", "zh": "云备份与设备迁移不再携带任何登录凭据", "en": "Keep credentials out of cloud backups and device transfers" }
   ]
 }

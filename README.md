@@ -12,6 +12,23 @@ A well-crafted open-source GitHub client for Android, built with Kotlin + Jetpac
 
 ---
 
+## Screenshots
+
+<table>
+  <tr>
+    <td><img src="screenshots/discover.jpg" width="270" alt="Discover — trending repositories"/></td>
+    <td><img src="screenshots/repos.jpg" width="270" alt="Repositories — starred management"/></td>
+    <td><img src="screenshots/notifications.jpg" width="270" alt="Notifications"/></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/code-files.jpg" width="270" alt="Browse project files and docs"/></td>
+    <td><img src="screenshots/actions-run.jpg" width="270" alt="Actions build monitoring"/></td>
+    <td><img src="screenshots/commit-diff.jpg" width="270" alt="Commit & PR diff view"/></td>
+  </tr>
+</table>
+
+---
+
 ## Features
 
 ### Authentication

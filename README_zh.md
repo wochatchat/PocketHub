@@ -12,6 +12,23 @@
 
 ---
 
+## 应用截图
+
+<table>
+  <tr>
+    <td><img src="screenshots/discover.jpg" width="270" alt="发现 — 趋势仓库"/></td>
+    <td><img src="screenshots/repos.jpg" width="270" alt="仓库 — 星标管理"/></td>
+    <td><img src="screenshots/notifications.jpg" width="270" alt="通知"/></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/code-files.jpg" width="270" alt="项目文件与文档阅读"/></td>
+    <td><img src="screenshots/actions-run.jpg" width="270" alt="Actions 构建监控"/></td>
+    <td><img src="screenshots/commit-diff.jpg" width="270" alt="提交与 PR 差异查看"/></td>
+  </tr>
+</table>
+
+---
+
 ## 功能特性
 
 ### 认证方式
