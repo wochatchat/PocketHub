@@ -36,11 +36,21 @@ android {
         buildConfigField("String", "GITHUB_API_BASE_URL", "\"https://api.github.com/\"")
         buildConfigField("String", "GITHUB_WEB_BASE_URL", "\"https://github.com/\"")
 
+        // Ship only the locales the app actually localizes for — every other
+        // translation in bundled libraries (androidx, google material) is
+        // stripped from resources.arsc.
+        resourceConfigurations += listOf("en", "zh", "zh-rCN", "zh-rTW")
+
         // Skip lint vital check during release — auto-signed CI, fails build on warnings
         lint {
             abortOnError = false
             checkReleaseBuilds = false
         }
+    }
+
+    packaging {
+        // Dev-only kotlinx-coroutines debug agent metadata; useless in release.
+        resources.excludes += "DebugProbesKt.bin"
     }
 
     // Signing inputs (v0.4.1 hardening, issue #29): the keystore no longer
@@ -76,7 +86,10 @@ android {
             versionNameSuffix = "-debug"
         }
         release {
-            isMinifyEnabled = false
+            // R8 shrinker: dead code elimination + optimization + obfuscation.
+            // Cuts the release APK by ~half (dex was 92% of its size).
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.findByName("release")
         }

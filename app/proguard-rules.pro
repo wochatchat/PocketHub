@@ -33,3 +33,15 @@
 # Keep SnakeYAML (GitHub issue form templates) - it reflects during YAML load
 -keep class org.yaml.snakeyaml.** { *; }
 -dontwarn org.yaml.snakeyaml.**
+
+# Hilt @HiltWorker entry points (consumer rules cover factories; belt & suspenders)
+-keepclasseswithmembers class * extends androidx.work.ListenableWorker {
+    <init>(...);
+}
+
+# Readable crash traces after obfuscation (retrace-able, ~tens of KB)
+-keepattributes SourceFile, LineNumberTable
+-renamesourcefileattribute SourceFile
+
+-dontwarn kotlinx.coroutines.debug.**
+-dontwarn java.lang.invoke.StringConcatFactory
