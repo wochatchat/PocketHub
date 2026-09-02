@@ -641,4 +641,14 @@
     <string name="action_share_logs">分享日志</string>
     <string name="action_download_logs">下载日志</string>
     <string name="logs_open">查看日志</string>
+
+    <!-- Issue attachments (images via pockethub-issue CF worker) -->
+    <string name="attachment_section">附件</string>
+    <string name="attachment_add_image">添加图片</string>
+    <string name="attachment_add_file">添加附件</string>
+    <string name="attachment_upload_failed">%1$s 上传失败，issue 未创建——重试将自动重新上传。</string>
+    <string name="attachment_failed_short">上传失败</string>
+    <string name="attachment_storage_full">图床存储已满，请联系开发者。</string>
+    <string name="attachment_files_unsupported_title">附件功能暂未开放</string>
+    <string name="attachment_files_unsupported_text">目前仅支持上传图片，文件附件将在后续版本开放。</string>
 </resources>

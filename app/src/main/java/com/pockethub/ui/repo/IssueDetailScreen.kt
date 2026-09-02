@@ -431,8 +431,13 @@ fun IssueDetailScreen(
                 Spacer(Modifier.height(16.dp))
 
                 // Comment input box
+                val commentAttachments by vm.commentAttachments.collectAsState()
                 CommentInputBox(
                     isSending = isSendingComment,
+                    attachments = commentAttachments,
+                    onAddImage = vm::addCommentAttachment,
+                    onAddFile = vm::addCommentAttachment,
+                    onRemoveAttachment = vm::removeCommentAttachment,
                     onPost = { body -> vm.postComment(body) { } },
                 )
             }
@@ -543,6 +548,10 @@ private fun IssueEditDialog(
 @Composable
 private fun CommentInputBox(
     isSending: Boolean,
+    attachments: List<IssueAttachment>,
+    onAddImage: (android.net.Uri) -> Unit,
+    onAddFile: (android.net.Uri) -> Unit,
+    onRemoveAttachment: (Long) -> Unit,
     onPost: (String) -> Unit,
 ) {
     var commentText by remember { mutableStateOf("") }
@@ -557,6 +566,14 @@ private fun CommentInputBox(
             enabled = !isSending,
         )
         Spacer(Modifier.height(8.dp))
+        AttachmentBar(
+            attachments = attachments,
+            enabled = !isSending,
+            onAddImage = onAddImage,
+            onAddFile = onAddFile,
+            onRemove = onRemoveAttachment,
+        )
+        Spacer(Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,
@@ -568,12 +585,12 @@ private fun CommentInputBox(
             }
             Button(
                 onClick = {
-                    if (commentText.isNotBlank()) {
+                    if (commentText.isNotBlank() || attachments.isNotEmpty()) {
                         onPost(commentText.trim())
                         commentText = ""
                     }
                 },
-                enabled = !isSending && commentText.isNotBlank(),
+                enabled = !isSending && (commentText.isNotBlank() || attachments.isNotEmpty()),
             ) {
                 Icon(Icons.AutoMirrored.Outlined.Send, null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))

@@ -643,4 +643,14 @@
     <string name="action_share_logs">Share logs</string>
     <string name="action_download_logs">Download logs</string>
     <string name="logs_open">View logs</string>
+
+    <!-- Issue attachments (images via pockethub-issue CF worker) -->
+    <string name="attachment_section">Attachments</string>
+    <string name="attachment_add_image">Add image</string>
+    <string name="attachment_add_file">Attach a file</string>
+    <string name="attachment_upload_failed">Failed to upload %1$s. The issue was not created — retry to upload it again.</string>
+    <string name="attachment_failed_short">Upload failed</string>
+    <string name="attachment_storage_full">Image storage is full. Please contact the developer.</string>
+    <string name="attachment_files_unsupported_title">File attachments coming soon</string>
+    <string name="attachment_files_unsupported_text">Only image uploads are supported right now. File attachments will arrive in a future update.</string>
 </resources>

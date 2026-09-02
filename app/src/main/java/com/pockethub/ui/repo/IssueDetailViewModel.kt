@@ -21,6 +21,8 @@ class IssueDetailViewModel @Inject constructor(
     private val issueReporter: com.pockethub.data.reporting.IssueReporter,
     private val api: GitHubApi,
     private val accounts: AccountRepository,
+    attachmentUploader: com.pockethub.data.remote.AttachmentUploader,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val appContext: android.content.Context,
 ) : ViewModel() {
     private val _issue = MutableStateFlow<Issue?>(null)
     val issue: StateFlow<Issue?> = _issue
@@ -191,16 +193,48 @@ class IssueDetailViewModel @Inject constructor(
 
     fun postComment(body: String, onSuccess: () -> Unit = {}) {
         val owner = loadedOwner ?: return; val repo = loadedRepo ?: return; val number = loadedNumber ?: return
-        if (body.isBlank() || _isSendingComment.value) return
+        if (body.isBlank() && attachmentState.attachments.value.isEmpty()) return
+        if (_isSendingComment.value) return
         viewModelScope.launch {
             _isSendingComment.value = true; _actionMessage.value = null
             try {
-                val comment = api.createIssueComment(owner, repo, number, GitHubApi.CommentRequest(body))
-                _comments.update { it + comment }; _issue.update { it?.copy(comments = it.comments + 1) }; onSuccess()
-            } catch (e: Exception) { _actionMessage.value = e.userMessage("Failed to post comment") }
+                val attachmentBlock = attachmentState.uploadAll()
+                val fullBody = listOfNotNull(
+                    body.takeIf { it.isNotBlank() },
+                    attachmentBlock?.takeIf { it.isNotBlank() },
+                ).joinToString("\n\n")
+                val comment = api.createIssueComment(owner, repo, number, GitHubApi.CommentRequest(fullBody))
+                _comments.update { it + comment }; _issue.update { it?.copy(comments = it.comments + 1) }
+                attachmentState.clearForNext()
+                onSuccess()
+            } catch (e: Exception) {
+                _actionMessage.value = when (e) {
+                    is com.pockethub.data.remote.AttachmentUploader.StorageFullException ->
+                        appContext.getString(com.pockethub.R.string.attachment_storage_full)
+                    is com.pockethub.data.remote.AttachmentUploader.UploadException ->
+                        appContext.getString(com.pockethub.R.string.attachment_upload_failed, e.fileName)
+                    else -> e.userMessage("Failed to post comment")
+                }
+            }
             finally { _isSendingComment.value = false }
         }
     }
+
+    // ── Comment attachments ──────────────────────────────────────────────
+    // Same queue as the issue editor (AttachmentState): images upload at
+    // submit time to the CF worker, markdown appended to the comment.
+
+    private val attachmentState = com.pockethub.ui.repo.AttachmentState(
+        appContext,
+        attachmentUploader,
+    )
+
+    val commentAttachments: kotlinx.coroutines.flow.StateFlow<List<com.pockethub.ui.repo.IssueAttachment>> =
+        attachmentState.attachments
+
+    fun addCommentAttachment(uri: android.net.Uri) = attachmentState.add(uri)
+
+    fun removeCommentAttachment(id: Long) = attachmentState.remove(id)
 
     fun editComment(commentId: Long, newBody: String) {
         val owner = loadedOwner ?: return; val repo = loadedRepo ?: return

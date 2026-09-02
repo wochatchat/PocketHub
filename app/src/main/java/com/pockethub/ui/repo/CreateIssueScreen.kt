@@ -273,6 +273,7 @@ private fun FormIssueEditor(
     val repoLabels by vm.repoLabels.collectAsState()
     val assignableUsers by vm.assignableUsers.collectAsState()
     val canSetMetadata by vm.canSetMetadata.collectAsState()
+    val attachments by vm.attachments.collectAsState()
     val result by vm.result.collectAsState()
     val actionError by vm.actionError.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -332,6 +333,14 @@ private fun FormIssueEditor(
                 answers = answers,
                 enabled = !isSending,
                 onAnswerChange = vm::updateAnswer,
+            )
+
+            AttachmentBar(
+                attachments = attachments,
+                enabled = !isSending,
+                onAddImage = vm::addAttachment,
+                onAddFile = vm::addAttachment,
+                onRemove = vm::removeAttachment,
             )
 
             // GitHub ignores labels/assignees from users without push
@@ -425,6 +434,7 @@ private fun IssueEditor(
     val repoLabels by vm.repoLabels.collectAsState()
     val assignableUsers by vm.assignableUsers.collectAsState()
     val canSetMetadata by vm.canSetMetadata.collectAsState()
+    val attachments by vm.attachments.collectAsState()
     val result by vm.result.collectAsState()
     val actionError by vm.actionError.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -471,6 +481,14 @@ private fun IssueEditor(
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 8,
                 enabled = !isSending,
+            )
+
+            AttachmentBar(
+                attachments = attachments,
+                enabled = !isSending,
+                onAddImage = vm::addAttachment,
+                onAddFile = vm::addAttachment,
+                onRemove = vm::removeAttachment,
             )
 
             // GitHub ignores labels/assignees from users without push

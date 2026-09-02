@@ -3,10 +3,13 @@ package com.pockethub.ui.repo
 import androidx.lifecycle.ViewModel
 import com.pockethub.util.userMessage
 import androidx.lifecycle.viewModelScope
+import android.net.Uri
 import com.pockethub.data.model.Issue
 import com.pockethub.data.model.User
+import com.pockethub.data.remote.AttachmentUploader
 import com.pockethub.data.remote.GitHubApi
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +35,8 @@ data class IssueTemplate(
 class CreateIssueViewModel @Inject constructor(
     private val issueReporter: com.pockethub.data.reporting.IssueReporter,
     private val api: GitHubApi,
+    attachmentUploader: AttachmentUploader,
+    @ApplicationContext private val appContext: android.content.Context,
 ) : ViewModel() {
 
     private val _isSending = MutableStateFlow(false)
@@ -348,12 +353,30 @@ class CreateIssueViewModel @Inject constructor(
         }
     }
 
+    // ── Attachments ──────────────────────────────────────────────────────
+    // Images upload to the self-hosted CF worker (pockethub-issue, see
+    // AttachmentUploader) at submit time; markdown is appended to the body.
+    // Files are not supported yet — the UI intercepts file picks.
+
+    private val attachmentState = AttachmentState(appContext, attachmentUploader)
+
+    val attachments: StateFlow<List<IssueAttachment>> = attachmentState.attachments
+
+    fun addAttachment(uri: Uri) = attachmentState.add(uri)
+
+    fun removeAttachment(id: Long) = attachmentState.remove(id)
+
     fun createIssue(owner: String, repo: String, title: String, body: String?) {
         if (_isSending.value) return
         viewModelScope.launch {
             _isSending.value = true
             _actionError.value = null
             try {
+                val attachmentBlock = attachmentState.uploadAll()
+                val fullBody = listOfNotNull(
+                    body?.takeIf { it.isNotBlank() },
+                    attachmentBlock?.takeIf { it.isNotBlank() },
+                ).joinToString("\n\n")
                 // Defense in depth: only send labels/assignees GitHub will
                 // honor. Unknown label names get auto-created in the repo
                 // (polluting it), and non-assignable logins are silently
@@ -367,7 +390,7 @@ class CreateIssueViewModel @Inject constructor(
                     owner, repo,
                     GitHubApi.IssueCreateRequest(
                         title = title,
-                        body = body?.takeIf { it.isNotBlank() },
+                        body = fullBody.takeIf { it.isNotBlank() },
                         labels = labels,
                         assignees = assignees,
                     ),
@@ -376,7 +399,13 @@ class CreateIssueViewModel @Inject constructor(
             } catch (e: Exception) {
                 issueReporter.reportError("CreateIssue", "createIssue", e)
                 if (e is kotlinx.coroutines.CancellationException) throw e
-                _actionError.value = e.userMessage("Failed to create")
+                _actionError.value = when (e) {
+                    is AttachmentUploader.StorageFullException ->
+                        appContext.getString(com.pockethub.R.string.attachment_storage_full)
+                    is AttachmentUploader.UploadException ->
+                        appContext.getString(com.pockethub.R.string.attachment_upload_failed, e.fileName)
+                    else -> e.userMessage("Failed to create")
+                }
             } finally {
                 _isSending.value = false
             }
