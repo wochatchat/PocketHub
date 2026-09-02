@@ -2,6 +2,7 @@ package com.pockethub.data.remote
 
 import com.pockethub.data.local.AccountDao
 import com.pockethub.data.local.AccountEntity
+import com.pockethub.data.local.TokenCipher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
