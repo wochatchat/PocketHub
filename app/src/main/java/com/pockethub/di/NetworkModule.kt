@@ -9,6 +9,7 @@ import com.pockethub.BuildConfig
 import com.pockethub.data.remote.AccountRepository
 import com.pockethub.data.remote.AuthInterceptor
 import com.pockethub.data.remote.GitHubApi
+import com.pockethub.data.remote.TokenRefreshAuthenticator
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -85,7 +86,11 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(authInterceptor: AuthInterceptor, dns: okhttp3.Dns): OkHttpClient {
+    fun provideOkHttpClient(
+        authInterceptor: AuthInterceptor,
+        tokenRefreshAuthenticator: TokenRefreshAuthenticator,
+        dns: okhttp3.Dns,
+    ): OkHttpClient {
         val builder = OkHttpClient.Builder()
             .followRedirects(false)
             .followSslRedirects(false)
@@ -93,6 +98,7 @@ object NetworkModule {
             .readTimeout(20, TimeUnit.SECONDS)
             .writeTimeout(15, TimeUnit.SECONDS)
             .addInterceptor(authInterceptor)
+            .authenticator(tokenRefreshAuthenticator)
             .dns(dns)
 
         if (BuildConfig.DEBUG) {

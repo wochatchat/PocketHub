@@ -31,6 +31,14 @@ interface AccountDao {
     @Query("UPDATE accounts SET isActive = 0")
     suspend fun deactivateAll()
 
+    /** Refresh the credentials of every row for [login] (dedup keeps ≤1 per
+     *  login, so this updates at most one row). Returns affected row count. */
+    @Query(
+        "UPDATE accounts SET token = :token, refreshToken = :refreshToken, " +
+            "tokenExpiresAt = :expiresAt WHERE login = :login COLLATE NOCASE"
+    )
+    suspend fun updateTokensByLogin(login: String, token: String, refreshToken: String, expiresAt: Long): Int
+
     @Query("DELETE FROM accounts WHERE id = :id")
     suspend fun deleteById(id: Long)
 

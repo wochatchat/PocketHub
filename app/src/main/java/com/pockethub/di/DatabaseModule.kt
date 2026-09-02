@@ -21,7 +21,10 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "pockethub.db")
-            .fallbackToDestructiveMigration()
+            // Explicit migrations only. The old fallbackToDestructiveMigration()
+            // silently WIPED all accounts (logins, tokens) on any future schema
+            // bump — the exact "login lost" bug this branch fixes.
+            .addMigrations(*AppDatabase.ALL_MIGRATIONS)
             .build()
 
     @Provides
