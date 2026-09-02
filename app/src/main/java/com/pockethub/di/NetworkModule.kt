@@ -9,6 +9,7 @@ import com.pockethub.BuildConfig
 import com.pockethub.data.remote.AccountRepository
 import com.pockethub.data.remote.AuthInterceptor
 import com.pockethub.data.remote.GitHubApi
+import com.pockethub.data.remote.TokenRefreshAuthenticator
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
