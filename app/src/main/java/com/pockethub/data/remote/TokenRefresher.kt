@@ -41,19 +41,42 @@ class TokenRefresher @Inject constructor(
 
     private val lock = Any()
 
+    /** Old access token → its replacement, for in-flight requests that raced a
+     *  concurrent refresh (bounded, cleared wholesale when it grows). */
+    private val rotated = java.util.concurrent.ConcurrentHashMap<String, String>()
+
     /**
-     * Single-flight refresh of the ACTIVE account's token. Concurrent 401s
-     * funnel through the class monitor; whoever finds the token already
-     * rotated in memory just reuses it (the authenticator handles that check).
+     * Single-flight refresh. Concurrent 401s funnel through the class monitor.
      *
-     * @return the NEW access token, or null when there is no refresh
-     *         credential, the network failed, or GitHub rejected the refresh
-     *         (revoked/expired refresh token → caller signs the user out).
+     * The refresh targets the row that OWNS [failedAuthHeader] (the
+     * `Authorization` value of the failed request) — normally the active
+     * account. A 401 from a stale in-flight request of a just-switched account
+     * refreshes THAT account's row instead of the active one, so a
+     * switched-to account's credentials are never consumed for the wrong user.
+     *
+     * @return the NEW access token to retry with (same account as the failed
+     *         request), or null when there is no refresh credential, the
+     *         network failed, or GitHub rejected the refresh (revoked/expired
+     *         refresh token → caller signs out).
      */
-    fun refreshSync(): String? = synchronized(lock) {
-        val active = runBlocking { accounts.getActiveAccount() } ?: return null
-        if (active.refreshToken.isBlank()) return null
+    fun refreshSync(failedAuthHeader: String?): String? = synchronized(lock) {
         try {
+            val failedToken = failedAuthHeader?.removePrefix("Bearer ").orEmpty()
+            val active = runBlocking { accounts.getActiveAccount() } ?: return null
+
+            // Fast path: this token was already rotated by the previous
+            // authenticate() round while more 401 responses were in flight —
+            // no network round-trip, just retry with the replacement.
+            rotated[failedToken]?.let { return it }
+
+            val row = if (failedToken.isBlank() || failedToken == active.token) {
+                active
+            } else {
+                // Stale in-flight request of a non-active (just switched,
+                // still stored) account — refresh its OWN row.
+                runBlocking { accounts.getAccountByToken(failedToken) } ?: return null
+            }
+            if (row.refreshToken.isBlank()) return null
             val customId = runBlocking { settings.customClientId.first() }
             val request = if (customId.isNotBlank()) {
                 // Direct exchange path — same rule as LoginViewModel.exchangeOAuthCode.
@@ -68,7 +91,7 @@ class TokenRefresher @Inject constructor(
                             .add("client_id", customId)
                             .add("client_secret", secret)
                             .add("grant_type", "refresh_token")
-                            .add("refresh_token", active.refreshToken)
+                            .add("refresh_token", row.refreshToken)
                             .build()
                     )
             } else {
@@ -78,7 +101,7 @@ class TokenRefresher @Inject constructor(
                     .url("$backend/oauth/refresh")
                     .header("Accept", "application/json")
                     .post(
-                        JSONObject().put("refresh_token", active.refreshToken).toString()
+                        JSONObject().put("refresh_token", row.refreshToken).toString()
                             .toRequestBody("application/json; charset=utf-8".toMediaType())
                     )
             }.build()
@@ -95,16 +118,20 @@ class TokenRefresher @Inject constructor(
                 if (newToken.isBlank()) return null
                 // GitHub ROTATES refresh tokens on use — persist the new one;
                 // fall back to the old credential when the response omits it.
-                val newRefresh = obj.optString("refresh_token").ifBlank { active.refreshToken }
+                val newRefresh = obj.optString("refresh_token").ifBlank { row.refreshToken }
                 val expiresIn = obj.optLong("expires_in", 0L)
                 val expiresAt = if (expiresIn > 0) System.currentTimeMillis() + expiresIn * 1000 else 0L
 
                 runBlocking {
-                    accounts.updateTokensByLogin(active.login, newToken, newRefresh, expiresAt)
+                    accounts.updateTokensByLogin(row.login, newToken, newRefresh, expiresAt)
                 }
+                // Racing requests still holding the old access token retry with
+                // the replacement instead of triggering another refresh.
+                if (rotated.size > 16) rotated.clear()
+                rotated[row.token] = newToken
                 // Update the in-memory token only if the user hasn't switched
                 // accounts while we were on the wire.
-                if (runBlocking { accounts.getActiveLogin() } == active.login) {
+                if (runBlocking { accounts.getActiveLogin() } == row.login) {
                     authInterceptor.token = newToken
                 }
                 newToken

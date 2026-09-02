@@ -39,6 +39,9 @@ interface AccountDao {
     )
     suspend fun updateTokensByLogin(login: String, token: String, refreshToken: String, expiresAt: Long): Int
 
+    @Query("SELECT * FROM accounts WHERE token = :token LIMIT 1")
+    suspend fun getByToken(token: String): AccountEntity?
+
     @Query("DELETE FROM accounts WHERE id = :id")
     suspend fun deleteById(id: Long)
 

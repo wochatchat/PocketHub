@@ -34,8 +34,16 @@ class AuthInterceptor @Inject constructor(
         }
         val authed = original.newBuilder()
             .header("Authorization", "Bearer $token")
-            .header("Accept", "application/vnd.github+json")
-            .header("X-GitHub-Api-Version", "2022-11-28")
+            .apply {
+                // JSON-API headers are api.github.com-only. Overriding Accept on
+                // github.com clobbered the OAuth token endpoint's REQUIRED
+                // `Accept: application/json` (set by Retrofit) — the exchange
+                // then came back form-encoded and second-account sign-in broke.
+                if (host == GITHUB_API_HOST) {
+                    header("Accept", "application/vnd.github+json")
+                    header("X-GitHub-Api-Version", "2022-11-28")
+                }
+            }
             .build()
         val response = chain.proceed(authed)
 

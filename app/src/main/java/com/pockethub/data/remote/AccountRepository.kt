@@ -26,6 +26,10 @@ class AccountRepository @Inject constructor(
     /** Snapshot of the active row (login + refresh credential) for the refresher. */
     suspend fun getActiveAccount(): AccountEntity? = accountDao.getActiveAccountSync()
 
+    /** Resolve the row that owns [token] — the refresher refreshes the RIGHT
+     *  account when a stale in-flight request from a just-switched account 401s. */
+    suspend fun getAccountByToken(token: String): AccountEntity? = accountDao.getByToken(token)
+
     /**
      * Persist refreshed credentials for every row of [login]. Safe against
      * mid-refresh account switches: the write is keyed by login, not by

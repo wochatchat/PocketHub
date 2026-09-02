@@ -9,16 +9,19 @@ import javax.inject.Singleton
 
 /**
  * OkHttp authenticator on the shared client: on a 401 from the GitHub API it
- * transparently refreshes the OAuth token and retries the request ONCE with
- * the new credentials. Only when the refresh itself fails does it emit
- * [SessionEventBus.Event.TokenInvalid] — the single owner of the sign-out
+ * transparently refreshes the owning account's token and retries the request
+ * ONCE with the new credentials. Only when the refresh itself fails does it
+ * emit [SessionEventBus.Event.TokenInvalid] — the single owner of the sign-out
  * decision (the interceptor no longer emits it, so concurrent 401s can't
  * double-fire, and a transient third-party 401 can never kill the session).
+ *
+ * The refresh targets the row that owns the FAILED request's token — never a
+ * blind swap to the active account's token, which would replay user A's
+ * request with user B's credentials after an account switch.
  */
 @Singleton
 class TokenRefreshAuthenticator @Inject constructor(
     private val refresher: TokenRefresher,
-    private val authInterceptor: AuthInterceptor,
     private val sessionBus: SessionEventBus,
 ) : Authenticator {
 
@@ -33,16 +36,9 @@ class TokenRefreshAuthenticator @Inject constructor(
         val usedAuth = response.request.header("Authorization") ?: return null
 
         synchronized(this) {
-            // Another request's refresh already landed while this response was
-            // in flight — re-attach the current token instead of refreshing again.
-            val current = authInterceptor.token
-            if (current.isNotBlank() && usedAuth != "Bearer $current") {
-                return response.request.newBuilder()
-                    .header("Authorization", "Bearer $current")
-                    .build()
-            }
-
-            val newToken = refresher.refreshSync()
+            // refreshSync resolves ownership (active row / just-switched row /
+            // already-rotated mapping) and persists the rotation.
+            val newToken = refresher.refreshSync(usedAuth)
             if (newToken.isNullOrBlank()) {
                 // No refresh credential, network failure, or GitHub rejected
                 // the refresh — the session is genuinely dead. Soft sign-out
