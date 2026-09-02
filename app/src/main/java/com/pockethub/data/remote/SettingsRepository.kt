@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.pockethub.data.local.TokenCipher
 import com.pockethub.ui.theme.AppStyle
 import com.pockethub.ui.theme.ThemeMode
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -156,14 +157,27 @@ class SettingsRepository @Inject constructor(
         it[Keys.CUSTOM_CLIENT_ID].orEmpty()
     }
 
-    val customClientSecret: Flow<String> = context.dataStore.data.map {
-        it[Keys.CUSTOM_CLIENT_SECRET].orEmpty()
+    // At-rest encryption for the custom OAuth client secret (issue #29).
+    // "enc:v1:..." values are opened with the Keystore key (TokenCipher);
+    // legacy plaintext values pass through and are migrated on next save.
+    val customClientSecret: Flow<String> = context.dataStore.data.map { prefs ->
+        TokenCipher.open(prefs[Keys.CUSTOM_CLIENT_SECRET].orEmpty())
     }
 
     suspend fun setCustomOAuthClient(id: String, secret: String) {
         context.dataStore.edit { prefs ->
             prefs[Keys.CUSTOM_CLIENT_ID] = id
-            prefs[Keys.CUSTOM_CLIENT_SECRET] = secret
+            prefs[Keys.CUSTOM_CLIENT_SECRET] = TokenCipher.seal(secret)
+        }
+    }
+
+    /** One-shot migration: re-store a legacy plaintext secret sealed. */
+    suspend fun sealLegacyCustomSecret() {
+        context.dataStore.edit { prefs ->
+            val raw = prefs[Keys.CUSTOM_CLIENT_SECRET].orEmpty()
+            if (raw.isNotEmpty() && !TokenCipher.isSealed(raw)) {
+                prefs[Keys.CUSTOM_CLIENT_SECRET] = TokenCipher.seal(raw)
+            }
         }
     }
 

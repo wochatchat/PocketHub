@@ -46,6 +46,10 @@ class AppStartupViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            // One-time at-rest encryption migration for a legacy plaintext
+            // OAuth client secret (tokens migrate lazily via getActiveToken).
+            settings.sealLegacyCustomSecret()
+
             // Re-seed auth interceptor from the persisted active account
             val token = accounts.getActiveToken()
             if (token.isNotBlank()) {

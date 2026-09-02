@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- v0.4.1 hardening (issue #29): credentials live in pockethub.db (sealed
+     tokens) and the DataStore file (sealed OAuth secret). The Keystore key
+     never migrates with backups, so restoring sealed values would only yield
+     dead sessions — exclude those files entirely and keep backups
+     credential-free. -->
 <full-backup-content>
     <include domain="sharedpref" path="." />
+    <exclude domain="database" path="pockethub.db" />
     <exclude domain="database" path="pockethub_cache.db" />
+    <exclude domain="file" path="datastore/" />
 </full-backup-content>

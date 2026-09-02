@@ -1,24 +1,13 @@
 {
-  "version": "0.4.0",
+  "version": "0.4.1",
   "summary": {
-    "zh": "0.4.0：登录页视觉打磨，设置页账号栏内置多账号切换，多项登录体验修复。",
-    "en": "0.4.0: login page visual polish, multi-account switching built into Settings, and several sign-in experience fixes."
+    "zh": "安全加固：登录凭据与客户端密钥改为加密存储",
+    "en": "Security hardening: encrypt credentials at rest"
   },
   "items": [
-    {
-      "type": "improve",
-      "zh": "登录页视觉优化：分隔符居中为「— or —」样式，整体排版更规整",
-      "en": "Login page polish: centered “— or —” divider and tidier layout"
-    },
-    {
-      "type": "feat",
-      "zh": "设置页账号栏直接内置多账号切换列表（无条件显示）：点行切换、侧按钮移除",
-      "en": "Settings account section embeds the multi-account switcher directly (always visible): tap to switch, side button to remove"
-    },
-    {
-      "type": "fix",
-      "zh": "修复自部署 OAuth 弹窗被输入法遮挡的问题",
-      "en": "Fixed the self-hosted OAuth sheet being covered by the keyboard"
-    }
+    { "type": "fix", "zh": "修复登录令牌明文保存的问题，改为系统密钥库加密存储", "en": "Encrypt account tokens with Android Keystore" },
+    { "type": "fix", "zh": "修复自定义登录密钥明文保存的问题，旧数据自动迁移", "en": "Encrypt custom OAuth client secret, migrate legacy data" },
+    { "type": "improve", "zh": "应用签名密钥移出代码仓库，改由 CI 安全通道注入", "en": "Move the APK signing key out of the repo into CI secrets" },
+    { "type": "improve", "zh": "云备份与设备迁移不再携带任何登录凭据", "en": "Keep credentials out of cloud backups and device transfers" }
   ]
 }

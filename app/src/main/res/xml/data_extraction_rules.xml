@@ -1,9 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- v0.4.1 hardening (issue #29): keep credential stores (pockethub.db with
+     sealed tokens, DataStore with the sealed OAuth secret) out of cloud
+     backup and device transfer — the Keystore key never migrates, so sealed
+     values are unreadable after restore anyway. -->
 <data-extraction-rules>
     <cloud-backup>
         <include domain="sharedpref" path="." />
+        <exclude domain="database" path="pockethub.db" />
+        <exclude domain="database" path="pockethub_cache.db" />
+        <exclude domain="file" path="datastore/" />
     </cloud-backup>
     <device-transfer>
         <include domain="sharedpref" path="." />
+        <exclude domain="database" path="pockethub.db" />
+        <exclude domain="database" path="pockethub_cache.db" />
+        <exclude domain="file" path="datastore/" />
     </device-transfer>
 </data-extraction-rules>

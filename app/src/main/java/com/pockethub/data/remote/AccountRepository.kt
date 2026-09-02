@@ -17,8 +17,19 @@ class AccountRepository @Inject constructor(
     val allAccounts: Flow<List<AccountEntity>> = accountDao.allAccounts()
     val activeAccount: Flow<AccountEntity?> = accountDao.activeAccount()
 
-    /** Get the token of the current active account, or empty. */
-    suspend fun getActiveToken(): String = accountDao.getActiveAccountSync()?.token.orEmpty()
+    /**
+     * Get the token of the current active account, or empty. Tokens are stored
+     * sealed (issue #29); legacy plaintext rows are re-sealed on this read so
+     * the active account migrates at every app start without a schema bump.
+     */
+    suspend fun getActiveToken(): String {
+        val row = accountDao.getActiveAccountSync() ?: return ""
+        val token = TokenCipher.open(row.token)
+        if (!TokenCipher.isSealed(row.token)) {
+            runCatching { accountDao.update(row.copy(token = TokenCipher.seal(token))) }
+        }
+        return token
+    }
 
     /** Get the current login, or empty. */
     suspend fun getActiveLogin(): String = accountDao.getActiveAccountSync()?.login.orEmpty()
@@ -38,7 +49,7 @@ class AccountRepository @Inject constructor(
                 login = login,
                 name = name,
                 avatarUrl = avatarUrl,
-                token = token,
+                token = TokenCipher.seal(token), // at-rest encryption (issue #29)
                 tokenType = tokenType,
                 isActive = existing.isEmpty(), // first account is active by default
                 scopes = scopes,
