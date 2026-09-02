@@ -35,6 +35,30 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # v0.4.1 hardening (issue #29): the keystore is no longer committed.
+      # It is decoded from the KEYSTORE_BASE64 repo secret at build time;
+      # signing.properties is materialized on the runner only and stays
+      # git-ignored. Missing secret → warning, APK builds unsigned.
+      - name: Decode signing keystore from repo secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::KEYSTORE_BASE64 secret not set — building UNSIGNED release APK"
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > release.keystore
+          {
+            echo "STORE_FILE=release.keystore"
+            echo "STORE_PASSWORD=$STORE_PASSWORD"
+            echo "KEY_ALIAS=$KEY_ALIAS"
+            echo "KEY_PASSWORD=$KEY_PASSWORD"
+          } > signing.properties
+          chmod 600 release.keystore signing.properties
+
       - name: Build release APK (auto-bump version)
         run: |
           chmod +x build.sh

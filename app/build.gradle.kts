@@ -43,16 +43,28 @@ android {
         }
     }
 
-    // Read signing config from signing.properties
-    val signingPropsFile = rootProject.file("signing.properties")
+    // Signing inputs (v0.4.1 hardening, issue #29): the keystore no longer
+    // lives in the repository. Sources, in order: environment variables
+    // (exported by build.yml from repo secrets) → git-ignored
+    // signing.properties (local builds). With neither, the release APK is
+    // built unsigned instead of failing the build.
+    val signingProps = Properties().apply {
+        rootProject.file("signing.properties").takeIf { it.exists() }
+            ?.inputStream()?.use { load(it) }
+    }
+    fun signingProp(key: String): String? = System.getenv(key) ?: signingProps.getProperty(key)
+
     signingConfigs {
-        if (signingPropsFile.exists()) {
-            val sp = Properties().apply { load(signingPropsFile.inputStream()) }
+        val storeFile = signingProp("STORE_FILE")?.let { rootProject.file(it) }
+        val storePassword = signingProp("STORE_PASSWORD")
+        val keyAlias = signingProp("KEY_ALIAS")
+        val keyPassword = signingProp("KEY_PASSWORD")
+        if (storeFile != null && storeFile.exists() && storePassword != null) {
             create("release") {
-                storeFile = rootProject.file(sp.getProperty("STORE_FILE"))
-                storePassword = sp.getProperty("STORE_PASSWORD")
-                keyAlias = sp.getProperty("KEY_ALIAS")
-                keyPassword = sp.getProperty("KEY_PASSWORD")
+                this.storeFile = storeFile
+                this.storePassword = storePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
             }
         }
     }

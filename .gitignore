@@ -18,7 +18,9 @@ signing.properties.bak
 # build.yml uploads the generated APK directly to the GitHub Release.
 apk/*.apk
 
-# CI signing inputs remain tracked for the existing release pipeline.
-!release.keystore
-!signing.properties
+# Signing inputs are secret since the v0.4.1 hardening (issue #29): the
+# keystore is decoded from the KEYSTORE_BASE64 repo secret in CI and never
+# committed again. (Historic copies remain in git history.)
+release.keystore
+signing.properties
 scripts/lazy_transform.py
