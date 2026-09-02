@@ -85,7 +85,11 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(authInterceptor: AuthInterceptor, dns: okhttp3.Dns): OkHttpClient {
+    fun provideOkHttpClient(
+        authInterceptor: AuthInterceptor,
+        tokenRefreshAuthenticator: TokenRefreshAuthenticator,
+        dns: okhttp3.Dns,
+    ): OkHttpClient {
         val builder = OkHttpClient.Builder()
             .followRedirects(false)
             .followSslRedirects(false)
@@ -93,6 +97,7 @@ object NetworkModule {
             .readTimeout(20, TimeUnit.SECONDS)
             .writeTimeout(15, TimeUnit.SECONDS)
             .addInterceptor(authInterceptor)
+            .authenticator(tokenRefreshAuthenticator)
             .dns(dns)
 
         if (BuildConfig.DEBUG) {

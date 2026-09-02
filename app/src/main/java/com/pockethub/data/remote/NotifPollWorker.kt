@@ -12,7 +12,6 @@ import androidx.work.WorkerParameters
 import com.pockethub.R
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import kotlinx.coroutines.flow.first
 import retrofit2.HttpException
 
 /**
@@ -58,8 +57,8 @@ class NotifPollWorker @AssistedInject constructor(
             Result.success()
         } catch (e: Exception) {
             if (e is HttpException && e.code() == 401) {
-                // Active token is dead/revoked. Drop it so the next app launch
-                // returns to login, and tell a running app to sign out via the bus.
+                // Reaching here means the OkHttp authenticator already attempted
+                // a token refresh and it failed — the session is genuinely dead.
                 handleTokenInvalid()
                 Result.success()
             } else if (e is HttpException && e.code() in 400..499) {
@@ -71,12 +70,19 @@ class NotifPollWorker @AssistedInject constructor(
     }
 
     private suspend fun handleTokenInvalid() {
-        val active = accounts.activeAccount.first()
-        if (active != null) accounts.removeAccount(active.id)
+        // NEVER delete the account row here. The old removeAccount() call made a
+        // single revoked token cascade into wiping the WHOLE account store: it
+        // promoted the next stored account to active (removeAccount's fallback
+        // switch), then the foreground signOut() fired by the TokenInvalid event
+        // deleted that one too — silent multi-account loss.
+        //
+        // Soft sign-out instead: deactivate rows (next launch → login screen)
+        // and drop the in-memory token. Account history survives for re-login.
+        accounts.signOutActive()
         authInterceptor.token = ""
-        // If the app is in the foreground, its AppStartupViewModel is collecting this
-        // bus and will route back to login immediately. From background it's a no-op
-        // and the next launch's start-route logic takes over.
+        // If the app is in the foreground, its AppStartupViewModel is collecting
+        // this bus and routes back to login immediately. From background it's a
+        // no-op and the next launch's start-route logic takes over.
         sessionBus.emit(SessionEventBus.Event.TokenInvalid)
     }
 

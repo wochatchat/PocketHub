@@ -23,6 +23,17 @@ class AccountRepository @Inject constructor(
     /** Get the current login, or empty. */
     suspend fun getActiveLogin(): String = accountDao.getActiveAccountSync()?.login.orEmpty()
 
+    /** Snapshot of the active row (login + refresh credential) for the refresher. */
+    suspend fun getActiveAccount(): AccountEntity? = accountDao.getActiveAccountSync()
+
+    /**
+     * Persist refreshed credentials for every row of [login]. Safe against
+     * mid-refresh account switches: the write is keyed by login, not by
+     * "current active row", so it always lands on the right account.
+     */
+    suspend fun updateTokensByLogin(login: String, token: String, refreshToken: String, expiresAt: Long): Boolean =
+        accountDao.updateTokensByLogin(login, token, refreshToken, expiresAt) > 0
+
     /** Add a new account and make it active (if first account, auto-activate). */
     suspend fun addAccount(
         login: String,
@@ -31,19 +42,42 @@ class AccountRepository @Inject constructor(
         name: String? = null,
         avatarUrl: String? = null,
         scopes: String = "",
+        refreshToken: String = "",
+        tokenExpiresAtMs: Long = 0,
     ): Long {
         val existing = accountDao.allAccounts().first()
-        val id = accountDao.insert(
-            AccountEntity(
-                login = login,
-                name = name,
-                avatarUrl = avatarUrl,
-                token = token,
-                tokenType = tokenType,
-                isActive = existing.isEmpty(), // first account is active by default
-                scopes = scopes,
+        // Re-login of a known account updates its row in place — sign-out no
+        // longer deletes rows (see signOutActive), so without this dedup every
+        // login/logout cycle would grow a duplicate row per account.
+        val sameLogin = existing.firstOrNull { it.login.equals(login, ignoreCase = true) }
+        val id = if (sameLogin != null) {
+            accountDao.update(
+                sameLogin.copy(
+                    token = token,
+                    tokenType = tokenType,
+                    name = name,
+                    avatarUrl = avatarUrl,
+                    scopes = scopes,
+                    refreshToken = refreshToken,
+                    tokenExpiresAt = tokenExpiresAtMs,
+                )
             )
-        )
+            sameLogin.id
+        } else {
+            accountDao.insert(
+                AccountEntity(
+                    login = login,
+                    name = name,
+                    avatarUrl = avatarUrl,
+                    token = token,
+                    tokenType = tokenType,
+                    isActive = existing.isEmpty(), // first account is active by default
+                    scopes = scopes,
+                    refreshToken = refreshToken,
+                    tokenExpiresAt = tokenExpiresAtMs,
+                )
+            )
+        }
         // Logging in means THIS account becomes the active one — last login
         // wins. (The old "activate only the first row" rule left repeat logins
         // pointing at a stale active row, so sessions didn't survive restart.)
@@ -72,12 +106,16 @@ class AccountRepository @Inject constructor(
         }
     }
 
-    /** Sign out the ACTIVE session: delete the active row and deactivate every
-     *  remaining one so no stale row auto-restores a session on next launch
-     *  (removeAccount alone would silently promote another stored account).
-     *  The account-manager rows themselves are kept. */
+    /**
+     * Sign out the ACTIVE session — SOFT: deactivate every row so no stale row
+     * auto-restores a session on next launch, but never DELETE anything. The
+     * old delete-the-active-row behavior made any 401 (including transient
+     * ones) permanently destroy the account; rows now stay as history and a
+     * re-login refreshes them in place via [addAccount]'s dedup. A dead-token
+     * row that gets manually switched back to self-heals: its next API call
+     * 401s → refresh attempt → (failed) → soft sign-out again.
+     */
     suspend fun signOutActive() {
-        accountDao.getActiveAccountSync()?.let { accountDao.deleteById(it.id) }
         accountDao.deactivateAll()
     }
 

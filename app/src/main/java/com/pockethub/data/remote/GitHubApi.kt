@@ -615,6 +615,12 @@ interface GitHubApi :
         val access_token: String = "",
         val token_type: String = "",
         val scope: String = "",
+        // OAuth session renewal — present only when the OAuth App has token
+        // expiration enabled. Absent/0 for non-expiring tokens; with defaults
+        // so every existing parse path keeps working unchanged.
+        @kotlinx.serialization.SerialName("refresh_token") val refreshToken: String = "",
+        @kotlinx.serialization.SerialName("expires_in") val expiresIn: Long = 0,
+        @kotlinx.serialization.SerialName("refresh_token_expires_in") val refreshTokenExpiresIn: Long = 0,
         @kotlinx.serialization.SerialName("error") val error: String? = null,
         @kotlinx.serialization.SerialName("error_description") val errorDescription: String? = null,
     )

@@ -250,9 +250,14 @@ class LoginViewModel @Inject constructor(
                     return@launch
                 }
 
-                // Validate and save the account
+                // Validate and save the account (refresh credential persisted
+                // so expired access tokens can self-renew instead of forcing
+                // the user back to the login screen).
                 authInterceptor.token = token
                 val user = api.getAuthenticatedUser()
+                val expiresAt = if (tokenResp.expiresIn > 0) {
+                    System.currentTimeMillis() + tokenResp.expiresIn * 1000
+                } else 0L
                 accounts.addAccount(
                     login = user.login,
                     token = token,
@@ -260,6 +265,8 @@ class LoginViewModel @Inject constructor(
                     name = user.name,
                     avatarUrl = user.avatarUrl,
                     scopes = tokenResp.scope,
+                    refreshToken = tokenResp.refreshToken,
+                    tokenExpiresAtMs = expiresAt,
                 )
                 _ui.update { it.copy(isLoading = false, success = true) }
             } catch (e: Exception) {

@@ -60,9 +60,10 @@ class AppStartupViewModel @Inject constructor(
             notifScheduler.schedule(minutes)
         }
 
-        // AuthInterceptor fires TokenInvalid when any request returns 401 (token
-        // revoked/expired). Sign the user out once and route back to login, rather
-        // than every screen silently churning on dead credentials.
+        // TokenRefreshAuthenticator emits TokenInvalid when an api.github.com 401
+        // survives a refresh attempt (token revoked AND refresh dead). Sign the
+        // user out once and route back to login, rather than every screen
+        // silently churning on dead credentials.
         viewModelScope.launch {
             sessionBus.events.collect { event ->
                 if (event is SessionEventBus.Event.TokenInvalid) signOut()

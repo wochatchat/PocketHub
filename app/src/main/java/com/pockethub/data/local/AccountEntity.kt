@@ -12,9 +12,14 @@ data class AccountEntity(
     val login: String,
     val name: String? = null,
     val avatarUrl: String? = null,
-    val token: String,             // PAT or OAuth token
-    val tokenType: String = "bearer", // "bearer"
-    val isActive: Boolean = false,  // the "current" account
-    val scopes: String = "",        // space-separated OAuth scopes
+    val token: String,             // PAT or OAuth access token
+    val tokenType: String = "bearer", // "bearer" | "oauth"
+    val isActive: Boolean = false, // the "current" account
+    val scopes: String = "",       // space-separated OAuth scopes
     val createdAt: Long = System.currentTimeMillis(),
+    // ── OAuth session renewal (v4 schema) ────────────────
+    /** OAuth refresh token. Empty for PAT sessions — they never refresh. */
+    val refreshToken: String = "",
+    /** Access-token expiry in epoch millis. 0 = unknown/never expires (PAT). */
+    val tokenExpiresAt: Long = 0,
 )
