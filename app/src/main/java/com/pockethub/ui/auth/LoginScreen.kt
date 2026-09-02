@@ -278,47 +278,6 @@ fun LoginScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            // Quick-switch: previously signed-in accounts (sign-out is soft, so
-            // rows survive). One tap re-activates the row — the app-level auth
-            // flow rebuilds the gate around that account; a stale token
-            // self-heals via 401 → refresh → soft sign-out.
-            val stored by vm.storedAccounts.collectAsState()
-            if (stored.isNotEmpty()) {
-                Spacer(Modifier.height(20.dp))
-                Text(
-                    stringResource(R.string.login_saved_accounts),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(8.dp))
-                stored.forEach { account ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(MaterialTheme.shapes.medium)
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-                            .clickable { vm.activateStoredAccount(account.id) }
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                    ) {
-                        Text(
-                            account.login,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.weight(1f),
-                        )
-                        if (account.refreshToken.isNotBlank()) {
-                            Text(
-                                stringResource(R.string.login_saved_account_refreshable),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(6.dp))
-                }
-            }
-
             // Third method — separated by a hairline divider so it reads as its
             // own group rather than a stray label under the OAuth button.
             Spacer(Modifier.height(28.dp))

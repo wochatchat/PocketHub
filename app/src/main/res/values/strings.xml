@@ -12,8 +12,6 @@
     <string name="login_get_token_link_text">Create a new token →</string>
     <string name="login_oauth_description">Sign in with GitHub OAuth — no token or OAuth App setup needed.</string>
     <string name="login_selfhost_link_text">Self-hosted OAuth settings →</string>
-    <string name="login_saved_accounts">Saved accounts — tap to enter directly</string>
-    <string name="login_saved_account_refreshable">auto sign-in</string>
     <string name="login_selfhost_description">Already running your own verification service? Configure it to sign in (optional).</string>
     <string name="oauth_app_new_link">https://github.com/settings/applications/new</string>
     <string name="oauth_app_new_link_text">Create an OAuth App →</string>
