@@ -1,24 +1,15 @@
 {
-  "version": "0.4.0",
+  "version": "0.4.1",
   "summary": {
-    "zh": "0.4.0：登录页视觉打磨，设置页账号栏内置多账号切换，多项登录体验修复。",
-    "en": "0.4.0: login page visual polish, multi-account switching built into Settings, and several sign-in experience fixes."
+    "zh": "会话续期：令牌过期自动刷新，多类误判登出修复，升级不再丢登录",
+    "en": "Session renewal: tokens auto-refresh, several false sign-outs fixed, upgrades keep your login"
   },
   "items": [
-    {
-      "type": "improve",
-      "zh": "登录页视觉优化：分隔符居中为「— or —」样式，整体排版更规整",
-      "en": "Login page polish: centered “— or —” divider and tidier layout"
-    },
-    {
-      "type": "feat",
-      "zh": "设置页账号栏直接内置多账号切换列表（无条件显示）：点行切换、侧按钮移除",
-      "en": "Settings account section embeds the multi-account switcher directly (always visible): tap to switch, side button to remove"
-    },
-    {
-      "type": "fix",
-      "zh": "修复自部署 OAuth 弹窗被输入法遮挡的问题",
-      "en": "Fixed the self-hosted OAuth sheet being covered by the keyboard"
-    }
+    { "type": "feat", "zh": "新增登录令牌自动续期，过期不再掉登录", "en": "Auto-renew expiring OAuth tokens so sessions survive" },
+    { "type": "fix", "zh": "修复下载镜像误判导致自动登出", "en": "Mirror 401s no longer sign you out" },
+    { "type": "fix", "zh": "修复后台轮询失败误删已存账号", "en": "Background 401 no longer deletes stored accounts" },
+    { "type": "fix", "zh": "修复升级安装后登录记录被清空", "en": "App updates no longer wipe saved logins" },
+    { "type": "fix", "zh": "修复已登录时添加第二个账号失败", "en": "Fix adding a second account while signed in" },
+    { "type": "improve", "zh": "登出改为停用账号，重登自动恢复", "en": "Sign-out now deactivates instead of deleting" }
   ]
 }
