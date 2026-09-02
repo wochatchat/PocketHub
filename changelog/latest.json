@@ -1,20 +1,29 @@
 {
-  "version": "0.4.2",
+  "version": "0.4.3",
   "summary": {
-    "zh": "安全升级：凭据加密、令牌自动续期。因签名安全更换需卸载重装，抱歉！",
-    "en": "Security upgrade: encrypted credentials + auto token refresh. Signing key rotated — uninstall & reinstall required. Sorry!"
+    "zh": "修复登出后返回键重回已登录界面的问题。因签名更换，部分老版本可能升级失败，卸载重装一次即可，抱歉！",
+    "en": "Fixed the sign-out back-stack bug. Note: the signing key rotation may make upgrades fail on some old versions — uninstall, reinstall once, sign in again. Sorry!"
   },
   "items": [
-    { "type": "improve", "zh": "签名安全更换：需卸载旧版重装并重新登录，深表歉意", "en": "Signing key rotated for safety: uninstall, reinstall and sign in again — our sincere apologies" },
-    { "type": "feat", "zh": "新增登录令牌自动续期，过期不再掉登录", "en": "Auto-renew expiring OAuth tokens so sessions survive" },
-    { "type": "fix", "zh": "修复登录令牌明文保存的问题，改为系统密钥库加密存储", "en": "Encrypt account tokens with Android Keystore" },
-    { "type": "fix", "zh": "修复自定义登录密钥明文保存的问题，旧数据自动迁移", "en": "Encrypt custom OAuth client secret, migrate legacy data" },
-    { "type": "fix", "zh": "修复下载镜像误判导致自动登出", "en": "Mirror 401s no longer sign you out" },
-    { "type": "fix", "zh": "修复后台轮询失败误删已存账号", "en": "Background 401 no longer deletes stored accounts" },
-    { "type": "fix", "zh": "修复升级安装后登录记录被清空", "en": "App updates no longer wipe saved logins" },
-    { "type": "fix", "zh": "修复已登录时添加第二个账号失败", "en": "Fix adding a second account while signed in" },
-    { "type": "improve", "zh": "登出改为停用账号，重登自动恢复", "en": "Sign-out now deactivates instead of deleting" },
-    { "type": "improve", "zh": "应用签名密钥移出代码仓库，改由 CI 安全通道注入", "en": "Move the APK signing key out of the repo into CI secrets" },
-    { "type": "improve", "zh": "云备份与设备迁移不再携带任何登录凭据", "en": "Keep credentials out of cloud backups and device transfers" }
+    {
+      "type": "fix",
+      "zh": "修复登出后按系统返回键又回到已登录界面的问题",
+      "en": "Fix back button returning to the signed-in UI after sign-out"
+    },
+    {
+      "type": "improve",
+      "zh": "修复登出与多账号切换后残留旧界面状态的问题",
+      "en": "Clean navigation state after sign-out and account switches"
+    },
+    {
+      "type": "improve",
+      "zh": "登录页不再显示已保存的账号信息",
+      "en": "The login page no longer lists saved accounts"
+    },
+    {
+      "type": "improve",
+      "zh": "致歉说明：签名更换导致部分老版本可能更新升级失败，卸载后重新安装并登录一次即可，给大家带来不便深表歉意",
+      "en": "About the signing key rotation: if the update fails to install, uninstall and reinstall once, then sign in again. Sincere apologies for the inconvenience!"
+    }
   ]
 }
