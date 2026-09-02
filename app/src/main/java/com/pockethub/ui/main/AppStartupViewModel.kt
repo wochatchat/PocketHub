@@ -9,20 +9,41 @@ import com.pockethub.data.remote.SessionEventBus
 import com.pockethub.data.remote.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Determines the app's first screen (login vs home) by reading the active account token
- * on startup, and seeds the global [AuthInterceptor] so the first API call is already authed.
+ * Auth session state — the SINGLE source of truth for which gate the app is
+ * behind. Derived by observing the active-account row in Room: the database
+ * is the truth, and every login / logout / account switch is just a DB write
+ * that flows through here. Navigation keys off this state (see PocketHubApp),
+ * so there is exactly ONE reactor to auth changes and no cross-talk between
+ * ad-hoc signals (the old _startRoute + _signedOut pair raced and left stale
+ * destinations on the back stack).
+ */
+sealed interface AuthState {
+    /** Room not read yet — cold start splash. */
+    data object Loading : AuthState
+
+    /** No active account row → login gate. Back here exits the app. */
+    data object LoggedOut : AuthState
+
+    /** Active account row → main app, keyed by login so an account switch
+     *  rebuilds the whole nav graph into a fresh stack for that account. */
+    data class LoggedIn(val login: String) : AuthState
+}
+
+/**
+ * Owns the auth state machine and the global [AuthInterceptor] seeding.
  *
- * Also exposes [syncAuthInterceptor] for re-seeding after a fresh login, and [signOut] for
- * the Settings screen.
+ * Login state transitions and their triggers:
+ *  - LoggedIn: [AccountRepository.addAccount] (PAT / OAuth login)
+ *  - LoggedOut: [AccountRepository.signOutActive] (manual sign-out or a
+ *    remote TokenInvalid event) — soft: rows are kept for quick re-entry
+ *  - LoggedIn(other): [AccountRepository.switchAccount] / removeAccount
  */
 @HiltViewModel
 class AppStartupViewModel @Inject constructor(
@@ -33,41 +54,48 @@ class AppStartupViewModel @Inject constructor(
     private val sessionBus: SessionEventBus,
 ) : ViewModel() {
 
-    private val _startRoute = MutableStateFlow<String?>(null)
-    val startRoute: StateFlow<String?> = _startRoute.asStateFlow()
+    private val _auth = MutableStateFlow<AuthState>(AuthState.Loading)
+    val auth: StateFlow<AuthState> = _auth.asStateFlow()
 
     /** The currently active account (avatar/login shown in Home's top-left avatar). */
     val activeAccount: StateFlow<com.pockethub.data.local.AccountEntity?> =
-        accounts.activeAccount.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
-    /** Signalled when the user signs out — AppNavigation observes and resets the nav stack. */
-    private val _signedOut = MutableStateFlow(false)
-    val signedOut: StateFlow<Boolean> = _signedOut.asStateFlow()
+        accounts.activeAccount.stateIn(
+            viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), null,
+        )
 
     init {
         viewModelScope.launch {
             // One-time at-rest encryption migration for a legacy plaintext
             // OAuth client secret (tokens migrate lazily via getActiveToken).
             settings.sealLegacyCustomSecret()
+        }
 
-            // Re-seed auth interceptor from the persisted active account
-            val token = accounts.getActiveToken()
-            if (token.isNotBlank()) {
-                authInterceptor.token = token
-                _startRoute.value = Routes.HOME
-            } else {
-                _startRoute.value = Routes.LOGIN
-            }
-
+        viewModelScope.launch {
             // Schedule notification polling in sync with the user's saved setting
-            val minutes = settings.notifPollMinutes.first()
-            notifScheduler.schedule(minutes)
+            notifScheduler.schedule(settings.notifPollMinutes.first())
+        }
+
+        // THE auth state machine. Room drives everything: a login, a sign-out,
+        // an account switch or a TokenInvalid-triggered deactivation is just a
+        // write, and this collector re-derives the state and re-seeds the
+        // interceptor. The UI (PocketHubApp) keys its whole nav graph on this
+        // state, so the correct screen — and ONLY that screen — is ever shown.
+        viewModelScope.launch {
+            accounts.activeAccount.collect { row ->
+                // Opens the sealed token (and lazily re-seals legacy plaintext).
+                val token = accounts.getActiveToken()
+                authInterceptor.token = token
+                _auth.value = if (row != null) {
+                    AuthState.LoggedIn(row.login)
+                } else {
+                    AuthState.LoggedOut
+                }
+            }
         }
 
         // TokenRefreshAuthenticator emits TokenInvalid when an api.github.com 401
-        // survives a refresh attempt (token revoked AND refresh dead). Sign the
-        // user out once and route back to login, rather than every screen
-        // silently churning on dead credentials.
+        // survives a refresh attempt (token revoked AND refresh dead). Deactivate
+        // the session; the flow above flips the app back to the login gate.
         viewModelScope.launch {
             sessionBus.events.collect { event ->
                 if (event is SessionEventBus.Event.TokenInvalid) signOut()
@@ -75,24 +103,12 @@ class AppStartupViewModel @Inject constructor(
         }
     }
 
-    /** Re-seed the interceptor with the current active account's token. */
-    fun syncAuthInterceptor() {
-        viewModelScope.launch {
-            val token = accounts.getActiveToken()
-            if (token.isNotBlank()) authInterceptor.token = token
-        }
-    }
-
-    /** Sign out the active account and trigger return to login. */
+    /**
+     * Sign out = deactivate the active row (soft — account history is kept for
+     * quick re-entry from the login gate). Auth state and interceptor seeding
+     * happen in the activeAccount collector; no manual navigation anywhere.
+     */
     fun signOut() {
-        viewModelScope.launch {
-            accounts.signOutActive()
-            authInterceptor.token = ""
-            _startRoute.value = Routes.LOGIN
-            _signedOut.value = true
-        }
+        viewModelScope.launch { accounts.signOutActive() }
     }
-
-    /** Clear the signed-out signal after the UI has navigated back. */
-    fun clearSignedOut() { _signedOut.value = false }
 }

@@ -50,6 +50,20 @@ class LoginViewModel @Inject constructor(
     private val _ui = MutableStateFlow(UiState())
     val ui: StateFlow<UiState> = _ui
 
+    /**
+     * Previously signed-in accounts — quick-switch cards on the login gate
+     * (sign-out is soft, so rows survive as history). Activating one row
+     * simply makes it the active account in Room; the app-level auth flow
+     * then rebuilds the UI around it. A stale token self-heals: the first
+     * API call 401s → refresh attempt → soft sign-out back here.
+     */
+    val storedAccounts: StateFlow<List<com.pockethub.data.local.AccountEntity>> =
+        accounts.allAccounts.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun activateStoredAccount(id: Long) {
+        viewModelScope.launch { accounts.switchAccount(id) }
+    }
+
     // Custom (self-hosted) OAuth client config — edited from the login screen;
     // the settings page is only reachable while signed in, which is useless for
     // a login-time setting. Fields moved here from SettingsViewModel.

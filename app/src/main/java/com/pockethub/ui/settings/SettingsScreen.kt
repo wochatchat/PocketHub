@@ -454,7 +454,7 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showSignOutDialog = false
-                    onSignOut() // Navigation handled by AppNavigation observing signedOut.
+                    onSignOut() // Auth state flips → the keyed nav graph rebuilds to LOGIN.
                 }) { Text(stringResource(R.string.action_sign_out), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = { showSignOutDialog = false }) { Text(stringResource(R.string.action_cancel)) } },

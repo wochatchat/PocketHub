@@ -23,15 +23,12 @@ import android.net.Uri
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
-import com.pockethub.data.remote.AccountRepository
-import com.pockethub.data.remote.AuthInterceptor
 import com.pockethub.ui.auth.LoginScreen
 import com.pockethub.ui.repo.RepoDetailScreen
 import com.pockethub.ui.settings.SettingsScreen
@@ -119,8 +116,13 @@ object Routes {
 /**
  * Root composable that decides between login and main content.
  *
- * Reads the active account token from the Room database on startup; if present,
- * seeds the global [AuthInterceptor] and starts at HOME; otherwise starts at LOGIN.
+ * The nav graph is keyed on [AppStartupViewModel.auth] (Loading / LoggedOut /
+ * LoggedIn(login)): a change of auth identity rebuilds the ENTIRE graph with
+ * a fresh [androidx.navigation.NavHostController], so every state transition
+ * starts from an empty back stack — no popUpTo choreography, no stale
+ * destinations. Login state transitions (login / sign-out / account switch /
+ * remote sign-out) are all Room writes inside AccountRepository; the
+ * activeAccount collector in AppStartupViewModel is the single reactor.
  */
 @Composable
 fun PocketHubApp(
@@ -130,26 +132,14 @@ fun PocketHubApp(
     deepLinkUri: Uri? = null,
     onDeepLinkConsumed: () -> Unit = {},
 ) {
-    val navController = rememberNavController()
-
-    // Injected globals — used to seed the auth interceptor at startup.
+    // Injected globals — the auth state machine drives the whole gate logic.
     val appVm: AppStartupViewModel = hiltViewModel()
-    val startRoute by appVm.startRoute.collectAsState()
-    val signedOut by appVm.signedOut.collectAsState()
+    val authState by appVm.auth.collectAsState()
 
     // In-app update check (auto on launch; manual from Settings).
     val updateVm: UpdateViewModel = hiltViewModel()
     val updateState by updateVm.state.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
-
-    // Severe-issue diagnostics: record every navigation so a crash/ANR digest
-    // can answer "which screen was the user on?".
-    androidx.compose.runtime.LaunchedEffect(navController) {
-        val reporter = (context.applicationContext as? com.pockethub.PocketHubApp)?.issueReporter
-        navController.addOnDestinationChangedListener { _, dest, _ ->
-            reporter?.breadcrumb("→ ${dest.route ?: dest.label ?: "?"}")
-        }
-    }
 
     // Run the throttled auto-check once on launch — the ViewModel handles the
     // 24h interval and the "ignored version" gates.
@@ -162,87 +152,81 @@ fun PocketHubApp(
         updateVm.maybeAutoCheck()
     }
 
-    // Observe signedOut to empty the nav stack back to Login when the user signs out.
-    // popUpTo the graph's actual start destination rather than the HOME route string:
-    // sign-out can be initiated from deep-link screens whose back stack never
-    // contained HOME, where popping to HOME pops nothing and the user stays
-    // "signed in". (Fix ported from #32 by @Wxjxpp.)
-    androidx.compose.runtime.LaunchedEffect(signedOut) {
-        if (signedOut) {
-            navController.navigate(Routes.LOGIN) {
-                popUpTo(navController.graph.findStartDestination().id) {
-                    inclusive = true
-                }
-                launchSingleTop = true
-                restoreState = false
-            }
-            appVm.clearSignedOut()
-        }
-    }
-
-    // Handle pockethub:// deep links forwarded by MainActivity. We only navigate
-    // when the user is actually logged in (Home is the current destination) — if
-    // not, we discard the link so we don't drop the user into a screen they
-    // can't leave to log in first.
-    androidx.compose.runtime.LaunchedEffect(deepLinkUri, startRoute) {
-        val uri = deepLinkUri ?: return@LaunchedEffect
-        if (startRoute != Routes.HOME) {
-            // User not ready — drop the link to avoid landing on a guarded screen.
-            onDeepLinkConsumed()
-            return@LaunchedEffect
-        }
-        // Build the Compose Navigation route from the URI so the NavController
-        // routes to the matching composable. We strip the scheme:// prefix and
-        // treat the rest as the route pattern (which already matches because
-        // Routes.DEEP_LINK_* mirrors the Routes.*_DETAIL patterns).
-        val route = uri.host + uri.path?.let { if (it.isBlank()) "" else it }
-        if (route.isNotBlank()) {
-            navController.navigate(route) {
-                launchSingleTop = true
-            }
-        }
-        onDeepLinkConsumed()
-    }
-
-    // After login success: the token has already been persisted in the LoginViewModel;
-    // re-seed the interceptor (belt-and-suspenders — MainActivity also does it on startup).
-    fun onLoginSuccess() {
-        appVm.syncAuthInterceptor()
-        navController.navigate(Routes.HOME) {
-            popUpTo(Routes.LOGIN) { inclusive = true }
-        }
-    }
-
     PocketHubTheme(mode = themeMode, styleOverride = appStyle, forceDark = forceDark) {
-        val imagePreviewOpener = remember<(List<String>, Int) -> Unit> {
-            { urls, start ->
-                val first = urls.getOrNull(start) ?: urls.firstOrNull()
-                if (first != null) {
-                    navController.navigate(Routes.imagePreview(first, urls, start))
-                }
-            }
-        }
-        CompositionLocalProvider(
-            com.pockethub.ui.components.LocalImagePreviewer provides imagePreviewOpener,
-        ) {
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background,
         ) {
-            val route = startRoute
-            if (route == null) {
-                // Splash/loading — a neutral box so the theme can render behind it
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {}
-                return@Surface
+    // AUTH GATE — the whole nav graph is keyed on the auth state. A key change
+    // throws away the NavHost AND the navController, so login, sign-out and
+    // account switches all start from a fresh, empty back stack:
+    //   LoggedOut → graph = [LOGIN]  (back from login exits the app — the old
+    //                popUpTo approach left [.., SETTINGS, LOGIN] and "back"
+    //                resurrected the signed-in UI)
+    //   LoggedIn(X) → graph = [HOME, ...] built fresh for account X; switching
+    //                accounts rebuilds it for the new login, no stale screens.
+    // The activeAccount collector in AppStartupViewModel is the ONLY reactor:
+    // DB write → auth state → graph rebuild. No manual popUpTo choreography.
+    val authKey = when (val s = authState) {
+        AuthState.Loading -> "loading"
+        is AuthState.LoggedOut -> "out"
+        is AuthState.LoggedIn -> "in:${s.login}"
+    }
+    key(authKey) {
+        // Loading: Room hasn't answered yet — neutral splash box.
+        if (authState is AuthState.Loading) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {}
+        } else {
+            // A FRESH nav controller per auth identity — the core guarantee.
+            // The old design remembered one controller above the NavHost and
+            // only re-keyed the graph, so the previous back stack survived
+            // logout ([.., SETTINGS, LOGIN]) and "back" on the login page
+            // resurrected the signed-in UI. New identity → new controller →
+            // new empty stack: back on LOGIN can only exit the app.
+            val navController = rememberNavController()
+
+            // Severe-issue diagnostics: record every navigation so a crash/ANR
+            // digest can answer "which screen was the user on?".
+            androidx.compose.runtime.LaunchedEffect(navController) {
+                val reporter = (context.applicationContext as? com.pockethub.PocketHubApp)?.issueReporter
+                navController.addOnDestinationChangedListener { _, dest, _ ->
+                    reporter?.breadcrumb("→ ${dest.route ?: dest.label ?: "?"}")
+                }
             }
-            // key(route): when startRoute flips (sign-out → LOGIN), rebuild the
-            // whole graph so the back stack is RESET to [LOGIN] instead of
-            // relying on popUpTo, which silently pops nothing from stacks that
-            // never contained HOME (deep-link screens). Deterministic logout.
-            key(route) {
-            NavHost(
-                navController = navController,
-                startDestination = route,
+
+            // pockethub:// deep links forwarded by MainActivity. Only honored
+            // while signed in; otherwise discarded (a login gate can't route).
+            androidx.compose.runtime.LaunchedEffect(deepLinkUri, authKey) {
+                val uri = deepLinkUri ?: return@LaunchedEffect
+                if (authState !is AuthState.LoggedIn) {
+                    onDeepLinkConsumed()
+                    return@LaunchedEffect
+                }
+                // Strip the scheme:// prefix and treat the rest as the route
+                // (Routes.DEEP_LINK_* mirrors the Routes.*_DETAIL patterns).
+                val route = uri.host + uri.path?.let { if (it.isBlank()) "" else it }
+                if (route.isNotBlank()) {
+                    navController.navigate(route) {
+                        launchSingleTop = true
+                    }
+                }
+                onDeepLinkConsumed()
+            }
+
+            val imagePreviewOpener = remember<(List<String>, Int) -> Unit> {
+                { urls, start ->
+                    val first = urls.getOrNull(start) ?: urls.firstOrNull()
+                    if (first != null) {
+                        navController.navigate(Routes.imagePreview(first, urls, start))
+                    }
+                }
+            }
+            CompositionLocalProvider(
+                com.pockethub.ui.components.LocalImagePreviewer provides imagePreviewOpener,
+            ) {
+        NavHost(
+            navController = navController,
+            startDestination = if (authState is AuthState.LoggedIn) Routes.HOME else Routes.LOGIN,
                 enterTransition = {
                     fadeIn(tween(240)) + slideIntoContainer(
                         AnimatedContentTransitionScope.SlideDirection.Start,
@@ -259,7 +243,7 @@ fun PocketHubApp(
                 },
             ) {
                 composable(Routes.LOGIN) {
-                    LoginScreen(onLoginSuccess = ::onLoginSuccess)
+                    LoginScreen(onLoginSuccess = { /* auth flow rebuilds the gate — no navigation needed */ })
                 }
 
                 composable(Routes.HOME) {
@@ -630,15 +614,16 @@ fun PocketHubApp(
                         onBack = { navController.popBackStack() },
                     )
                 }
-            }
-            } // key(route)
-        }
+                } // CompositionLocalProvider
+            } // auth identity body
+        } // key(authKey)
+        } // Surface
 
-        // Update dialog — surfaced on top of the nav graph whenever a newer
-        // non-ignored release is detected. Auto-check runs on launch; Settings
-        // offers a manual trigger via the same flow.
-        val updateDownload by updateVm.download.collectAsState()
-        when (val s = updateState) {
+            // Update dialog — surfaced on top of the nav graph whenever a newer
+            // non-ignored release is detected. Auto-check runs on launch; Settings
+            // offers a manual trigger via the same flow.
+            val updateDownload by updateVm.download.collectAsState()
+            when (val s = updateState) {
             is UpdateViewModel.State.UpdateAvailable -> {
                 UpdateDialog(
                     info = s.info,
@@ -651,8 +636,8 @@ fun PocketHubApp(
                     onLater = { updateVm.dismiss() },
                 )
             }
-            else -> Unit
-        }
+                else -> Unit
+            }
         }
     }
 }

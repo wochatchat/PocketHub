@@ -12,6 +12,8 @@
     <string name="login_get_token_link_text">创建新 Token →</string>
     <string name="login_oauth_description">通过 GitHub OAuth 授权登录，无需创建 Token 或 OAuth 应用。</string>
     <string name="login_selfhost_link_text">自部署 OAuth 登录设置 →</string>
+    <string name="login_saved_accounts">已保存的账号 · 点击直接进入</string>
+    <string name="login_saved_account_refreshable">可自动续期</string>
     <string name="login_selfhost_description">已有自己部署的验证服务？配置后即可用它登录（可选）。</string>
     <string name="oauth_app_new_link">https://github.com/settings/applications/new</string>
     <string name="oauth_app_new_link_text">创建 OAuth App →</string>
