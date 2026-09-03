@@ -58,9 +58,13 @@ class ArtifactExtractor @Inject constructor() {
     fun listExtracted(destDir: File): List<ExtractedFile>? {
         if (!destDir.isDirectory) return null
         val files = destDir.walkTopDown().filter { it.isFile }
-            .sortedByDescending { it.relativeTo(destDir).count { c -> c == '/' } }
-            .map { ExtractedFile(name = it.relativeTo(destDir).invariantSeparatorsPath, path = it.absolutePath, size = it.length()) }
+            .map { f ->
+                val rel = f.relativeTo(destDir).path.replace(File.separatorChar, '/')
+                ExtractedFile(name = rel, path = f.absolutePath, size = f.length())
+            }
             .toList()
+        // Deepest first so parent dirs sort after their children.
+        files.sortByDescending { it.name.count { c -> c == '/' } }
         return files.ifEmpty { null }
     }
 
