@@ -1,24 +1,29 @@
 {
-  "version": "0.4.4",
+  "version": "0.4.5",
   "summary": {
-    "zh": "提 issue 和评论现在支持上传图片了，报 bug 贴截图不用再绕道图床。注意：附件图片保存在开发者提供的图床服务，单个账号每日限 50 张，请勿上传隐私截图。",
-    "en": "Issue and comment image attachments are here — no more external image hosting for bug reports. Note: images are stored on a developer-provided image host (50 uploads/account/day). Avoid posting private screenshots."
+    "zh": "一批界面细节修复：评论操作菜单不再跑偏，「我」页不再残留账号切换块，工作流列表新增脚本/分支筛选。",
+    "en": "A batch of UI polish: the comment action menu stays put, the profile tab no longer shows a stray account block, and the Workflows tab gains script/branch filters."
   },
   "items": [
     {
+      "type": "fix",
+      "zh": "修复：issue 评论的「编辑/删除/复制」菜单弹窗位置漂移，现在紧贴省略号按钮弹出",
+      "en": "Comment edit/delete/copy popup no longer drifts — it opens right under the ellipsis button"
+    },
+    {
+      "type": "fix",
+      "zh": "修复：工作流详情页已下载过的构建产物重进页面后显示异常、点击无响应，现在能正确恢复文件列表",
+      "en": "Run artifacts already downloaded now restore their file list on revisits instead of showing a dead download button"
+    },
+    {
+      "type": "fix",
+      "zh": "修复：「我」页底部残留的多余账号切换块（设置页已有完整账号管理）",
+      "en": "Removed the stray account switcher at the bottom of the profile tab (Settings already has full account management)"
+    },
+    {
       "type": "feat",
-      "zh": "新增：提 issue 和发评论支持上传图片，自动以图片形式展示",
-      "en": "Attach images to new issues and comments; they render inline"
-    },
-    {
-      "type": "improve",
-      "zh": "删除或编辑带图内容时自动清理图床数据",
-      "en": "Image hosting data is cleaned up when content is deleted or edited"
-    },
-    {
-      "type": "improve",
-      "zh": "图片上传支持进度显示、失败重试，超过 2 MB 的图会在选择时提示",
-      "en": "Upload progress, retry on failure, and a 2 MB per-image limit"
+      "zh": "工作流 tab 新增筛选 chips：上行选运行脚本、下行选分支，均可横滑；仓库无工作流脚本时不显示，仅一个分支时隐藏分支行",
+      "en": "Workflows tab filter chips: pick a workflow (row 1) and/or branch (row 2), horizontally scrollable; hidden entirely when the repo has no workflow scripts, branch row hidden with ≤1 branch"
     }
   ]
 }
