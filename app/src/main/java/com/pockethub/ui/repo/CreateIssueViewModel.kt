@@ -404,6 +404,8 @@ class CreateIssueViewModel @Inject constructor(
                 _actionError.value = when (e) {
                     is AttachmentUploader.StorageFullException ->
                         appContext.getString(com.pockethub.R.string.attachment_storage_full)
+                    is AttachmentUploader.ImageTooLargeException ->
+                        formatTooLarge(appContext, e.sizeBytes)
                     is AttachmentUploader.UploadException ->
                         appContext.getString(com.pockethub.R.string.attachment_upload_failed, e.fileName)
                     else -> e.userMessage("Failed to create")

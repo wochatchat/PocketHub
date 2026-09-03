@@ -21,7 +21,7 @@ class IssueDetailViewModel @Inject constructor(
     private val issueReporter: com.pockethub.data.reporting.IssueReporter,
     private val api: GitHubApi,
     private val accounts: AccountRepository,
-    attachmentUploader: com.pockethub.data.remote.AttachmentUploader,
+    private val attachmentUploader: com.pockethub.data.remote.AttachmentUploader,
     @dagger.hilt.android.qualifiers.ApplicationContext private val appContext: android.content.Context,
 ) : ViewModel() {
     private val _issue = MutableStateFlow<Issue?>(null)
@@ -211,6 +211,8 @@ class IssueDetailViewModel @Inject constructor(
                 _actionMessage.value = when (e) {
                     is com.pockethub.data.remote.AttachmentUploader.StorageFullException ->
                         appContext.getString(com.pockethub.R.string.attachment_storage_full)
+                    is com.pockethub.data.remote.AttachmentUploader.ImageTooLargeException ->
+                        formatTooLarge(appContext, e.sizeBytes)
                     is com.pockethub.data.remote.AttachmentUploader.UploadException ->
                         appContext.getString(com.pockethub.R.string.attachment_upload_failed, e.fileName)
                     else -> e.userMessage("Failed to post comment")
@@ -239,12 +241,18 @@ class IssueDetailViewModel @Inject constructor(
     fun editComment(commentId: Long, newBody: String) {
         val owner = loadedOwner ?: return; val repo = loadedRepo ?: return
         if (newBody.isBlank() || commentId in _busyComments.value) return
+        val oldBody = _comments.value.firstOrNull { it.id == commentId }?.body
         viewModelScope.launch {
             _busyComments.update { it + commentId }; _actionMessage.value = null
             try {
                 val updated = api.editIssueComment(owner, repo, commentId, GitHubApi.CommentRequest(newBody))
                 _comments.update { list -> list.map { if (it.id == commentId) updated else it } }
                 _actionMessage.value = "Comment updated"
+                // Images dropped by the edit are now unreferenced — clean them up.
+                AttachmentLifecycle.cleanupRemoved(
+                    attachmentUploader,
+                    AttachmentLifecycle.referencedUrls(oldBody) - AttachmentLifecycle.referencedUrls(newBody).toSet(),
+                )
             } catch (e: Exception) { _actionMessage.value = e.userMessage("Failed to update comment") }
             finally { _busyComments.update { it - commentId } }
         }
@@ -253,6 +261,7 @@ class IssueDetailViewModel @Inject constructor(
     fun deleteComment(commentId: Long) {
         val owner = loadedOwner ?: return; val repo = loadedRepo ?: return
         if (commentId in _busyComments.value) return
+        val oldBody = _comments.value.firstOrNull { it.id == commentId }?.body
         viewModelScope.launch {
             _busyComments.update { it + commentId }; _actionMessage.value = null
             try {
@@ -260,6 +269,11 @@ class IssueDetailViewModel @Inject constructor(
                 _comments.update { list -> list.filter { it.id != commentId } }
                 _issue.update { it?.copy(comments = (it.comments - 1).coerceAtLeast(0)) }
                 _viewerReactions.update { it - commentId }
+                // The comment is gone — its images have no remaining reference.
+                AttachmentLifecycle.cleanupRemoved(
+                    attachmentUploader,
+                    AttachmentLifecycle.referencedUrls(oldBody),
+                )
             } catch (e: Exception) { _actionMessage.value = e.userMessage("Failed to delete comment") }
             finally { _busyComments.update { it - commentId } }
         }
@@ -335,11 +349,17 @@ class IssueDetailViewModel @Inject constructor(
     }
 
     fun saveIssue(title: String, body: String, labels: List<String>, assignees: List<String>, milestone: Int?) {
-        save(IssueUpdate(title, body, labels, assignees, milestone = milestone), "Issue 已更新")
+        // Images dropped by the body edit become unreferenced — clean them up
+        // after the update lands (state toggles go through save() with
+        // body=null and never touch attachments).
+        val removed = AttachmentLifecycle.referencedUrls(_issue.value?.body) -
+            AttachmentLifecycle.referencedUrls(body).toSet()
+        save(IssueUpdate(title, body, labels, assignees, milestone = milestone), "Issue 已更新",
+            afterSuccess = { AttachmentLifecycle.cleanupRemoved(attachmentUploader, removed) })
     }
 
     private data class IssueUpdate(val title: String? = null, val body: String? = null, val labels: List<String>? = null, val assignees: List<String>? = null, val milestone: Int? = null, val state: String? = null)
-    private fun save(change: IssueUpdate, success: String) {
+    private fun save(change: IssueUpdate, success: String, afterSuccess: suspend () -> Unit = {}) {
         val owner = loadedOwner ?: return; val repo = loadedRepo ?: return; val number = loadedNumber ?: return
         if (_isSaving.value || _isTogglingState.value) return
         viewModelScope.launch {
@@ -348,6 +368,7 @@ class IssueDetailViewModel @Inject constructor(
             try {
                 _issue.value = api.updateIssue(owner, repo, number, GitHubApi.IssueUpdateRequest(change.title, change.body, change.state, change.labels, change.assignees, change.milestone))
                 _actionMessage.value = success
+                afterSuccess()
             } catch (e: Exception) { _actionMessage.value = e.userMessage("Issue 更新失败") }
             finally { _isSaving.value = false; _isTogglingState.value = false }
         }

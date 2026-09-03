@@ -46,8 +46,8 @@ class AttachmentUploader @Inject constructor(
     class StorageFullException : IOException("storage full")
 
     /** Image over [MAX_IMAGE_BYTES] — the app checks this at pick time. */
-    class ImageTooLargeException(val fileName: String, val sizeBytes: Int) :
-        IOException("image too large")
+    class ImageTooLargeException(fileName: String, val sizeBytes: Int) :
+        UploadException(fileName, "image too large")
 
     /** Raised when an upload fails; [fileName] names the culprit. */
     class UploadException(val fileName: String, message: String, cause: Throwable? = null) :
@@ -136,4 +136,23 @@ class AttachmentUploader @Inject constructor(
         }
 
     private fun urlEncode(name: String): String = URLEncoder.encode(name, "UTF-8")
+
+    /**
+     * Best-effort delete of a previously uploaded image (full
+     * <base>/a/<login>/<name> URL). Requires the current account to own it —
+     * the worker enforces per-login ownership and 404s are ignored.
+     */
+    suspend fun delete(url: String) {
+        val token = accounts.getActiveToken()
+        if (token.isBlank() || !url.startsWith(UPLOAD_BASE_URL)) return
+        withContext(Dispatchers.IO) {
+            runCatching {
+                client.newCall(
+                    Request.Builder().url(url).delete()
+                        .header("Authorization", "Bearer $token")
+                        .build()
+                ).execute()
+            }.close()
+        }
+    }
 }
