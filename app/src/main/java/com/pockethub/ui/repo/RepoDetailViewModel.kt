@@ -176,6 +176,12 @@ class RepoDetailViewModel @Inject constructor(
     internal val _workflowBranch = MutableStateFlow<String?>(null)
     val workflowBranch: StateFlow<String?> = _workflowBranch.asStateFlow()
 
+    // Workflows tab filter chips. null = "所有" (no filtering on that axis).
+    internal val _workflowFilterId = MutableStateFlow<Long?>(null)
+    val workflowFilterId: StateFlow<Long?> = _workflowFilterId.asStateFlow()
+    internal val _workflowFilterBranch = MutableStateFlow<String?>(null)
+    val workflowFilterBranch: StateFlow<String?> = _workflowFilterBranch.asStateFlow()
+
     internal val _isDispatching = MutableStateFlow(false)
     val isDispatching: StateFlow<Boolean> = _isDispatching.asStateFlow()
 
@@ -280,6 +286,9 @@ class RepoDetailViewModel @Inject constructor(
         // doesn't show stale selections from a different repo.
         _workflowBranch.update { null }
         _branches.update { emptyList() }
+        // Filter chips belong to the previous repo — reset to "所有".
+        _workflowFilterId.update { null }
+        _workflowFilterBranch.update { null }
         _currentSlug = "$owner/$repo"
         return viewModelScope.launch {
             _isLoading.update { true }

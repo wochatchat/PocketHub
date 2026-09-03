@@ -40,9 +40,6 @@ import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Merge
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.SwapHoriz
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -99,7 +96,6 @@ fun ProfileScreen(
     // content exists, covering cases where the saveable state was clamped to
     // the top while the list was briefly empty at restore time.
     val listState = com.pockethub.ui.components.rememberRestorableListState(contentReady = user != null)
-    val allAccounts by vm.allAccounts.collectAsState()
     val activeAccount by vm.activeAccount.collectAsState()
     val topRepos by vm.topRepos.collectAsState()
     val isLoadingRepos by vm.isLoadingRepos.collectAsState()
@@ -281,26 +277,10 @@ fun ProfileScreen(
             // Contact / extra info
             item { AdditionalInfo(user) }
 
-            // Multi-account section — account manager; show even for a single
-            // account so it stays discoverable (rows come and go with sign-out).
-            if (allAccounts.isNotEmpty()) {
-                item {
-                    Text(
-                        stringResource(R.string.accounts),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                    )
-                }
-                items(allAccounts, key = { it.id }) { account ->
-                    AccountRow(
-                        account = account,
-                        isActive = account.isActive,
-                        onSwitch = { vm.switchAccount(account.id) },
-                        onRemove = { vm.removeAccount(account.id) },
-                    )
-                }
-            }
+            // NOTE: the multi-account switcher lives in Settings now
+            // (d48f796/f47a788). A duplicate left here by c667920 was removed —
+            // it rendered a stray "账号/(当前, @login)" block at the bottom of
+            // this tab. Don't re-add it; extend the Settings switcher instead.
 
             item { Spacer(Modifier.height(24.dp)) }
         }
@@ -435,39 +415,6 @@ private fun AdditionalInfo(user: User?) {
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun AccountRow(
-    account: AccountEntity,
-    isActive: Boolean,
-    onSwitch: () -> Unit,
-    onRemove: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        PhAsyncImage(
-            model = account.avatarUrl,
-            contentDescription = null,
-            modifier = Modifier.size(28.dp).clip(CircleShape),
-        )
-        Spacer(Modifier.width(8.dp))
-        Column(Modifier.weight(1f)) {
-            Text("@${account.login}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-        }
-        if (isActive) {
-            AssistChip(
-                onClick = {},
-                label = { Text(stringResource(R.string.active)) },
-                colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-            )
-        } else {
-            IconButton(onClick = onSwitch) { Icon(Icons.Outlined.SwapHoriz, contentDescription = stringResource(R.string.action_switch)) }
-        }
-        IconButton(onClick = onRemove) { Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.action_remove)) }
     }
 }
 

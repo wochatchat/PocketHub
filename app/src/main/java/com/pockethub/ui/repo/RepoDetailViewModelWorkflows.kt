@@ -5,14 +5,26 @@ import androidx.lifecycle.viewModelScope
 import com.pockethub.util.userMessage
 import com.pockethub.data.remote.GitHubApi
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+/**
+ * Load the tab's run list honouring the current filter chips. Server-side
+ * filtering: `branch` on the runs endpoint, workflow via the per-workflow
+ * runs endpoint (branch query supported there too).
+ */
 internal fun RepoDetailViewModel.loadWorkflowRuns(owner: String, repo: String, branch: String? = null): Job {
+    // Explicit branch argument (dispatch-dialog callers) overrides the chip.
+    val effectiveBranch = branch ?: _workflowFilterBranch.value
+    val workflowId = _workflowFilterId.value
     return viewModelScope.launch {
         _isLoadingWorkflowRuns.update { true }
         try {
-            val resp = api.getWorkflowRuns(owner, repo, branch = branch)
+            val resp = if (workflowId != null) {
+                api.getWorkflowRunsForWorkflow(owner, repo, workflowId, branch = effectiveBranch)
+            } else {
+                api.getWorkflowRuns(owner, repo, branch = effectiveBranch)
+            }
             _workflowRuns.update { resp.runs }
         } catch (e: Exception) {
             issueReporter.reportError("RepoDetail", "loadWorkflowRuns", e)
@@ -22,6 +34,20 @@ internal fun RepoDetailViewModel.loadWorkflowRuns(owner: String, repo: String, b
             _isLoadingWorkflowRuns.update { false }
         }
     }
+}
+
+/**
+ * Apply the filter-chip selection and refresh the run list. Also makes sure
+ * the chip rows have data (workflow definitions + branch names) — they load
+ * lazily alongside the first tab visit.
+ */
+internal fun RepoDetailViewModel.setWorkflowFilter(owner: String, repo: String, workflowId: Long?, branch: String?) {
+    val changed = _workflowFilterId.value != workflowId || _workflowFilterBranch.value != branch
+    _workflowFilterId.update { workflowId }
+    _workflowFilterBranch.update { branch }
+    if (_workflows.value.isEmpty()) loadWorkflows(owner, repo)
+    if (_branches.value.isEmpty()) loadBranches(owner, repo)
+    if (changed) loadWorkflowRuns(owner, repo)
 }
 
 /** Load workflow definitions so the user can pick one to dispatch manually. */
@@ -50,7 +76,6 @@ internal fun RepoDetailViewModel.resetWorkflowBranch() {
     _workflowBranch.update { null }
     _branches.update { emptyList() }
 }
-
 /** Trigger a `workflow_dispatch` event for the given workflow on the given ref. */
 internal fun RepoDetailViewModel.dispatchWorkflow(owner: String, repo: String, workflowId: Long, ref: String) {
     viewModelScope.launch {

@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
@@ -88,19 +89,47 @@ class WorkflowRunDetailViewModel @Inject constructor(
             downloadManager.allFlow().collect { downloads ->
                 val byUrl = downloads.associateBy { it.url }
                 _artifacts.update { list ->
-                    list.map { ui ->
-                        val dl = byUrl[ui.artifact.archiveDownloadUrl]
-                        when {
-                            dl == null -> ui.copy(download = null)
-                            dl.status == "DONE" && ui.extractedFiles == null && !ui.extracting -> {
-                                triggerExtract(ui, dl)
-                                ui.copy(download = dl, extracting = true)
-                            }
-                            else -> ui.copy(download = dl)
-                        }
-                    }
+                    list.map { ui -> attachDownload(ui, byUrl[ui.artifact.archiveDownloadUrl]) }
                 }
             }
+        }
+    }
+
+    /**
+     * Attach the current download state to an artifact card. A DONE entry whose
+     * extraction dir still exists is rehydrated straight from disk (no
+     * re-download / re-extract); a DONE zip that was never extracted triggers
+     * extraction. This is what lets card state survive screen re-entry.
+     */
+    private suspend fun attachDownload(ui: ArtifactUi, dl: DownloadEntity?): ArtifactUi {
+        if (dl == null) return ui.copy(download = null)
+        if (dl.status != "DONE") return ui.copy(download = dl)
+        if (ui.extractedFiles != null || ui.extracting) return ui.copy(download = dl)
+        val owner = artifactsOwner ?: return ui.copy(download = dl)
+        val repo = artifactsRepo ?: return ui.copy(download = dl)
+        val destDir = File(
+            downloadManager.dirFor("$owner/$repo"),
+            "extracted/${ui.artifact.name}-${ui.artifact.id}",
+        )
+        val restored = extractor.listExtracted(destDir)
+        if (restored != null) {
+            return ui.copy(download = dl, extracting = false, extractedFiles = restored)
+        }
+        triggerExtract(ui, dl)
+        return ui.copy(download = dl)
+    }
+
+    /**
+     * One-shot reconciliation after the artifact list loads. The downloads Room
+     * Flow only emits on table changes, so on a revisit (where it fired before
+     * the artifact list arrived) the DONE rows would otherwise never reach the
+     * cards — they'd show stale download buttons whose taps are silently
+     * no-opped by DownloadManager's dedupe.
+     */
+    private suspend fun syncDownloadState() {
+        val byUrl = downloadManager.allFlow().first().associateBy { it.url }
+        _artifacts.update { list ->
+            list.map { ui -> attachDownload(ui, byUrl[ui.artifact.archiveDownloadUrl]) }
         }
     }
 
@@ -153,6 +182,7 @@ class WorkflowRunDetailViewModel @Inject constructor(
                     page++
                 }
                 _artifacts.update { all.map { ArtifactUi(artifact = it) } }
+                syncDownloadState()
             } catch (e: Exception) {
                 issueReporter.reportError("WorkflowRunDetail", "loadArtifacts", e)
                 _artifactsError.update { e.userMessage("Failed to load artifacts") }
@@ -167,6 +197,21 @@ class WorkflowRunDetailViewModel @Inject constructor(
         if (artifact.expired) return
         val safeName = artifact.name.replace(Regex("[^A-Za-z0-9._-]"), "_")
         viewModelScope.launch {
+            val existing = downloadManager.byUrl(artifact.archiveDownloadUrl)
+            // Already downloaded: don't enqueue a second copy — rehydrate the
+            // card (file list / retry) instead of a silent no-op when
+            // DownloadManager's dedupe swallows the duplicate enqueue.
+            if (existing?.status == "DONE") {
+                val dl = existing.takeIf { File(existing.localPath).exists() }
+                    ?: existing.copy(status = "FAILED", errorMsg = "File deleted")
+                _artifacts.update { list ->
+                    list.map { ui ->
+                        if (ui.artifact.archiveDownloadUrl == artifact.archiveDownloadUrl) attachDownload(ui, dl)
+                        else ui
+                    }
+                }
+                if (dl.status == "DONE") return@launch
+            }
             downloadManager.enqueue(
                 DownloadManager.EnqueueRequest(
                     url = artifact.archiveDownloadUrl,

@@ -126,6 +126,8 @@ fun RepoDetailScreen(
     val workflows by vm.workflows.collectAsState()
     val isLoadingWorkflows by vm.isLoadingWorkflows.collectAsState()
     val isLoadingWorkflowRuns by vm.isLoadingWorkflowRuns.collectAsState()
+    val workflowFilterId by vm.workflowFilterId.collectAsState()
+    val workflowFilterBranch by vm.workflowFilterBranch.collectAsState()
     val commitsRefreshTick by vm.commitsRefreshTick.collectAsState()
     // Branch picked in the Code tab. Falls back to the repo default branch so
     // the Commits tab follows the Code tab's selection; null until loaded.
@@ -184,7 +186,13 @@ fun RepoDetailScreen(
         // Run list intentionally ignores the Code tab branch — show ALL workflow
         // runs regardless of which branch is being browsed. (The dispatch dialog
         // still uses the branch for choosing where to run a workflow.)
-        if (tab == RepoTab.WORKFLOWS) vm.loadWorkflowRuns(owner, repo)
+        if (tab == RepoTab.WORKFLOWS) {
+            vm.loadWorkflowRuns(owner, repo)
+            // Chip-row sources: workflow definitions + branch names. Loaded
+            // lazily on first tab visit; a no-op when already present.
+            if (workflows.isEmpty()) vm.loadWorkflows(owner, repo)
+            if (branches.isEmpty()) vm.loadBranches(owner, repo)
+        }
     }
     LaunchedEffect(forkMessage) {
         forkMessage?.let {
@@ -535,6 +543,11 @@ fun RepoDetailScreen(
                 RepoTab.WORKFLOWS -> WorkflowsTab(
                     workflowRuns,
                     isLoading = isLoadingWorkflowRuns,
+                    workflows = workflows,
+                    branches = branches,
+                    selectedWorkflowId = workflowFilterId,
+                    selectedBranch = workflowFilterBranch,
+                    onFilterChange = { wfId, branch -> vm.setWorkflowFilter(owner, repo, wfId, branch) },
                     onNavigateToUser = onNavigateToUser,
                     onNavigateToWorkflowRun = onNavigateToWorkflowRun,
                 )

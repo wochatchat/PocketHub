@@ -21,7 +21,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,6 +38,7 @@ import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.runtime.remember
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.DropdownMenu
@@ -66,22 +69,143 @@ import java.util.Locale
 internal fun WorkflowsTab(
     runs: List<GitHubApi.WorkflowRun>,
     isLoading: Boolean = false,
+    workflows: List<GitHubApi.Workflow> = emptyList(),
+    branches: List<GitHubApi.Branch> = emptyList(),
+    selectedWorkflowId: Long? = null,
+    selectedBranch: String? = null,
+    onFilterChange: (workflowId: Long?, branch: String?) -> Unit = { _, _ -> },
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToWorkflowRun: (Long) -> Unit = {},
 ) {
-    if (isLoading && runs.isEmpty()) {
-        com.pockethub.ui.components.SkeletonList(Modifier.fillMaxSize(), rows = 7, topPadding = 8.dp)
-        return
+    Column(Modifier.fillMaxSize()) {
+        // Filter chips: row 1 = workflow (run script), row 2 = branch. Chips
+        // render only when the repo actually HAS workflow scripts — a repo
+        // without any shows no filter UI at all (branch row included). The
+        // branch row additionally hides when the repo has at most one branch.
+        if (workflows.isNotEmpty()) {
+            FilterChipRow(
+                modifier = Modifier.padding(top = 6.dp),
+            ) {
+                WorkflowFilterRow(
+                    workflows = workflows,
+                    selectedWorkflowId = selectedWorkflowId,
+                    onSelect = { onFilterChange(it, selectedBranch) },
+                )
+                if (branches.size > 1) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    BranchFilterRow(
+                        branches = branches,
+                        selectedBranch = selectedBranch,
+                        onSelect = { onFilterChange(selectedWorkflowId, it) },
+                    )
+                }
+            }
+        }
+        when {
+            isLoading && runs.isEmpty() -> {
+                com.pockethub.ui.components.SkeletonList(Modifier.fillMaxSize(), rows = 7, topPadding = 8.dp)
+            }
+            runs.isEmpty() -> {
+                com.pockethub.ui.components.EmptyStateV2(
+                    icon = androidx.compose.material.icons.Icons.Outlined.PlayArrow,
+                    title = stringResource(R.string.no_workflow_runs),
+                )
+            }
+            else -> WorkflowRunList(
+                runs = runs,
+                onNavigateToUser = onNavigateToUser,
+                onNavigateToWorkflowRun = onNavigateToWorkflowRun,
+            )
+        }
     }
-    if (runs.isEmpty()) {
-        com.pockethub.ui.components.EmptyStateV2(
-            icon = androidx.compose.material.icons.Icons.Outlined.PlayArrow,
-            title = stringResource(R.string.no_workflow_runs),
-        )
-        return
+}
+
+/** Vertical container for the filter chip rows. */
+@Composable
+private fun FilterChipRow(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        content()
     }
-    // A refresh replaces the whole list — jump back to the newest run at the
-    // top instead of staying scrolled wherever the old list was.
+}
+
+/** Horizontal scrolling row of filter chips with an "所有" (all) first chip. */
+@Composable
+private fun FilterChipScrollRow(
+    selected: Boolean,
+    onSelect: () -> Unit,
+    chips: List<FilterChipData>,
+) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        item {
+            FilterChip(
+                selected = selected,
+                onClick = onSelect,
+                label = { Text(stringResource(R.string.repo_filter_all)) },
+            )
+        }
+        items(chips, key = { it.key }) { chip ->
+            FilterChip(
+                selected = chip.selected,
+                onClick = chip.onClick,
+                label = { Text(chip.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            )
+        }
+    }
+}
+
+internal data class FilterChipData(val key: String, val label: String, val selected: Boolean, val onClick: () -> Unit)
+
+@Composable
+private fun WorkflowFilterRow(
+    workflows: List<GitHubApi.Workflow>,
+    selectedWorkflowId: Long?,
+    onSelect: (Long?) -> Unit,
+) {
+    FilterChipScrollRow(
+        selected = selectedWorkflowId == null,
+        onSelect = { onSelect(null) },
+        chips = workflows.map { wf ->
+            FilterChipData(
+                key = "wf-${wf.id}",
+                label = wf.name.ifBlank { wf.path.substringAfterLast('/') },
+                selected = selectedWorkflowId == wf.id,
+                onClick = { onSelect(wf.id) },
+            )
+        },
+    )
+}
+
+@Composable
+private fun BranchFilterRow(
+    branches: List<GitHubApi.Branch>,
+    selectedBranch: String?,
+    onSelect: (String?) -> Unit,
+) {
+    FilterChipScrollRow(
+        selected = selectedBranch == null,
+        onSelect = { onSelect(null) },
+        chips = branches.map { b ->
+            FilterChipData(
+                key = "br-${b.name}",
+                label = b.name,
+                selected = selectedBranch == b.name,
+                onClick = { onSelect(b.name) },
+            )
+        },
+    )
+}
+
+/** A refresh replaces the whole list — jump back to the newest run at the
+ *  top instead of staying scrolled wherever the old list was. */
+@Composable
+private fun WorkflowRunList(
+    runs: List<GitHubApi.WorkflowRun>,
+    onNavigateToUser: (String) -> Unit,
+    onNavigateToWorkflowRun: (Long) -> Unit,
+) {
     val listState = rememberLazyListState()
     LaunchedEffect(runs.firstOrNull()?.id, runs.size) {
         listState.scrollToItem(0)
