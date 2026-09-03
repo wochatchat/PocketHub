@@ -656,4 +656,9 @@
     <string name="attachment_too_large">Image is %.1f MB — the limit is 2 MB. Please pick a smaller screenshot.</string>
     <string name="attachment_too_large_unknown">Image is over the 2 MB limit. Please pick a smaller screenshot.</string>
     <string name="attachment_rate_limited">Too many uploads in a row — please wait a few seconds and retry.</string>
+    <string name="wf_pill_branch">branch</string>
+    <string name="wf_pill_event">event</string>
+    <string name="wf_started_at">Started %1$s</string>
+    <string name="wf_duration_min">Duration %1$s min</string>
+    <string name="wf_no_step_metadata">No step metadata</string>
 </resources>

@@ -248,9 +248,9 @@ private fun RunHeaderCard(run: GitHubApi.WorkflowRun?, dateFmt: DateFormat) {
             Text("run #${r.runNumber}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            InfoPill(label = "branch", value = r.headBranch ?: "—")
+            InfoPill(label = stringResource(R.string.wf_pill_branch), value = r.headBranch ?: "—")
             Spacer(Modifier.width(10.dp))
-            InfoPill(label = "event", value = r.event ?: "—")
+            InfoPill(label = stringResource(R.string.wf_pill_event), value = r.event ?: "—")
         }
         Text(
             "SHA ${r.headSha?.take(7) ?: "—"}",
@@ -303,7 +303,7 @@ private fun JobCard(
             Spacer(Modifier.width(10.dp))
             job.startedAt?.let {
                 Text(
-                    "Started ${dateFmt.format(parseIso(it))}",
+                    stringResource(R.string.wf_started_at, dateFmt.format(parseIso(it))),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -312,7 +312,7 @@ private fun JobCard(
             val durationMins = jobDurationMinutes(job)
             if (durationMins > 0) {
                 Text(
-                    "Duration ${"%.1f".format(durationMins)} min",
+                    stringResource(R.string.wf_duration_min, "%.1f".format(durationMins)),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -321,7 +321,7 @@ private fun JobCard(
         if (expanded) {
             Spacer(Modifier.height(4.dp))
             if (job.steps.isEmpty()) {
-                Text("No step metadata", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.wf_no_step_metadata), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     job.steps.forEachIndexed { localIndex, step ->

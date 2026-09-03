@@ -654,4 +654,9 @@
     <string name="attachment_too_large">图片 %.1f MB，超过 2 MB 上限，请换一张更小的截图。</string>
     <string name="attachment_too_large_unknown">图片超过 2 MB 上限，请换一张更小的截图。</string>
     <string name="attachment_rate_limited">上传太频繁，请稍等几秒后重试。</string>
+    <string name="wf_pill_branch">分支</string>
+    <string name="wf_pill_event">触发</string>
+    <string name="wf_started_at">开始于 %1$s</string>
+    <string name="wf_duration_min">耗时 %1$s 分钟</string>
+    <string name="wf_no_step_metadata">没有步骤详情</string>
 </resources>

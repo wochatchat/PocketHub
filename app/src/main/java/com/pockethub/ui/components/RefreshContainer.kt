@@ -26,6 +26,11 @@ fun RefreshContainer(
     state: PullToRefreshState = rememberPullToRefreshState(),
     content: @Composable () -> Unit,
 ) {
+    // Tactile acknowledgment when a pull actually triggers a refresh.
+    val hapticView = androidx.compose.ui.platform.LocalView.current
+    androidx.compose.runtime.LaunchedEffect(isRefreshing) {
+        if (isRefreshing) Haptics.confirm(hapticView)
+    }
     // Auto-clear the indicator once refreshing stops, so a lingering true doesn't
     // leave a stuck spinner after the owning screen rotates or re-composes.
     PullToRefreshBox(
