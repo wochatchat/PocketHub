@@ -78,24 +78,21 @@ internal fun WorkflowsTab(
     onNavigateToWorkflowRun: (Long) -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize()) {
-        // Filter chips: row 1 = workflow (run script), row 2 = branch. The
-        // branch row hides entirely when the repo has at most one branch —
-        // nothing to filter. Each row scrolls horizontally when chips overflow.
-        if (workflows.isNotEmpty() || branches.size > 1) {
+        // Filter chips: row 1 = workflow (run script), row 2 = branch. Chips
+        // render only when the repo actually HAS workflow scripts — a repo
+        // without any shows no filter UI at all (branch row included). The
+        // branch row additionally hides when the repo has at most one branch.
+        if (workflows.isNotEmpty()) {
             FilterChipRow(
                 modifier = Modifier.padding(top = 6.dp),
             ) {
-                if (workflows.isNotEmpty()) {
-                    WorkflowFilterRow(
-                        workflows = workflows,
-                        selectedWorkflowId = selectedWorkflowId,
-                        onSelect = { onFilterChange(it, selectedBranch) },
-                    )
-                    if (branches.size > 1) {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-                    }
-                }
+                WorkflowFilterRow(
+                    workflows = workflows,
+                    selectedWorkflowId = selectedWorkflowId,
+                    onSelect = { onFilterChange(it, selectedBranch) },
+                )
                 if (branches.size > 1) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                     BranchFilterRow(
                         branches = branches,
                         selectedBranch = selectedBranch,
