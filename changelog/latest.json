@@ -1,29 +1,24 @@
 {
-  "version": "0.4.3",
+  "version": "0.4.4",
   "summary": {
-    "zh": "修复登出后返回键重回已登录界面的问题。因签名更换，部分老版本可能升级失败，卸载重装一次即可，抱歉！",
-    "en": "Fixed the sign-out back-stack bug. Note: the signing key rotation may make upgrades fail on some old versions — uninstall, reinstall once, sign in again. Sorry!"
+    "zh": "提 issue 和评论现在支持上传图片了，报 bug 贴截图不用再绕道图床。注意：附件图片保存在开发者提供的图床服务，单个账号每日限 50 张，请勿上传隐私截图。",
+    "en": "Issue and comment image attachments are here — no more external image hosting for bug reports. Note: images are stored on a developer-provided image host (50 uploads/account/day). Avoid posting private screenshots."
   },
   "items": [
     {
-      "type": "fix",
-      "zh": "修复登出后按系统返回键又回到已登录界面的问题",
-      "en": "Fix back button returning to the signed-in UI after sign-out"
+      "type": "feat",
+      "zh": "新增：提 issue 和发评论支持上传图片，自动以图片形式展示",
+      "en": "Attach images to new issues and comments; they render inline"
     },
     {
       "type": "improve",
-      "zh": "修复登出与多账号切换后残留旧界面状态的问题",
-      "en": "Clean navigation state after sign-out and account switches"
+      "zh": "删除或编辑带图内容时自动清理图床数据",
+      "en": "Image hosting data is cleaned up when content is deleted or edited"
     },
     {
       "type": "improve",
-      "zh": "登录页不再显示已保存的账号信息",
-      "en": "The login page no longer lists saved accounts"
-    },
-    {
-      "type": "improve",
-      "zh": "致歉说明：签名更换导致部分老版本可能更新升级失败，卸载后重新安装并登录一次即可，给大家带来不便深表歉意",
-      "en": "About the signing key rotation: if the update fails to install, uninstall and reinstall once, then sign in again. Sincere apologies for the inconvenience!"
+      "zh": "图片上传支持进度显示、失败重试，超过 2 MB 的图会在选择时提示",
+      "en": "Upload progress, retry on failure, and a 2 MB per-image limit"
     }
   ]
 }
