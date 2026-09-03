@@ -17,6 +17,7 @@ package com.pockethub.data.remote
 //   -> 507 {error:"quota_full"} CF storage full — user must contact developer
 //   -> 413/415/401             too large / not an image / invalid token
 
+import com.pockethub.data.remote.AccountRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -45,13 +46,16 @@ class AttachmentUploader @Inject constructor(
     /** CF storage quota exhausted — surfaced with a dedicated message. */
     class StorageFullException : IOException("storage full")
 
+    /**
+     * Raised when an upload fails; [fileName] names the culprit. Open so the
+     * oversize sibling can extend it and share the failure-chip path.
+     */
+    open class UploadException(val fileName: String, message: String, cause: Throwable? = null) :
+        IOException(message, cause)
+
     /** Image over [MAX_IMAGE_BYTES] — the app checks this at pick time. */
     class ImageTooLargeException(fileName: String, val sizeBytes: Int) :
         UploadException(fileName, "image too large")
-
-    /** Raised when an upload fails; [fileName] names the culprit. */
-    class UploadException(val fileName: String, message: String, cause: Throwable? = null) :
-        IOException(message, cause)
 
     /**
      * Upload one image, returning its permanent public URL.
@@ -152,7 +156,7 @@ class AttachmentUploader @Inject constructor(
                         .header("Authorization", "Bearer $token")
                         .build()
                 ).execute()
-            }.close()
+            }.getOrNull()?.close()
         }
     }
 }

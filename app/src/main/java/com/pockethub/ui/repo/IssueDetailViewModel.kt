@@ -249,9 +249,10 @@ class IssueDetailViewModel @Inject constructor(
                 _comments.update { list -> list.map { if (it.id == commentId) updated else it } }
                 _actionMessage.value = "Comment updated"
                 // Images dropped by the edit are now unreferenced — clean them up.
-                AttachmentLifecycle.cleanupRemoved(
+                com.pockethub.data.remote.AttachmentLifecycle.cleanupRemoved(
                     attachmentUploader,
-                    AttachmentLifecycle.referencedUrls(oldBody) - AttachmentLifecycle.referencedUrls(newBody).toSet(),
+                    com.pockethub.data.remote.AttachmentLifecycle.referencedUrls(oldBody) -
+                        com.pockethub.data.remote.AttachmentLifecycle.referencedUrls(newBody).toSet(),
                 )
             } catch (e: Exception) { _actionMessage.value = e.userMessage("Failed to update comment") }
             finally { _busyComments.update { it - commentId } }
@@ -270,9 +271,9 @@ class IssueDetailViewModel @Inject constructor(
                 _issue.update { it?.copy(comments = (it.comments - 1).coerceAtLeast(0)) }
                 _viewerReactions.update { it - commentId }
                 // The comment is gone — its images have no remaining reference.
-                AttachmentLifecycle.cleanupRemoved(
+                com.pockethub.data.remote.AttachmentLifecycle.cleanupRemoved(
                     attachmentUploader,
-                    AttachmentLifecycle.referencedUrls(oldBody),
+                    com.pockethub.data.remote.AttachmentLifecycle.referencedUrls(oldBody),
                 )
             } catch (e: Exception) { _actionMessage.value = e.userMessage("Failed to delete comment") }
             finally { _busyComments.update { it - commentId } }
@@ -352,10 +353,10 @@ class IssueDetailViewModel @Inject constructor(
         // Images dropped by the body edit become unreferenced — clean them up
         // after the update lands (state toggles go through save() with
         // body=null and never touch attachments).
-        val removed = AttachmentLifecycle.referencedUrls(_issue.value?.body) -
-            AttachmentLifecycle.referencedUrls(body).toSet()
+        val removed = com.pockethub.data.remote.AttachmentLifecycle.referencedUrls(_issue.value?.body) -
+            com.pockethub.data.remote.AttachmentLifecycle.referencedUrls(body).toSet()
         save(IssueUpdate(title, body, labels, assignees, milestone = milestone), "Issue 已更新",
-            afterSuccess = { AttachmentLifecycle.cleanupRemoved(attachmentUploader, removed) })
+            afterSuccess = { com.pockethub.data.remote.AttachmentLifecycle.cleanupRemoved(attachmentUploader, removed) })
     }
 
     private data class IssueUpdate(val title: String? = null, val body: String? = null, val labels: List<String>? = null, val assignees: List<String>? = null, val milestone: Int? = null, val state: String? = null)
