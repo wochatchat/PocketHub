@@ -376,7 +376,7 @@ fun WorkflowLogScreen(
                 Text(
                     stringResource(R.string.logs_truncated).format(humanBytes(parsed.raw.length.toLong())),
                     style = MaterialTheme.typography.labelSmall,
-                    color = CANCELLED_ORANGE,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
                 )
             }

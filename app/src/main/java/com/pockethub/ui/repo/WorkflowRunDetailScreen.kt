@@ -53,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -329,7 +330,9 @@ private fun JobCard(
                             verticalAlignment = Alignment.CenterVertically,
                             // Successful steps are the expected case — de-emphasise
                             // them so failures are the only thing that shouts.
-                            alpha = if (succeeded) 0.72f else 1f,
+                            modifier = Modifier.graphicsLayer {
+                                alpha = if (succeeded) 0.72f else 1f
+                            },
                         ) {
                             StepStatusIcon(status = step.status, conclusion = step.conclusion)
                             Spacer(Modifier.width(8.dp))
@@ -391,6 +394,7 @@ private fun StepStatusIcon(status: String?, conclusion: String?) {
     Icon(icon, null, modifier = Modifier.size(12.dp), tint = tint)
 }
 
+@Composable
 private fun stepConclusionColor(c: String?): Color {
     return when (c) {
         "success" -> semanticColors().success

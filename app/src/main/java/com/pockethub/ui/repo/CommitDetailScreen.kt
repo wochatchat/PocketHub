@@ -585,7 +585,9 @@ private fun CommitFileCard(
     }
 }
 
-/** Color diff lines: additions green, deletions red, hunk headers blue. */
+/** Color diff lines: additions green, deletions red, hunk headers blue. (Kept for inline-diff call sites; currently unused.) */
+@Suppress("unused")
+@Composable
 private fun annotateDiff(patch: String): AnnotatedString = buildAnnotatedString {
     val addColor = semanticColors().success
     val delColor = semanticColors().danger

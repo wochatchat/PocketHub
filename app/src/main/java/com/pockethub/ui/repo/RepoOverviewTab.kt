@@ -51,6 +51,8 @@ import androidx.compose.ui.unit.sp
 import com.pockethub.data.model.Repository
 import com.pockethub.ui.markdown.MarkdownText
 import com.pockethub.ui.components.pressScale
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import com.pockethub.ui.theme.semanticColors
 import com.pockethub.ui.components.PhAsyncImage
 import com.pockethub.util.formatCount
 
