@@ -436,7 +436,6 @@ fun IssueDetailScreen(
                     isSending = isSendingComment,
                     attachments = commentAttachments,
                     onAddImage = vm::addCommentAttachment,
-                    onAddFile = vm::addCommentAttachment,
                     onRemoveAttachment = vm::removeCommentAttachment,
                     onPost = { body -> vm.postComment(body) { } },
                 )
@@ -550,7 +549,6 @@ private fun CommentInputBox(
     isSending: Boolean,
     attachments: List<IssueAttachment>,
     onAddImage: (android.net.Uri) -> Unit,
-    onAddFile: (android.net.Uri) -> Unit,
     onRemoveAttachment: (Long) -> Unit,
     onPost: (String) -> Unit,
 ) {
@@ -570,7 +568,6 @@ private fun CommentInputBox(
             attachments = attachments,
             enabled = !isSending,
             onAddImage = onAddImage,
-            onAddFile = onAddFile,
             onRemove = onRemoveAttachment,
         )
         Spacer(Modifier.height(8.dp))

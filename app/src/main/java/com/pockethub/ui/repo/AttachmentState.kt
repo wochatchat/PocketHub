@@ -23,6 +23,8 @@ import kotlinx.coroutines.withContext
 class AttachmentState(
     private val appContext: Context,
     private val uploader: AttachmentUploader,
+    /** Emitted when a pick is rejected locally (e.g. over [AttachmentUploader.MAX_IMAGE_BYTES]). */
+    private val onPickRejected: (Int) -> Unit = {},
 ) {
     private val _attachments = MutableStateFlow<List<IssueAttachment>>(emptyList())
     val attachments: StateFlow<List<IssueAttachment>> = _attachments.asStateFlow()
@@ -52,6 +54,12 @@ class AttachmentState(
         val mime = runCatching { resolver.getType(uri) }.getOrNull() ?: "application/octet-stream"
         // Images only (worker enforces this too; catch it early for a clean chip)
         if (!mime.startsWith("image/")) return
+        // App-side size gate: >2MB screenshots waste upload time and blow up
+        // load times on slow links — reject here so the user never queues them.
+        if (size > AttachmentUploader.MAX_IMAGE_BYTES) {
+            onPickRejected(if (size > 0) size.toInt() else -1)
+            return
+        }
         _attachments.update { list ->
             list + IssueAttachment(
                 id = nextId++,

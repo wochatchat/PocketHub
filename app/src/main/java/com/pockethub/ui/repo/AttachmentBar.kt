@@ -50,7 +50,6 @@ fun AttachmentBar(
     attachments: List<IssueAttachment>,
     enabled: Boolean,
     onAddImage: (android.net.Uri) -> Unit,
-    onAddFile: (android.net.Uri) -> Unit,
     onRemove: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -63,6 +62,15 @@ fun AttachmentBar(
     // explains instead of picking (worker only accepts images for now).
     var showFilesUnsupported by remember { mutableStateOf(false) }
 
+    // Debounce: rapid double-taps re-launch pickers / stack dialogs.
+    var lastClickAt by remember { mutableStateOf(0L) }
+    fun click(): Boolean {
+        val now = System.currentTimeMillis()
+        if (now - lastClickAt < 500) return false
+        lastClickAt = now
+        return true
+    }
+
     Column(modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -72,11 +80,9 @@ fun AttachmentBar(
             )
             Spacer(Modifier.weight(1f))
             FilledTonalIconButton(
-                onClick = {
-                    imagePicker.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                    )
-                },
+                onClick = { if (click()) imagePicker.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                ) },
                 enabled = enabled,
                 modifier = Modifier.size(36.dp),
             ) {
@@ -88,7 +94,7 @@ fun AttachmentBar(
             }
             Spacer(Modifier.width(8.dp))
             FilledTonalIconButton(
-                onClick = { showFilesUnsupported = true },
+                onClick = { if (click()) showFilesUnsupported = true },
                 enabled = enabled,
                 modifier = Modifier.size(36.dp),
             ) {

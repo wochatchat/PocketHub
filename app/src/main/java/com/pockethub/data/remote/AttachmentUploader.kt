@@ -13,19 +13,17 @@ package com.pockethub.data.remote
 //                              Content-Type: image/*
 //                              body: raw image bytes
 //   -> 200 {url}               permanent public URL for issue markdown
-//   -> 413 too large           415 not an image
+//   -> 429 rate_limited        per-login abuse guard, retry later
 //   -> 507 {error:"quota_full"} CF storage full — user must contact developer
-//   -> 401 invalid token
-//
-// Images only: the file-attachment path is intentionally not wired up yet.
+//   -> 413/415/401             too large / not an image / invalid token
 
-import com.pockethub.data.remote.AccountRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
 import java.io.IOException
+import java.net.URLEncoder
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.serialization.json.Json
@@ -40,11 +38,16 @@ class AttachmentUploader @Inject constructor(
         /** Self-hosted worker (custom domain; CN-reachable, unlike *.workers.dev). */
         const val UPLOAD_BASE_URL = "https://pockethub.hippo.ccwu.cc"
 
-        const val MAX_IMAGE_BYTES = 10L * 1024 * 1024
+        /** App-side cap: screenshots only — anything bigger is wasted upload time. */
+        const val MAX_IMAGE_BYTES = 2L * 1024 * 1024
     }
 
     /** CF storage quota exhausted — surfaced with a dedicated message. */
     class StorageFullException : IOException("storage full")
+
+    /** Image over [MAX_IMAGE_BYTES] — the app checks this at pick time. */
+    class ImageTooLargeException(val fileName: String, val sizeBytes: Int) :
+        IOException("image too large")
 
     /** Raised when an upload fails; [fileName] names the culprit. */
     class UploadException(val fileName: String, message: String, cause: Throwable? = null) :
@@ -64,7 +67,7 @@ class AttachmentUploader @Inject constructor(
             throw UploadException(displayName, "Only image uploads are supported")
         }
         if (bytes.size > MAX_IMAGE_BYTES) {
-            throw UploadException(displayName, "Image exceeds the ${MAX_IMAGE_BYTES / 1024 / 1024} MB limit")
+            throw ImageTooLargeException(displayName, bytes.size)
         }
         val token = accounts.getActiveToken()
         if (token.isBlank()) throw UploadException(displayName, "Not signed in")
@@ -99,10 +102,10 @@ class AttachmentUploader @Inject constructor(
                         if (url.isBlank()) throw UploadException(displayName, "Bad upload response")
                         url
                     }
-                    resp.code == 507 || resp.code == 413 && bodyText.contains("quota_full") ->
+                    resp.code == 507 || (resp.code == 413 && bodyText.contains("quota_full")) ->
                         throw StorageFullException()
-                    resp.code == 413 ->
-                        throw UploadException(displayName, "Image exceeds the ${MAX_IMAGE_BYTES / 1024 / 1024} MB limit")
+                    resp.code == 429 ->
+                        throw UploadException(displayName, "Rate limited, try again in a moment")
                     resp.code == 415 ->
                         throw UploadException(displayName, "Only image uploads are supported")
                     else ->
@@ -132,6 +135,5 @@ class AttachmentUploader @Inject constructor(
             }
         }
 
-    private fun urlEncode(name: String): String =
-        java.net.URLEncoder.encode(name, "UTF-8")
+    private fun urlEncode(name: String): String = URLEncoder.encode(name, "UTF-8")
 }

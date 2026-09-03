@@ -220,14 +220,14 @@ class IssueDetailViewModel @Inject constructor(
         }
     }
 
+    private val attachmentState = AttachmentState(appContext, attachmentUploader) { sizeBytes ->
+        // Reuse the screen's actionMessage snackbar channel for pick rejections.
+        _actionMessage.value = formatTooLarge(appContext, sizeBytes)
+    }
+
     // ── Comment attachments ──────────────────────────────────────────────
     // Same queue as the issue editor (AttachmentState): images upload at
     // submit time to the CF worker, markdown appended to the comment.
-
-    private val attachmentState = com.pockethub.ui.repo.AttachmentState(
-        appContext,
-        attachmentUploader,
-    )
 
     val commentAttachments: kotlinx.coroutines.flow.StateFlow<List<com.pockethub.ui.repo.IssueAttachment>> =
         attachmentState.attachments

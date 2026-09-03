@@ -358,7 +358,9 @@ class CreateIssueViewModel @Inject constructor(
     // AttachmentUploader) at submit time; markdown is appended to the body.
     // Files are not supported yet — the UI intercepts file picks.
 
-    private val attachmentState = AttachmentState(appContext, attachmentUploader)
+    private val attachmentState = AttachmentState(appContext, attachmentUploader) { sizeBytes ->
+        _actionError.value = formatTooLarge(appContext, sizeBytes)
+    }
 
     val attachments: StateFlow<List<IssueAttachment>> = attachmentState.attachments
 

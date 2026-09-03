@@ -653,4 +653,7 @@
     <string name="attachment_storage_full">Image storage is full. Please contact the developer.</string>
     <string name="attachment_files_unsupported_title">File attachments coming soon</string>
     <string name="attachment_files_unsupported_text">Only image uploads are supported right now. File attachments will arrive in a future update.</string>
+    <string name="attachment_too_large">Image is %.1f MB — the limit is 2 MB. Please pick a smaller screenshot.</string>
+    <string name="attachment_too_large_unknown">Image is over the 2 MB limit. Please pick a smaller screenshot.</string>
+    <string name="attachment_rate_limited">Too many uploads in a row — please wait a few seconds and retry.</string>
 </resources>

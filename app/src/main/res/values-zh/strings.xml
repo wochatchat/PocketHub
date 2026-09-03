@@ -651,4 +651,7 @@
     <string name="attachment_storage_full">图床存储已满，请联系开发者。</string>
     <string name="attachment_files_unsupported_title">附件功能暂未开放</string>
     <string name="attachment_files_unsupported_text">目前仅支持上传图片，文件附件将在后续版本开放。</string>
+    <string name="attachment_too_large">图片 %.1f MB，超过 2 MB 上限，请换一张更小的截图。</string>
+    <string name="attachment_too_large_unknown">图片超过 2 MB 上限，请换一张更小的截图。</string>
+    <string name="attachment_rate_limited">上传太频繁，请稍等几秒后重试。</string>
 </resources>

@@ -339,7 +339,6 @@ private fun FormIssueEditor(
                 attachments = attachments,
                 enabled = !isSending,
                 onAddImage = vm::addAttachment,
-                onAddFile = vm::addAttachment,
                 onRemove = vm::removeAttachment,
             )
 
@@ -487,7 +486,6 @@ private fun IssueEditor(
                 attachments = attachments,
                 enabled = !isSending,
                 onAddImage = vm::addAttachment,
-                onAddFile = vm::addAttachment,
                 onRemove = vm::removeAttachment,
             )
 
