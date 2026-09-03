@@ -418,7 +418,6 @@ private fun AdditionalInfo(user: User?) {
     }
 }
 
-@Composable
 /**
  * Work-list board — items that need this user's attention, sourced from
  * /search/issues aggregated by qualifier (Assigned / Mentioned / Created / Involved).
