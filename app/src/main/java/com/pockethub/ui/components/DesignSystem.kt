@@ -282,6 +282,30 @@ fun SkeletonList(
     }
 }
 
+/**
+ * Skeleton shaped like a code document — ragged line widths, tight leading.
+ * The loading state for every file/patch viewer, so content "takes the
+ * shape" of code instead of a spinner (same principle as SkeletonList).
+ */
+@Composable
+fun SkeletonCodeLines(
+    modifier: Modifier = Modifier,
+    lines: Int = 14,
+) {
+    val widths = listOf(
+        0.35f, 0.62f, 0.80f, 0.48f, 0.90f, 0.42f, 0.72f, 0.86f,
+        0.38f, 0.66f, 0.76f, 0.52f, 0.92f, 0.50f,
+    )
+    Column(
+        modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(11.dp),
+    ) {
+        repeat(lines.coerceAtMost(widths.size)) { i ->
+            SkeletonBox(Modifier.fillMaxWidth(widths[i]).height(12.dp), cornerRadius = 4.dp)
+        }
+    }
+}
+
 // ── Small functional atoms ───────────────────────────────────────────────────
 
 /** Section header with an accent tick — consistent section titles app-wide. */

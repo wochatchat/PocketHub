@@ -193,9 +193,7 @@ fun FileViewerScreen(
                 .background(MaterialTheme.colorScheme.surface),
         ) {
             when {
-                state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(strokeWidth = 2.dp)
-                }
+                state.isLoading -> com.pockethub.ui.components.SkeletonCodeLines(Modifier.fillMaxSize())
                 state.error != null -> Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
                     Text(
                         state.error ?: "",

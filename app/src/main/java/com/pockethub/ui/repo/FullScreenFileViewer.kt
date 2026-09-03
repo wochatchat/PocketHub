@@ -313,9 +313,7 @@ internal fun FullScreenFileViewer(
                         val entry = state.viewingFile
                         when {
                             entry == null -> EmptyHint()
-                            state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(strokeWidth = 2.dp)
-                            }
+                            state.isLoading -> com.pockethub.ui.components.SkeletonCodeLines(Modifier.fillMaxSize())
                             content != null -> SyntaxHighlightedCode(
                                 code = content,
                                 fileName = entry.name,
@@ -504,8 +502,18 @@ private fun FileTreePanel(
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
         when {
-            state.isLoadingTree -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(strokeWidth = 2.dp)
+            state.isLoadingTree -> Column(
+                Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                repeat(9) { i ->
+                    com.pockethub.ui.components.SkeletonBox(
+                        Modifier
+                            .fillMaxWidth(if (i % 3 == 0) 0.9f else 0.65f)
+                            .height(14.dp),
+                        cornerRadius = 6.dp,
+                    )
+                }
             }
             rows.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(

@@ -415,7 +415,7 @@ private fun FileViewerContent(
             }
         }
         if (isLoading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            com.pockethub.ui.components.SkeletonCodeLines(Modifier.fillMaxSize())
         } else if (content != null) {
             SyntaxHighlightedCode(
                 code = content,
