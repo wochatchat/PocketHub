@@ -1,4 +1,5 @@
 package com.pockethub.ui.markdown
+import com.pockethub.ui.theme.semanticColors
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -245,10 +246,10 @@ private fun SimpleAlertCard(
 ) {
     val (label, color) = when (kind.uppercase()) {
         "NOTE" -> "Note" to MaterialTheme.colorScheme.primary
-        "TIP" -> "Tip" to Color(0xFF2EA043)
-        "IMPORTANT" -> "Important" to Color(0xFF8250DF)
-        "WARNING" -> "Warning" to Color(0xFFBF8700)
-        "CAUTION" -> "Caution" to Color(0xFFD1242F)
+        "TIP" -> "Tip" to semanticColors().success
+        "IMPORTANT" -> "Important" to semanticColors().merged
+        "WARNING" -> "Warning" to semanticColors().warning
+        "CAUTION" -> "Caution" to semanticColors().danger
         else -> kind.ifBlank { "Note" } to MaterialTheme.colorScheme.primary
     }
     Row(

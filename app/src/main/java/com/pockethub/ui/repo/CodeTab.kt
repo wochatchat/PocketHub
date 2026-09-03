@@ -64,6 +64,7 @@ import com.pockethub.data.download.DownloadManager
 import com.pockethub.ui.download.DownloadViewModel
 import com.pockethub.ui.markdown.CodeHighlighter
 import com.pockethub.util.relativeTime
+import com.pockethub.ui.components.Haptics
 
 
 
@@ -372,6 +373,7 @@ private fun FileViewerContent(
     onFullScreen: () -> Unit = {},
 ) {
     val clipboard = LocalClipboardManager.current
+    val hapticView = androidx.compose.ui.platform.LocalView.current
     val context = LocalContext.current
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -392,6 +394,7 @@ private fun FileViewerContent(
             if (content != null) {
                 IconButton(onClick = {
                     clipboard.setText(AnnotatedString(content))
+                    hapticView.let { com.pockethub.ui.components.Haptics.confirm(it) }
                     android.widget.Toast.makeText(context, context.getString(R.string.copied_toast), android.widget.Toast.LENGTH_SHORT).show()
                 }) {
                     Icon(

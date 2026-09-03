@@ -63,7 +63,7 @@ import androidx.compose.ui.unit.dp
  * PocketHub motion tokens. One place to keep every animation consistent:
  * springs for interactions (press / selection), tweens for entrances.
  */
-private object Motion {
+object Motion {
     /** Interactive press / toggle springs — snappy with a slight bounce. */
     fun press() = spring<Float>(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow)
     fun settle() = spring<Float>(dampingRatio = 0.9f, stiffness = Spring.StiffnessMedium)
@@ -80,6 +80,9 @@ private object Motion {
 /**
  * Press feedback: the content scales down slightly while pressed and springs
  * back on release. Apply to any clickable element for a tactile feel.
+ *
+ * Also emits a light selection tick on press-down — pressable surfaces get
+ * tactile confirmation for free, no call-site wiring.
  */
 @Composable
 fun Modifier.pressScale(
@@ -89,6 +92,8 @@ fun Modifier.pressScale(
 ): Modifier {
     val source = interactionSource ?: remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
+    val view = androidx.compose.ui.platform.LocalView.current
+    LaunchedEffect(pressed) { if (pressed && enabled) Haptics.tick(view) }
     val scale by animateFloatAsState(
         targetValue = if (pressed && enabled) pressedScale else 1f,
         animationSpec = Motion.press(),
@@ -104,24 +109,33 @@ fun Modifier.pressScale(
  * The signature card of the redesigned UI: a softly-lit surface with a hairline
  * border, a whisper of vertical light and spring press feedback. Replaces
  * flat/boxed list items everywhere.
+ *
+ * Defaults that keep every card coherent:
+ *  - [container] lifts one tone above the page background (surfaceContainerLow)
+ *    so cards float instead of dissolving into it;
+ *  - [cornerRadius] follows the active style's extraLarge shape (Paper gets its
+ *    tight 12dp, Neon its sharp 0dp, Lavender its ballooned 32dp) — pass an
+ *    explicit value only for genuine outliers.
  */
 @Composable
 fun PhCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
-    cornerRadius: Dp = 18.dp,
-    container: Color = MaterialTheme.colorScheme.surface,
+    cornerRadius: Dp? = null,
+    container: Color = MaterialTheme.colorScheme.surfaceContainerLow,
     borderColor: Color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     content: @Composable () -> Unit,
 ) {
     val pressed by interactionSource.collectIsPressedAsState()
+    val view = androidx.compose.ui.platform.LocalView.current
+    LaunchedEffect(pressed) { if (pressed && onClick != null) Haptics.tick(view) }
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.975f else 1f,
         animationSpec = Motion.press(),
         label = "ph_card_press",
     )
-    val shape = RoundedCornerShape(cornerRadius)
+    val shape = cornerRadius?.let { RoundedCornerShape(it) } ?: MaterialTheme.shapes.extraLarge
     val border by animateFloatAsState(
         targetValue = if (pressed) 1f else 0f,
         animationSpec = tween(120),

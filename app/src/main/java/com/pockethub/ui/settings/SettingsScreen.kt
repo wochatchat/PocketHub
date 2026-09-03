@@ -140,7 +140,7 @@ fun SettingsScreen(
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
             SectionHeader(stringResource(R.string.section_appearance))
-            com.pockethub.ui.components.PhCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), cornerRadius = 18.dp) {
+            com.pockethub.ui.components.PhCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Column {
             // Single appearance entry — combines the old "theme mode"
             // (Dark/Light/System) and "app style" pickers into one coherent
@@ -170,7 +170,7 @@ fun SettingsScreen(
             }
 
             SectionHeader(stringResource(R.string.section_language))
-            com.pockethub.ui.components.PhCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), cornerRadius = 18.dp) {
+            com.pockethub.ui.components.PhCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Column {
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.Translate, contentDescription = null) },
@@ -194,7 +194,7 @@ fun SettingsScreen(
             }
 
             SectionHeader(stringResource(R.string.section_notifications))
-            com.pockethub.ui.components.PhCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), cornerRadius = 18.dp) {
+            com.pockethub.ui.components.PhCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Column {
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.Brightness2, contentDescription = null) },
@@ -206,7 +206,7 @@ fun SettingsScreen(
             }
 
             SectionHeader(stringResource(R.string.section_explore))
-            com.pockethub.ui.components.PhCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), cornerRadius = 18.dp) {
+            com.pockethub.ui.components.PhCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Column {
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.Public, contentDescription = null) },
@@ -218,7 +218,7 @@ fun SettingsScreen(
             }
 
             SectionHeader(stringResource(R.string.section_account))
-            com.pockethub.ui.components.PhCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), cornerRadius = 18.dp) {
+            com.pockethub.ui.components.PhCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Column {
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.ManageAccounts, contentDescription = null) },
@@ -269,7 +269,7 @@ fun SettingsScreen(
             // Data management — moved out of the account section: storage and
             // network tweaks have nothing to do with account identity.
             SectionHeader(stringResource(R.string.section_data))
-            com.pockethub.ui.components.PhCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), cornerRadius = 18.dp) {
+            com.pockethub.ui.components.PhCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Column {
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.FolderZip, contentDescription = null) },
@@ -305,7 +305,7 @@ fun SettingsScreen(
             }
 
             SectionHeader(stringResource(R.string.section_severe_issues))
-            com.pockethub.ui.components.PhCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), cornerRadius = 18.dp) {
+            com.pockethub.ui.components.PhCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Column {
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.BugReport, contentDescription = null) },
@@ -330,7 +330,7 @@ fun SettingsScreen(
 
 
             SectionHeader(stringResource(R.string.section_about))
-            com.pockethub.ui.components.PhCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), cornerRadius = 18.dp) {
+            com.pockethub.ui.components.PhCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Column {
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.SystemUpdate, contentDescription = null) },

@@ -24,7 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.DeveloperMode
-import androidx.compose.material.icons.outlined.ForkRight
+import androidx.compose.material.icons.outlined.CallSplit
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Icon
@@ -71,7 +71,6 @@ internal fun FeedEventCard(
             { onNavigateToRepo(ownerLogin, repoShort) }
         } else null,
         elevation = 2.dp,
-        cornerRadius = 14.dp,
         gradientIntensity = 0.05f,
     ) {
         Column {
@@ -249,7 +248,6 @@ internal fun DiscoverItemCard(
             .padding(horizontal = 16.dp),
         onClick = onClick,
         elevation = 2.dp,
-        cornerRadius = 16.dp,
         gradientIntensity = 0.06f,
     ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -340,7 +338,7 @@ internal fun DiscoverItemCard(
                     Spacer(Modifier.width(12.dp))
                 }
                 if (item.forks > 0) {
-                    Icon(Icons.Outlined.ForkRight, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(Icons.Outlined.CallSplit, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(4.dp))
                     Text(formatCount(item.forks), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

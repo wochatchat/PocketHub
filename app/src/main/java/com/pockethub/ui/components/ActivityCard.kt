@@ -21,7 +21,7 @@ import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeveloperMode
 import androidx.compose.material.icons.outlined.ErrorOutline
-import androidx.compose.material.icons.outlined.ForkRight
+import androidx.compose.material.icons.outlined.CallSplit
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Merge
 import androidx.compose.material.icons.outlined.NewReleases
@@ -73,7 +73,7 @@ fun ActivityCard(
     val (icon, verb) = when (event.type) {
         "PushEvent" -> Icons.Outlined.CloudUpload to stringResource(R.string.event_pushed)
         "WatchEvent" -> Icons.Outlined.Star to stringResource(R.string.event_starred)
-        "ForkEvent" -> Icons.Outlined.ForkRight to stringResource(R.string.event_forked)
+        "ForkEvent" -> Icons.Outlined.CallSplit to stringResource(R.string.event_forked)
         "CreateEvent" -> Icons.Outlined.CreateNewFolder to stringResource(R.string.event_created)
         "IssueCommentEvent" -> Icons.Outlined.Comment to stringResource(R.string.event_commented)
         "IssuesEvent" -> Icons.Outlined.ErrorOutline to stringResource(R.string.event_opened_issue)
@@ -142,7 +142,6 @@ fun ActivityCard(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
         onClick = openEvent,
-        cornerRadius = 16.dp,
     ) {
         Column(Modifier.padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {

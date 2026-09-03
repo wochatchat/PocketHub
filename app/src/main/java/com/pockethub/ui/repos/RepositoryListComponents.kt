@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ForkRight
+import androidx.compose.material.icons.outlined.CallSplit
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -47,35 +47,37 @@ internal fun RepositoryRow(
         modifier = modifier
             .fillMaxWidth(),
         onClick = onOpen,
-        cornerRadius = 18.dp,
+        
     ) {
-        Column(Modifier.padding(16.dp)) {
-        // Header: Avatar + Owner
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+        // Single-line header: avatar + owner — quiet, part of the card's
+        // "eyebrow"; the repo name below is the one loud element.
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.clickable(onClick = onOpenOwner)
         ) {
             Surface(
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(20.dp),
                 shape = CircleShape,
             ) {
                 PhAsyncImage(
                     model = repo.owner.avatarUrl,
                     contentDescription = null,
-                    modifier = Modifier.size(28.dp),
+                    modifier = Modifier.size(20.dp),
                 )
             }
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(6.dp))
             Text(
                 text = repo.owner.login,
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Medium,
+                maxLines = 1,
             )
         }
-        
-        Spacer(Modifier.height(10.dp))
-        
+
+        Spacer(Modifier.height(4.dp))
+
         // Repo name + tags
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -90,10 +92,10 @@ internal fun RepositoryRow(
             if (repo.private) RepositoryTag(text = "PRIVATE", isPrivate = true)
             if (repo.fork) RepositoryTag(text = "FORK")
         }
-        
+
         // Description
         repo.description?.takeIf { it.isNotBlank() }?.let { description ->
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodySmall,
@@ -103,9 +105,9 @@ internal fun RepositoryRow(
                 lineHeight = 18.sp,
             )
         }
-        
-        Spacer(Modifier.height(12.dp))
-        
+
+        Spacer(Modifier.height(10.dp))
+
         // Meta info
         RepositoryMeta(repo)
         }
@@ -185,7 +187,7 @@ private fun RepositoryMeta(repo: Repository) {
         if (repo.forks > 0) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.Outlined.ForkRight,
+                    imageVector = Icons.Outlined.CallSplit,
                     contentDescription = null,
                     modifier = Modifier.size(13.dp),
                     tint = MaterialTheme.colorScheme.secondary,

@@ -135,7 +135,6 @@ private fun CommitRow(
     com.pockethub.ui.components.PhCard(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         onClick = onClick,
-        cornerRadius = 14.dp,
     ) {
         Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
             // SHA short

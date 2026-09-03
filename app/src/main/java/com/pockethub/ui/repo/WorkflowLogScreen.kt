@@ -72,19 +72,17 @@ import com.pockethub.R
 import com.pockethub.data.download.DownloadManager
 import com.pockethub.ui.download.DownloadViewModel
 import com.pockethub.util.humanBytes
+import com.pockethub.ui.theme.semanticColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val SUCCESS_GREEN = Color(0xFF2EA043)
-private val FAILURE_RED = Color(0xFFE5534B)
-private val CANCELLED_ORANGE = Color(0xFFDB6D28)
 private val HIGHLIGHT_YELLOW = Color(0x66FFD54D)
 
 @Composable
 private fun statusColor(status: String?, conclusion: String?): Color = when {
-    conclusion == "success" -> SUCCESS_GREEN
-    conclusion == "failure" || conclusion == "timed_out" -> FAILURE_RED
-    conclusion == "cancelled" -> CANCELLED_ORANGE
+    conclusion == "success" -> semanticColors().success
+    conclusion == "failure" || conclusion == "timed_out" -> semanticColors().danger
+    conclusion == "cancelled" -> semanticColors().warning
     conclusion != null -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f) // skipped / neutral
     status == "in_progress" -> MaterialTheme.colorScheme.primary
     else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)

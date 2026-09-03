@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pockethub.data.model.Issue
 import com.pockethub.ui.components.PhAsyncImage
+import com.pockethub.ui.theme.semanticColors
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.derivedStateOf
 
@@ -126,7 +127,7 @@ internal fun IssuesTab(
                     Modifier
                         .size(8.dp)
                         .clip(CircleShape)
-                        .background(if (issue.state == "open") Color(0xFF2EA043) else Color(0xFF8957E5)),
+                        .background(if (issue.state == "open") semanticColors().success else semanticColors().neutral),
                 )
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
@@ -268,9 +269,9 @@ internal fun PullsTab(
             ) {
                 // State indicator dot — green=open, violet-red=merged, red=closed
                 val prColor = when {
-                    pr.state == "open" -> Color(0xFF2EA043)
-                    pr.isMerged -> Color(0xFF8957E5)
-                    else -> Color(0xFFBD2C00)
+                    pr.state == "open" -> semanticColors().success
+                    pr.isMerged -> semanticColors().merged
+                    else -> semanticColors().danger
                 }
                 Box(
                     Modifier.size(8.dp).clip(CircleShape).background(prColor),
@@ -315,9 +316,9 @@ internal fun PullsTab(
                             else -> stringResource(R.string.issue_state_closed)
                         }
                         val stateColor = when {
-                            pr.isMerged -> Color(0xFF8957E5)
-                            pr.state == "open" -> Color(0xFF2EA043)
-                            else -> Color(0xFFBD2C00)
+                            pr.isMerged -> semanticColors().merged
+                            pr.state == "open" -> semanticColors().success
+                            else -> semanticColors().danger
                         }
                         Text(
                             stateLabel,

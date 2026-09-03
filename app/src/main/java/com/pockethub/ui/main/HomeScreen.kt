@@ -15,7 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.Clear
-import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Notifications
@@ -87,7 +87,7 @@ fun HomeScreen(
 ) {
     val items = listOf(
         BottomNavItem("explore", R.string.tab_explore, Icons.AutoMirrored.Outlined.TrendingUp, Icons.AutoMirrored.Outlined.TrendingUp),
-        BottomNavItem("repos", R.string.tab_repos, Icons.Outlined.Code, Icons.Outlined.Code),
+        BottomNavItem("repos", R.string.tab_repos, Icons.Outlined.Folder, Icons.Outlined.Folder),
         BottomNavItem("notifications", R.string.tab_notifications, Icons.Outlined.Notifications, Icons.Outlined.Notifications),
         BottomNavItem("profile", R.string.tab_profile, Icons.Outlined.Person, Icons.Outlined.Person),
     )
@@ -150,6 +150,7 @@ fun HomeScreen(
             NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                 items.forEachIndexed { index, item ->
                     val selected = selectedTab == index
+                    val hapticView = androidx.compose.ui.platform.LocalView.current
                     // Selected icon pops with a spring; unselected stays quiet.
                     val iconScale by androidx.compose.animation.core.animateFloatAsState(
                         targetValue = if (selected) 1.12f else 1f,
@@ -172,6 +173,9 @@ fun HomeScreen(
                                 exploreRefreshTrigger++
                                 lastTabClickAtMillis = 0L
                             } else {
+                                if (index != selectedTab) {
+                                    com.pockethub.ui.components.Haptics.tick(hapticView)
+                                }
                                 lastTabClickAtMillis = now
                                 lastClickedTab = index
                                 selectedTab = index

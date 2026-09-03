@@ -67,6 +67,7 @@ import java.util.Date
 import java.time.Duration
 import com.pockethub.util.parseIso
 import com.pockethub.util.parseIsoSafe
+import com.pockethub.ui.theme.semanticColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -323,7 +324,13 @@ private fun JobCard(
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     job.steps.forEachIndexed { localIndex, step ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        val succeeded = step.conclusion == "success"
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            // Successful steps are the expected case — de-emphasise
+                            // them so failures are the only thing that shouts.
+                            alpha = if (succeeded) 0.72f else 1f,
+                        ) {
                             StepStatusIcon(status = step.status, conclusion = step.conclusion)
                             Spacer(Modifier.width(8.dp))
                             Text(
@@ -334,11 +341,15 @@ private fun JobCard(
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
-                            Text(
-                                step.conclusion ?: step.status,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = stepConclusionColor(step.conclusion),
-                            )
+                            // Success carries no word — the check icon is enough.
+                            // Failures / skips keep their colored label.
+                            if (!succeeded) {
+                                Text(
+                                    step.conclusion ?: step.status ?: "",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = stepConclusionColor(step.conclusion),
+                                )
+                            }
                         }
                     }
                 }
@@ -357,9 +368,10 @@ private fun jobDurationMinutes(job: GitHubApi.WorkflowJob): Double {
 @Composable
 private fun StatusBadge(status: String?, conclusion: String?) {
     val color = when (conclusion ?: status) {
-        "success", "completed" -> Color(0xFF2EA043)
-        "failure", "cancelled", "timed_out", "neutral" -> MaterialTheme.colorScheme.error
-        else -> MaterialTheme.colorScheme.primary
+        "success", "completed" -> semanticColors().success
+        "failure", "cancelled", "timed_out" -> semanticColors().danger
+        "neutral" -> semanticColors().neutral
+        else -> semanticColors().running
     }
     val label = conclusion ?: status ?: "—"
     Box(Modifier.clip(CircleShape).background(color.copy(alpha = 0.15f)).padding(horizontal = 8.dp, vertical = 3.dp)) {
@@ -370,7 +382,7 @@ private fun StatusBadge(status: String?, conclusion: String?) {
 @Composable
 private fun StepStatusIcon(status: String?, conclusion: String?) {
     val (icon, tint) = when (conclusion ?: status) {
-        "success" -> Icons.Outlined.CheckCircle to Color(0xFF2EA043)
+        "success" -> Icons.Outlined.CheckCircle to semanticColors().success
         "failure", "cancelled" -> Icons.Outlined.Close to MaterialTheme.colorScheme.error
         "skipped", "neutral" -> Icons.Outlined.Pending to MaterialTheme.colorScheme.onSurfaceVariant
         "in_progress", "queued" -> Icons.Outlined.Pending to MaterialTheme.colorScheme.primary
@@ -381,11 +393,11 @@ private fun StepStatusIcon(status: String?, conclusion: String?) {
 
 private fun stepConclusionColor(c: String?): Color {
     return when (c) {
-        "success" -> Color(0xFF2EA043)
-        "failure", "cancelled", "timed_out" -> Color(0xFFD73A49)
-        "skipped", "neutral" -> Color(0xFF959DA5)
-        null -> Color(0xFF2188FF)
-        else -> Color(0xFF959DA5)
+        "success" -> semanticColors().success
+        "failure", "cancelled", "timed_out" -> semanticColors().danger
+        "skipped", "neutral" -> semanticColors().neutral
+        null -> semanticColors().running
+        else -> semanticColors().neutral
     }
 }
 

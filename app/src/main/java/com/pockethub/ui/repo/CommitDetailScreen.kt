@@ -74,6 +74,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.pockethub.data.remote.GitHubApi
 import com.pockethub.ui.components.PhAsyncImage
+import com.pockethub.ui.theme.semanticColors
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -434,10 +435,10 @@ private fun CommitFileCard(
     var pendingLine by remember { mutableStateOf<Int?>(null) }
     var draftBody by remember { mutableStateOf("") }
     val statusColor = when (file.status) {
-        "added" -> Color(0xFF3FB950)
-        "removed" -> Color(0xFFF85149)
-        "renamed" -> Color(0xFFD29922)
-        else -> MaterialTheme.colorScheme.primary
+        "added" -> semanticColors().success
+        "removed" -> semanticColors().danger
+        "renamed" -> semanticColors().warning
+        else -> semanticColors().running
     }
 
     Column(
@@ -586,9 +587,9 @@ private fun CommitFileCard(
 
 /** Color diff lines: additions green, deletions red, hunk headers blue. */
 private fun annotateDiff(patch: String): AnnotatedString = buildAnnotatedString {
-    val addColor = Color(0xFF3FB950)
-    val delColor = Color(0xFFF85149)
-    val hunkColor = Color(0xFF58A6FF)
+    val addColor = semanticColors().success
+    val delColor = semanticColors().danger
+    val hunkColor = semanticColors().running
     patch.split("\n").forEachIndexed { idx, line ->
         if (idx > 0) append("\n")
         when {

@@ -208,6 +208,7 @@ fun NotificationsScreen(
                     items(items, key = { it.id }) { notif ->
                         NotificationItem(
                             notif = notif,
+                            modifier = Modifier.animateItem(),
                             onMarkRead = { vm.markRead(notif.id) },
                             onUnsubscribe = { pendingUnsubId = notif.id },
                             onClick = {
@@ -265,17 +266,17 @@ fun NotificationsScreen(
 @Composable
 private fun NotificationItem(
     notif: GitHubNotification,
+    modifier: Modifier = Modifier,
     onMarkRead: () -> Unit,
     onUnsubscribe: () -> Unit,
     onClick: () -> Unit,
 ) {
     com.pockethub.ui.components.PhCard(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier = modifier.fillMaxWidth().padding(vertical = 4.dp),
         onClick = onClick,
-        cornerRadius = 16.dp,
         container = if (notif.unread)
             MaterialTheme.colorScheme.primary.copy(alpha = 0.07f)
-        else MaterialTheme.colorScheme.surface,
+        else MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
@@ -316,7 +317,7 @@ private fun NotificationItem(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (notif.reason.isNotBlank()) {
+            if (notif.reason.isNotBlank() && notif.reason != "subscribed") {
                 Text(
                     text = reasonLabel(notif.reason),
                     style = MaterialTheme.typography.labelSmall,
@@ -384,9 +385,8 @@ private fun reasonTint(apiValue: String): androidx.compose.ui.graphics.Color {
         NotificationReason.TEAM_MENTION -> MaterialTheme.colorScheme.primary
 
         NotificationReason.STATE_CHANGE,
-        NotificationReason.AUTHOR -> MaterialTheme.colorScheme.secondary
-
-        NotificationReason.CI_ACTIVITY -> MaterialTheme.colorScheme.tertiary
+        NotificationReason.AUTHOR,
+        NotificationReason.CI_ACTIVITY -> MaterialTheme.colorScheme.secondary
 
         NotificationReason.COMMENT,
         NotificationReason.MANUAL,

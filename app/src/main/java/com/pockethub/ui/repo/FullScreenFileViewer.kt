@@ -78,6 +78,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.pockethub.R
 import com.pockethub.data.remote.GitHubApi
+import com.pockethub.ui.components.Haptics
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -107,6 +108,7 @@ internal fun FullScreenFileViewer(
 ) {
     val state by vm.state.collectAsState()
     val clipboard = LocalClipboardManager.current
+    val hapticView = androidx.compose.ui.platform.LocalView.current
     val context = LocalContext.current
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -238,6 +240,7 @@ internal fun FullScreenFileViewer(
                     onCopy = {
                         state.fileContent?.let {
                             clipboard.setText(AnnotatedString(it))
+                            Haptics.confirm(hapticView)
                             Toast.makeText(context, context.getString(R.string.copied_toast), Toast.LENGTH_SHORT).show()
                         }
                     },
@@ -366,13 +369,17 @@ private fun TopBar(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(
-                    filePath,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                // Show the path only when it adds information beyond the name
+                // (a bare "CONTRIBUTING.md / CONTRIBUTING.md" reads as a bug).
+                if (filePath.contains('/')) {
+                    Text(
+                        filePath.substringBeforeLast('/'),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         },
         actions = {
