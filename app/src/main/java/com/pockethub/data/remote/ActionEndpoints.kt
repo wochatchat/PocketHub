@@ -33,6 +33,17 @@ interface ActionEndpoints {
         @Path("run_id") runId: Long,
     ): GitHubApi.WorkflowRun
 
+    /** Workflow runs for a single workflow definition (filter chip source). */
+    @GET("repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs")
+    suspend fun getWorkflowRunsForWorkflow(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("workflow_id") workflowId: Long,
+        @Query("per_page") perPage: Int = 30,
+        @Query("page") page: Int = 1,
+        @Query("branch") branch: String? = null,
+    ): GitHubApi.WorkflowRunsResponse
+
     /**
      * List check runs for a given commit ref — the canonical source for "PR checks"
      * (the PR header on GitHub web shows exactly this aggregate). Includes GitHub
