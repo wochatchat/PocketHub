@@ -136,29 +136,33 @@ fun CommentItem(
             }
             Spacer(Modifier.weight(1f))
             if (state.isMine || state.canModerate) {
-                IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.cd_comment_actions), tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
-                }
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    if (state.isMine) {
+                // Anchor the menu to the button itself (not the full-width row),
+                // otherwise the popup aligns to the row's bottom-start.
+                Box {
+                    IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.cd_comment_actions), tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        if (state.isMine) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_edit)) },
+                                leadingIcon = { Icon(Icons.Outlined.Edit, null, modifier = Modifier.size(18.dp)) },
+                                onClick = { menuOpen = false; onEdit() },
+                            )
+                        }
+                        if (state.canModerate || state.isMine) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) },
+                                leadingIcon = { Icon(Icons.Outlined.Delete, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error) },
+                                onClick = { menuOpen = false; onDelete() },
+                            )
+                        }
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.action_edit)) },
-                            leadingIcon = { Icon(Icons.Outlined.Edit, null, modifier = Modifier.size(18.dp)) },
-                            onClick = { menuOpen = false; onEdit() },
+                            text = { Text(stringResource(R.string.action_copy)) },
+                            leadingIcon = { Icon(Icons.Outlined.ContentCopy, null, modifier = Modifier.size(18.dp)) },
+                            onClick = { menuOpen = false; onCopy() },
                         )
                     }
-                    if (state.canModerate || state.isMine) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) },
-                            leadingIcon = { Icon(Icons.Outlined.Delete, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error) },
-                            onClick = { menuOpen = false; onDelete() },
-                        )
-                    }
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.action_copy)) },
-                        leadingIcon = { Icon(Icons.Outlined.ContentCopy, null, modifier = Modifier.size(18.dp)) },
-                        onClick = { menuOpen = false; onCopy() },
-                    )
                 }
             }
         }
