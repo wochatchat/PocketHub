@@ -80,7 +80,8 @@ class DownloadManager @Inject constructor(
     }
 
     fun allFlow(): Flow<List<DownloadEntity>> = dao.allFlow()
-    fun activeFlow(): Flow<List<DownloadEntity>> =
+    /** Current row for [url], if any — used by callers to dedupe / restore UI state. */
+    suspend fun byUrl(url: String): DownloadEntity? = dao.byUrl(url)    fun activeFlow(): Flow<List<DownloadEntity>> =
         dao.flowByStates(listOf("QUEUED", "IN_PROGRESS", "FAILED"))
     fun doneFlow(): Flow<List<DownloadEntity>> = dao.flowByState("DONE")
 

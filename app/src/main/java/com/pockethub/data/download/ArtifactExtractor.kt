@@ -50,6 +50,20 @@ class ArtifactExtractor @Inject constructor() {
         return tryExtract(zipFile, destDir, Charset.forName("GBK")).first
     }
 
+    /**
+     * List files previously extracted into [destDir] (deepest-first so parent
+     * dirs sort after their children). Returns null when [destDir] doesn't
+     * exist or holds no files, letting callers fall back to a re-extract.
+     */
+    fun listExtracted(destDir: File): List<ExtractedFile>? {
+        if (!destDir.isDirectory) return null
+        val files = destDir.walkTopDown().filter { it.isFile }
+            .sortedByDescending { it.relativeTo(destDir).count { c -> c == '/' } }
+            .map { ExtractedFile(name = it.relativeTo(destDir).invariantSeparatorsPath, path = it.absolutePath, size = it.length()) }
+            .toList()
+        return files.ifEmpty { null }
+    }
+
     private fun tryExtract(
         zipFile: File,
         destDir: File,
