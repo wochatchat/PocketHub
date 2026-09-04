@@ -1,39 +1,39 @@
 {
-  "version": "0.4.6",
+  "version": "0.4.7",
   "summary": {
-    "zh": "一批滚动与界面体验修复：所有页面的滚动位置在进出详情页后不再丢失，工作流筛选不再闪烁，仓库详情各 tab 数据预加载，切换即现。",
-    "en": "Scroll and navigation polish: scroll positions survive detail-page round trips on every screen, workflow filter chips no longer flash, and repo detail tabs are prefetched so switching renders instantly."
+    "zh": "一批快赢改进：仓库详情读取更快（README 提前并行加载 + markdown 后台解析），链接区分站内站外（站外绿色），Release APK 一键直装，文件预览双击全屏，桌面长按快捷方式。",
+    "en": "A batch of quick wins: faster repo detail (parallel README + off-main markdown parsing), in-app vs external links now color-coded (external green), one-tap APK install from Releases, double-tap fullscreen file preview, and launcher shortcuts."
   },
   "items": [
     {
-      "type": "fix",
-      "zh": "修复：全 App 滚动位置丢失——从列表/详情页进出后返回，列表、概览 tab、issue/PR 详情、markdown 文件浏览等都恢复到原位置",
-      "en": "Scroll positions are now preserved across navigate-away-and-back on every screen: lists, overview tab, issue/PR details, markdown file viewer"
-    },
-    {
-      "type": "fix",
-      "zh": "修复：markdown/图片等异步内容长高导致恢复位置偏移，恢复现在跟随内容增长持续贴位，用户一拖动立即交还控制权",
-      "en": "Restore now tracks late-loading content (markdown/images) and re-pins until the position sticks; any user drag immediately cancels the pin"
-    },
-    {
-      "type": "fix",
-      "zh": "修复：工作流运行列表每次刷新都强制跳回顶部，从运行详情返回不再回顶；新构建出现或切换筛选时才回到最新",
-      "en": "Workflow run list no longer force-scrolls to top on return from a run detail; it only jumps for genuinely new runs or filter changes"
-    },
-    {
-      "type": "fix",
-      "zh": "修复：工作流筛选 chips 行闪烁——从详情页返回时分支行先消失再弹出，现在保持稳定两行",
-      "en": "Workflow filter chip rows no longer flash between one and two rows when returning from a detail page"
+      "type": "perf",
+      "zh": "优化：概览页 README 与仓库信息并行加载，不再串行白等两轮网络；加载中显示骨架屏，不再整块空白",
+      "en": "Overview: README loads in parallel with the repo payload instead of after it, with a skeleton while in flight — no more blank gap"
     },
     {
       "type": "perf",
-      "zh": "优化：仓库详情各数据 tab（Issues/PRs/Releases/工作流）进入后自动预加载，切换 tab 即时呈现不再转骨架",
-      "en": "Repo detail tabs (Issues/PRs/Releases/Workflows) are prefetched on entry, so tab switches render instantly instead of skeletons"
+      "zh": "优化：markdown 行内解析（链接/加粗/代码片）移入后台线程，长 README 首屏不再卡顿；卡片渐变等高频重组开销同步削减",
+      "en": "Markdown inline tokenization (links/bold/code chips) moved off the UI thread — long READMEs no longer jank first layout; per-recomposition card allocations trimmed"
     },
     {
       "type": "ui",
-      "zh": "界面：发现页信息源「更改」按钮紧跟来源名后；仓库列表项去掉多余序号",
-      "en": "Discover page: the source switch now sits right after the source name; repo list items drop the redundant rank numbers"
+      "zh": "界面：markdown 链接区分站内/站外——站内保持主题色可跳转 app 内页面，站外绿色，一眼分辨是否离开 GitHub",
+      "en": "Markdown links are color-coded: in-GitHub links keep the theme color and route inside the app, external links render green"
+    },
+    {
+      "type": "feature",
+      "zh": "新功能：Releases 页点 APK 附件下载完成后自动拉起系统安装器（已缓存则立即安装），不用再绕下载页",
+      "en": "Releases: tapping an .apk asset auto-opens the system installer once downloaded (or immediately if cached) — no detour through Downloads"
+    },
+    {
+      "type": "feature",
+      "zh": "新功能：代码 tab 文件预览双击进入全屏浏览（文件树默认隐藏，可拖出），工具栏按钮行为不变；图片预览保持单击缩放",
+      "en": "Code tab: double-tap a file preview to jump into the fullscreen viewer (tree hidden by default, draggable back); toolbar button unchanged; images keep single-tap zoom"
+    },
+    {
+      "type": "feature",
+      "zh": "新功能：桌面长按图标快捷方式——通知、搜索、我的，直达对应页面；顺带修复冷启动深链丢失与带参深链不路由两个问题",
+      "en": "Launcher shortcuts (long-press the icon): Notifications, Search, Profile. Also fixes cold-start deep links being dropped and query-carrying links not routing"
     }
   ]
 }
