@@ -3,6 +3,7 @@ package com.pockethub.ui.repo
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -61,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.pockethub.R
+import androidx.compose.ui.input.pointer.pointerInput
 import com.pockethub.data.download.DownloadManager
 import com.pockethub.ui.download.DownloadViewModel
 import com.pockethub.ui.markdown.CodeHighlighter
@@ -418,6 +420,19 @@ private fun FileViewerContent(
                 }
             }
         }
+        // Double-tap anywhere in the preview body → jump into the full-screen
+        // file viewer (file tree hidden). The top bar keeps its single-tap
+        // buttons; image panes keep their single-tap zoomable preview.
+        Box(
+            Modifier
+                .fillMaxSize()
+                .pointerInput(entry.path) {
+                    detectTapGestures(onDoubleTap = {
+                        com.pockethub.ui.components.Haptics.tick(hapticView)
+                        onFullScreen()
+                    })
+                },
+        ) {
         if (isLoading) {
             com.pockethub.ui.components.SkeletonCodeLines(Modifier.fillMaxSize())
         } else if (entry.type == "file" && com.pockethub.util.FileTypes.isImage(entry.path)) {
@@ -446,6 +461,7 @@ private fun FileViewerContent(
                     Text(stringResource(R.string.action_download))
                 }
             }
+        }
         }
     }
 }
