@@ -30,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import com.pockethub.data.remote.GitHubApi
 import com.pockethub.ui.components.PhAsyncImage
 
@@ -57,29 +58,49 @@ fun IssueEventRow(
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.width(8.dp))
-        event.actor?.let { actor ->
-            PhAsyncImage(
-                model = actor.avatarUrl,
-                contentDescription = actor.login,
-                modifier = Modifier
-                    .size(16.dp)
-                    .clip(CircleShape)
-                    .clickable { onNavigateToUser(actor.login) },
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                actor.login,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.clickable { onNavigateToUser(actor.login) },
-            )
-            Spacer(Modifier.width(4.dp))
-        }
-        Text(text, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.width(6.dp))
-        event.createdAt?.let {
-            Text(formatRelativeShort(it), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+        Column(Modifier.weight(1f)) {
+            event.actor?.let { actor ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    PhAsyncImage(
+                        model = actor.avatarUrl,
+                        contentDescription = actor.login,
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clip(CircleShape)
+                            .clickable { onNavigateToUser(actor.login) },
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        actor.login,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.clickable { onNavigateToUser(actor.login) },
+                    )
+                }
+                Spacer(Modifier.width(0.dp))
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Spacer(Modifier.width(6.dp))
+                event.createdAt?.let {
+                    Text(
+                        formatRelativeShort(it),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        maxLines = 1,
+                    )
+                }
+            }
         }
     }
 }

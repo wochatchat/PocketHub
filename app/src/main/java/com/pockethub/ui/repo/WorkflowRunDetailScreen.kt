@@ -248,9 +248,12 @@ private fun RunHeaderCard(run: GitHubApi.WorkflowRun?, dateFmt: DateFormat) {
             Text("run #${r.runNumber}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            InfoPill(label = stringResource(R.string.wf_pill_branch), value = r.headBranch ?: "—")
+            Box(Modifier.weight(1f, fill = false)) {
+                InfoPill(label = stringResource(R.string.wf_pill_branch), value = r.headBranch ?: "—")
+            }
             Spacer(Modifier.width(10.dp))
             InfoPill(label = stringResource(R.string.wf_pill_event), value = r.event ?: "—")
+            Spacer(Modifier.weight(0.01f))
         }
         Text(
             "SHA ${r.headSha?.take(7) ?: "—"}",

@@ -245,6 +245,9 @@ fun UserDetailScreen(
                             repo = repo,
                             onOpen = { onNavigateToRepo(repo.owner.login, repo.name) },
                             onOpenOwner = { onNavigateToUser(repo.owner.login) },
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .animateItem(),
                         )
                     }
                 }
