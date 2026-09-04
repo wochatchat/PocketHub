@@ -106,7 +106,7 @@ fun WorkflowLogScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-    val listState = com.pockethub.ui.components.rememberRestorableListState(contentReady = parsed != null)
+    val listState = com.pockethub.ui.components.rememberRestorableListState(contentReady = state.parsed != null)
 
     var searchOpen by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
