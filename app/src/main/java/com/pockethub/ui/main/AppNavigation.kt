@@ -196,15 +196,23 @@ fun PocketHubApp(
 
             // pockethub:// deep links forwarded by MainActivity. Only honored
             // while signed in; otherwise discarded (a login gate can't route).
+            // While auth is Loading the link is KEPT (not consumed): the effect
+            // re-runs when authKey changes, so cold-start taps — launcher
+            // shortcuts, notification deep links — survive the splash window
+            // instead of being silently dropped before login resolves.
             androidx.compose.runtime.LaunchedEffect(deepLinkUri, authKey) {
                 val uri = deepLinkUri ?: return@LaunchedEffect
+                if (authState is AuthState.Loading) return@LaunchedEffect
                 if (authState !is AuthState.LoggedIn) {
                     onDeepLinkConsumed()
                     return@LaunchedEffect
                 }
                 // Strip the scheme:// prefix and treat the rest as the route
                 // (Routes.DEEP_LINK_* mirrors the Routes.*_DETAIL patterns).
-                val route = uri.host + uri.path?.let { if (it.isBlank()) "" else it }
+                // The query string is kept: `pockethub://search?query=` must
+                // produce "search?query=" to match its route pattern.
+                val route = uri.host + uri.path?.let { if (it.isBlank()) "" else it } +
+                    uri.encodedQuery?.let { q -> "?$q" }.orEmpty()
                 if (route.isNotBlank()) {
                     navController.navigate(route) {
                         launchSingleTop = true
