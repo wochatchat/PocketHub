@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
@@ -242,7 +241,7 @@ fun ExploreScreen(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                     )
-                    Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         stringResource(R.string.feed_source_change),
                         style = MaterialTheme.typography.labelSmall,
@@ -486,10 +485,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.repoItems(
             EmptyState(stringResource(R.string.no_repositories_found), stringResource(R.string.no_discover_items_subtitle), icon = Icons.AutoMirrored.Outlined.Article)
         }
         else -> {
-            itemsIndexed(repos, key = { _, it -> it.id }) { index, item ->
+            items(repos, key = { it.id }) { item ->
                 DiscoverItemCard(
                     item = item,
-                    rank = index + 1,
                     onClick = { onNavigateToRepo(item.owner, item.repo) },
                     onNavigateToUser = onNavigateToUser,
                     modifier = Modifier.animateItem(),
