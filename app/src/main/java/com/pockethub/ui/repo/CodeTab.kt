@@ -87,6 +87,9 @@ fun CodeTab(
 ) {
     val state by vm.state.collectAsState()
     var showFullViewer by rememberSaveable { mutableStateOf(false) }
+    // How the full viewer was last opened: double-tap wants the file tree
+    // hidden on entry, the toolbar fullscreen button keeps it visible.
+    var fullViewerTreeClosed by rememberSaveable { mutableStateOf(false) }
 
     // Lazy initialise for this owner/repo pair on first composition.
     androidx.compose.runtime.LaunchedEffect(owner, repo) {
@@ -166,7 +169,12 @@ fun CodeTab(
                 isLoading = state.isLoading,
                 onClose = { vm.closeFile() },
                 onDownload = { state.viewingFile?.let { downloadFile(it) } },
-                onFullScreen = { showFullViewer = true },
+                // Toolbar button keeps the previous behaviour (tree visible);
+                // double-tap asks for it hidden.
+                onFullScreen = { treeHidden ->
+                    fullViewerTreeClosed = treeHidden
+                    showFullViewer = true
+                },
             )
 
             state.error != null && state.entries.isEmpty() -> Column(
@@ -202,7 +210,11 @@ fun CodeTab(
     }
 
     if (showFullViewer && state.viewingFile != null) {
-        FullScreenFileViewer(vm = vm, onDismiss = { showFullViewer = false })
+        FullScreenFileViewer(
+            vm = vm,
+            onDismiss = { showFullViewer = false },
+            startTreeClosed = fullViewerTreeClosed,
+        )
     }
 }
 
@@ -376,7 +388,7 @@ private fun FileViewerContent(
     isLoading: Boolean,
     onClose: () -> Unit,
     onDownload: () -> Unit,
-    onFullScreen: () -> Unit = {},
+    onFullScreen: (treeHidden: Boolean) -> Unit = {},
 ) {
     val clipboard = LocalClipboardManager.current
     val hapticView = androidx.compose.ui.platform.LocalView.current
@@ -420,19 +432,7 @@ private fun FileViewerContent(
                 }
             }
         }
-        // Double-tap anywhere in the preview body → jump into the full-screen
-        // file viewer (file tree hidden). The top bar keeps its single-tap
-        // buttons; image panes keep their single-tap zoomable preview.
-        Box(
-            Modifier
-                .fillMaxSize()
-                .pointerInput(entry.path) {
-                    detectTapGestures(onDoubleTap = {
-                        com.pockethub.ui.components.Haptics.tick(hapticView)
-                        onFullScreen()
-                    })
-                },
-        ) {
+        // Text pane only carries the double-tap gesture (see below).
         if (isLoading) {
             com.pockethub.ui.components.SkeletonCodeLines(Modifier.fillMaxSize())
         } else if (entry.type == "file" && com.pockethub.util.FileTypes.isImage(entry.path)) {
@@ -444,10 +444,20 @@ private fun FileViewerContent(
                 onDownload = onDownload,
             )
         } else if (content != null) {
+            // Text/code pane only: double-tap opens the full-screen viewer
+            // (tree hidden). Images keep their single-tap zoomable preview and
+            // binary panes have nothing to fullscreen — both stay gesture-free.
             SyntaxHighlightedCode(
                 code = content,
                 fileName = entry.name,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(entry.path) {
+                        detectTapGestures(onDoubleTap = {
+                            com.pockethub.ui.components.Haptics.tick(hapticView)
+                            onFullScreen(treeHidden = true)
+                        })
+                    },
             )
         } else {
             Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
@@ -461,7 +471,6 @@ private fun FileViewerContent(
                     Text(stringResource(R.string.action_download))
                 }
             }
-        }
         }
     }
 }

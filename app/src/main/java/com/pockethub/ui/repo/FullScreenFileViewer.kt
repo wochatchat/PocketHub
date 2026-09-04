@@ -109,6 +109,8 @@ interface FullScreenViewerHost {
 internal fun FullScreenFileViewer(
     vm: FullScreenViewerHost,
     onDismiss: () -> Unit,
+    /** Start with the file-tree panel hidden (double-tap entry point). */
+    startTreeClosed: Boolean = false,
 ) {
     val state by vm.state.collectAsState()
     val clipboard = LocalClipboardManager.current
@@ -116,7 +118,10 @@ internal fun FullScreenFileViewer(
     val context = LocalContext.current
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
-    var treeOpenSaved by rememberSaveable { mutableStateOf(true) }
+    // Keyed on the entry intent: double-tap opens with the tree closed even if
+    // the previous fullscreen session left it open (and vice versa). Toggling
+    // the tree during use keeps the key stable, so it still persists normally.
+    var treeOpenSaved by rememberSaveable(startTreeClosed) { mutableStateOf(!startTreeClosed) }
 
     // ── Same-layer sliding unit ─────────────────────────────────────────
     // The tree and the code body sit side by side in one Row that slides
