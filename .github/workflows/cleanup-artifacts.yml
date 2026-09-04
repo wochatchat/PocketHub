@@ -1,0 +1,52 @@
+name: Cleanup Artifacts
+
+# Actions storage is a shared quota: every build uploads a `pockethub-apk`
+# artifact, and with no retention policy they pile up until the account hits
+# 100%. Keep only the newest 10 artifacts and delete the rest.
+on:
+  schedule:
+    - cron: '0 18 * * *' # daily 02:00 Asia/Shanghai
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+concurrency:
+  group: pockethub-cleanup-artifacts
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Delete old artifacts (keep newest 10)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          total=$(gh api "repos/${GH_REPO}/artifacts" --jq '.total_count')
+          echo "Total artifacts: ${total}"
+          if [ "${total}" -le 10 ]; then
+            echo "Nothing to clean up."
+            exit 0
+          fi
+
+          # Artifact list API returns newest first; ids 11..N (oldest) get deleted.
+          # Exclude already-expired ones — DELETE on those is a no-op but wastes quota.
+          to_delete=$(gh api "repos/${GH_REPO}/artifacts?per_page=100" --paginate \
+            --jq '.artifacts[] | select(.expired != true) | .id' \
+            | tail -n +11)
+          if [ -z "${to_delete}" ]; then
+            echo "Only the newest 10 are live; nothing to delete."
+            exit 0
+          fi
+
+          deleted=0
+          for id in ${to_delete}; do
+            gh api -X DELETE "repos/${GH_REPO}/artifacts/${id}" && deleted=$((deleted + 1)) \
+              || echo "WARN: failed to delete artifact ${id}"
+          done
+          echo "Deleted ${deleted} artifacts; kept the newest 10."
