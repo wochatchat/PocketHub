@@ -422,7 +422,7 @@ private fun FileViewerContent(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                IconButton(onClick = onFullScreen) {
+                IconButton(onClick = { onFullScreen(false) }) {
                     Icon(
                         Icons.Outlined.Fullscreen,
                         contentDescription = stringResource(R.string.cd_fullscreen),
