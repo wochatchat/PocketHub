@@ -529,6 +529,11 @@ fun RepoDetailScreen(
                     }),
                     onNavigateToUser = onNavigateToUser,
                     onDownloadAsset = { asset ->
+                        // APK assets auto-open the system installer once the
+                        // bytes are on disk (or immediately if already cached).
+                        if (asset.name.lowercase().endsWith(".apk")) {
+                            downloadVm.installWhenDone(asset.browserDownloadUrl)
+                        }
                         downloadVm.enqueue(
                             com.pockethub.data.download.DownloadManager.EnqueueRequest(
                                 url = asset.browserDownloadUrl,
