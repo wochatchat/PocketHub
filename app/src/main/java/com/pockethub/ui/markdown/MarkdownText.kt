@@ -119,19 +119,58 @@ fun MarkdownText(
     // Parse OFF the main thread: large documents (600KB+ awesome-lists) take
     // seconds-to-minutes synchronously and would ANR the Overview tab. Also
     // cap the input so pathological docs stay renderable.
-    val parseResult by produceState<Result<List<MdBlock>>>(
-        initialValue = Result.success(emptyList()),
+    // The inline pass runs in the SAME off-main pass: renderRichInline is a
+    // pure (text → List<InlineToken>) function, so each block's paragraph
+    // links/emphasis/code-chips are pre-tokenized here too. Composition then
+    // only assembles prebuilt AnnotatedStrings — long READMEs no longer
+    // parse per-block on the UI thread during first layout.
+    // Bundle the render inputs into one equality-safe key: the inline pass
+    // must re-run when the theme (any color) or the resolvers change.
+    val inlineCtx = InlineToken.Ctx(
+        resolver = linkResolver,
+        imageResolver = imageResolver,
+        codeBackgroundColor = codeBackgroundColor,
+        linkColor = linkColor,
+        downloadColor = downloadColor,
+        imageLinkColor = imageLinkColor,
+        externalColor = externalColor,
+    )
+    val parsed by produceState<ParsedDoc>(
+        initialValue = ParsedDoc(emptyList(), null),
         key1 = markdown,
+        key2 = inlineCtx,
     ) {
-        value = runCatching {
-            withContext(Dispatchers.Default) {
-                parseMarkdown(cleanMarkdown(truncateOversized(markdown)))
+        value = withContext(Dispatchers.Default) {
+            try {
+                val c = inlineCtx
+                val blocks = parseMarkdown(cleanMarkdown(truncateOversized(markdown))).map { block ->
+                    val text = when (block) {
+                        is MdBlock.Heading -> block.text
+                        is MdBlock.Paragraph -> block.text
+                        is MdBlock.Alert -> block.text
+                        is MdBlock.Blockquote -> block.text
+                        is MdBlock.ListItem -> block.text
+                        else -> null // Table/CodeBlock/HorizontalRule render themselves
+                    }
+                    block to when (text) {
+                        null -> emptyList()
+                        else -> renderRichInline(
+                            text, c.resolver, c.imageResolver,
+                            c.codeBackgroundColor, c.linkColor, c.downloadColor,
+                            c.imageLinkColor, c.externalColor,
+                        )
+                    }
+                }
+                ParsedDoc(blocks, null)
+            } catch (e: Throwable) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                ParsedDoc(emptyList(), e) // parser is total in practice; surface if it ever isn't
             }
         }
     }
     Column(modifier = modifier) {
-        parseResult.onFailure { MarkdownErrorBox(it) }
-        parseResult.getOrNull()?.forEach { block ->
+        parsed.error?.let { MarkdownErrorBox(it) }
+        parsed.blocks.forEach { (block, parts) ->
             when (block) {
                 is MdBlock.Heading -> {
                     val style = when (block.level) {
@@ -145,7 +184,6 @@ fun MarkdownText(
                     if (block.level <= 2) Spacer(Modifier.height(if (block.level == 1) 10.dp else 6.dp))
                     // Render inline markdown (links, code, bold) inside headings so `## Getting `code``
                     // shows a code chip instead of literal backticks.
-                    val parts = rememberRichInline(block.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
                     RenderInlineParts(parts, style.copy(
                         fontWeight = FontWeight.SemiBold,
                         lineHeight = when (block.level) {
@@ -158,7 +196,6 @@ fun MarkdownText(
                 }
 
                 is MdBlock.Paragraph -> {
-                    val parts = rememberRichInline(block.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
                     RichParagraph(parts, onTap, paragraphSpacing = 4.dp)
                 }
 
@@ -194,12 +231,10 @@ fun MarkdownText(
                 }
 
                 is MdBlock.Alert -> {
-                    val parts = rememberRichInline(block.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
                     SimpleAlertCard(block.kind, parts, onTap)
                 }
 
                 is MdBlock.Blockquote -> {
-                    val parts = rememberRichInline(block.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
                     SimpleBlockquote(parts, mutedColor, onTap)
                 }
 
@@ -210,7 +245,6 @@ fun MarkdownText(
                         block.task == ' ' -> "☐ "
                         else -> "• "
                     }
-                    val parts = rememberRichInline(block.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
                     SimpleListItem(bullet, parts, (block.level - 1) * 14, onTap)
                 }
 
@@ -373,6 +407,24 @@ internal sealed class MdBlock {
 internal sealed class InlineToken {
     /** Flowable annotated text — clickable links live here. */
     data class Text(val span: AnnotatedString) : InlineToken()
+
+    /** All inputs of the off-main inline pass — one equality-checkable key. */
+    internal data class Ctx(
+        val resolver: com.pockethub.ui.markdown.LinkResolver,
+        val imageResolver: com.pockethub.ui.markdown.ImageResolver,
+        val codeBackgroundColor: androidx.compose.ui.graphics.Color,
+        val linkColor: androidx.compose.ui.graphics.Color,
+        val downloadColor: androidx.compose.ui.graphics.Color,
+        val imageLinkColor: androidx.compose.ui.graphics.Color,
+        val externalColor: androidx.compose.ui.graphics.Color,
+    )
+}
+
+/** Result of the combined block+inline parse: pre-tokenized blocks or the parse error. */
+private data class ParsedDoc(
+    val blocks: List<Pair<MdBlock, List<InlineToken>>>,
+    val error: Throwable?,
+)
     /** Standalone image. `wrapUrl` non-null → image is wrapped in a link (render with hover style). */
     data class Image(
         val src: String,
