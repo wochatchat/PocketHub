@@ -664,4 +664,5 @@
     <string name="time_hours_ago">%1$d 小时前</string>
     <string name="time_days_ago">%1$d 天前</string>
     <string name="time_months_ago">%1$d 个月前</string>
+    <string name="image_open_viewer">查看大图</string>
 </resources>

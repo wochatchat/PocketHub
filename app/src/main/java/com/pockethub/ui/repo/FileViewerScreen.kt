@@ -62,7 +62,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.decodeFromJsonElement
+
+import androidx.compose.foundation.clickableimport kotlinx.serialization.json.decodeFromJsonElement
 
 /**
  * Loads a single repo file (Contents API) for [FileViewerScreen].
@@ -215,6 +216,35 @@ fun FileViewerScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+                com.pockethub.util.FileTypes.isImage(path) -> {
+                    // Image file: inline preview, tap opens the built-in
+                    // zoomable viewer (works even when GitHub omits base64 —
+                    // the URL is the same raw endpoint Coil loads).
+                    val raw = remember(path, owner, repo, ref) {
+                        "https://raw.githubusercontent.com/$owner/$repo/${ref ?: "HEAD"}/$path"
+                    }
+                    val previewer = com.pockethub.ui.components.LocalImagePreviewer.current
+                    Column(
+                        Modifier.fillMaxSize().padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        com.pockethub.ui.components.PhAsyncImage(
+                            model = raw,
+                            contentDescription = path,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(MaterialTheme.shapes.large)
+                                .clickable { previewer?.invoke(listOf(raw), 0) },
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            stringResource(R.string.image_open_viewer),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
                 state.isBinary || state.content == null ->
                     Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {

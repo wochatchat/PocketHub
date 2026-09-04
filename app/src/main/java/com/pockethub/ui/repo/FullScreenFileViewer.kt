@@ -316,6 +316,27 @@ internal fun FullScreenFileViewer(
                         when {
                             entry == null -> EmptyHint()
                             state.isLoading -> com.pockethub.ui.components.SkeletonCodeLines(Modifier.fillMaxSize())
+                            entry.type == "file" && com.pockethub.util.FileTypes.isImage(entry.path) -> {
+                                // Images: inline preview + tap-through to the
+                                // built-in zoomable viewer (download button in
+                                // the top bar already covers saving).
+                                val raw = entry.downloadUrl
+                                val previewer = com.pockethub.ui.components.LocalImagePreviewer.current
+                                if (raw != null) {
+                                    Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                                        com.pockethub.ui.components.PhAsyncImage(
+                                            model = raw,
+                                            contentDescription = entry.path,
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(MaterialTheme.shapes.large)
+                                                .clickable { previewer?.invoke(listOf(raw), 0) },
+                                        )
+                                    }
+                                } else {
+                                    EmptyHint()
+                                }
+                            }
                             content != null -> SyntaxHighlightedCode(
                                 code = content,
                                 fileName = entry.name,

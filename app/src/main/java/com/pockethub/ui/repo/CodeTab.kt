@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.FolderZip
 import androidx.compose.material.icons.outlined.Fullscreen
+import androidx.compose.material.icons.outlined.ZoomIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -416,6 +417,14 @@ private fun FileViewerContent(
         }
         if (isLoading) {
             com.pockethub.ui.components.SkeletonCodeLines(Modifier.fillMaxSize())
+        } else if (entry.type == "file" && com.pockethub.util.FileTypes.isImage(entry.path)) {
+            // Image files render inline and tap into the built-in zoomable
+            // viewer — they were previously mislabeled "binary, unavailable".
+            ImageFilePane(
+                rawUrl = entry.downloadUrl ?: return@Column,
+                path = entry.path,
+                onDownload = onDownload,
+            )
         } else if (content != null) {
             SyntaxHighlightedCode(
                 code = content,
@@ -459,6 +468,55 @@ private class PreparedCode(
  * of each line.
  */
 @Composable
+/**
+ * Inline pane for image files in the code browser: Coil-rendered preview on
+ * a soft surface, tap opens the built-in zoomable viewer
+ * ([LocalImagePreviewer]), plus the standard download affordance.
+ */
+@Composable
+private fun ImageFilePane(
+    rawUrl: String,
+    path: String,
+    onDownload: () -> Unit,
+) {
+    val previewer = com.pockethub.ui.components.LocalImagePreviewer.current
+    Column(
+        Modifier.fillMaxSize().padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        com.pockethub.ui.components.PhAsyncImage(
+            model = rawUrl,
+            contentDescription = path,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
+                .clickable { previewer?.invoke(listOf(rawUrl), 0) },
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            path.substringAfterLast('/'),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            androidx.compose.material3.OutlinedButton(
+                onClick = { previewer?.invoke(listOf(rawUrl), 0) },
+            ) {
+                Icon(Icons.Outlined.ZoomIn, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.image_open_viewer))
+            }
+            androidx.compose.material3.OutlinedButton(onClick = onDownload) {
+                Icon(Icons.Outlined.Download, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.action_download))
+            }
+        }
+    }
+}
+
 internal fun SyntaxHighlightedCode(
     code: String,
     fileName: String,
