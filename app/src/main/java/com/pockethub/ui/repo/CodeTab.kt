@@ -388,7 +388,8 @@ private fun FileViewerContent(
     isLoading: Boolean,
     onClose: () -> Unit,
     onDownload: () -> Unit,
-    onFullScreen: (treeHidden: Boolean) -> Unit = {},
+    /** true = open with the file-tree panel hidden (double-tap entry). */
+    onFullScreen: (Boolean) -> Unit = {},
 ) {
     val clipboard = LocalClipboardManager.current
     val hapticView = androidx.compose.ui.platform.LocalView.current
@@ -455,7 +456,7 @@ private fun FileViewerContent(
                     .pointerInput(entry.path) {
                         detectTapGestures(onDoubleTap = {
                             com.pockethub.ui.components.Haptics.tick(hapticView)
-                            onFullScreen(treeHidden = true)
+                            onFullScreen(true)
                         })
                     },
             )
