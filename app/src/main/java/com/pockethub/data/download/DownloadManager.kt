@@ -47,6 +47,12 @@ class DownloadManager @Inject constructor(
     private val queueSignals = Channel<Unit>(Channel.CONFLATED)
     private val cancelledUrls = ConcurrentHashMap.newKeySet<String>()
 
+    /** Completion listeners (e.g. the auto-install hook) — fired on the IO scope; keep them cheap. */
+    private val completionListeners = java.util.concurrent.CopyOnWriteArraySet<(DownloadEntity) -> Unit>()
+
+    fun addCompletionListener(listener: (DownloadEntity) -> Unit) { completionListeners += listener }
+    fun removeCompletionListener(listener: (DownloadEntity) -> Unit) { completionListeners -= listener }
+
     /**
      * Bare client used for redirect hops. Built from scratch because OkHttp
      * cannot REMOVE inherited interceptors via newBuilder() — the shared
@@ -367,6 +373,7 @@ class DownloadManager @Inject constructor(
                         // the app-private copy above stays authoritative for APK
                         // install / artifact extraction flows).
                         exportToUserFolder(entity, targetFile)
+                        completionListeners.forEach { runCatching { it(entity) } }
                     }
                     break
                 } catch (e: kotlinx.coroutines.CancellationException) {

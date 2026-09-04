@@ -105,6 +105,7 @@ fun RepoDetailScreen(
     val releases by vm.releases.collectAsState()
     val workflowRuns by vm.workflowRuns.collectAsState()
     val readme by vm.readme.collectAsState()
+    val isLoadingReadme by vm.isLoadingReadme.collectAsState()
     val readmeMissing by vm.readmeMissing.collectAsState()
     val isLoading by vm.isLoading.collectAsState()
     val isRefreshing by vm.isRefreshing.collectAsState()
@@ -471,6 +472,7 @@ fun RepoDetailScreen(
                     repoData,
                     readme,
                     isLoading,
+                    isLoadingReadme = isLoadingReadme,
                     readmeMissing = readmeMissing,
                     translatedReadme = translatedReadme,
                     showTranslated = showTranslated,
@@ -527,6 +529,11 @@ fun RepoDetailScreen(
                     }),
                     onNavigateToUser = onNavigateToUser,
                     onDownloadAsset = { asset ->
+                        // APK assets auto-open the system installer once the
+                        // bytes are on disk (or immediately if already cached).
+                        if (asset.name.lowercase().endsWith(".apk")) {
+                            downloadVm.installWhenDone(asset.browserDownloadUrl)
+                        }
                         downloadVm.enqueue(
                             com.pockethub.data.download.DownloadManager.EnqueueRequest(
                                 url = asset.browserDownloadUrl,

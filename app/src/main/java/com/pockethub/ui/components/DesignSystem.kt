@@ -79,6 +79,10 @@ object Motion {
     const val STAGGER_STEP_MS = 45
     /** Cap for the per-item entrance delay so long lists stay responsive. */
     const val MAX_STAGGER_MS = 360
+    /** Only the first N list items get the staggered entrance — items composed
+     *  later (scroll/fling) render immediately: animating every newly composed
+     *  item costs frames and delays content exactly where scrolling hurts. */
+    const val STAGGER_MAX_ITEMS = 12
 }
 
 /**
@@ -145,6 +149,7 @@ fun PhCard(
         animationSpec = tween(120),
         label = "ph_card_border",
     )
+    val onSurfaceColor = MaterialTheme.colorScheme.onSurface
 
     Surface(
         modifier = modifier.graphicsLayer {
@@ -159,10 +164,15 @@ fun PhCard(
             Modifier
                 .clip(shape)
                 .background(
-                    Brush.verticalGradient(
-                        0f to MaterialTheme.colorScheme.onSurface.copy(alpha = 0.02f),
-                        1f to Color.Transparent,
-                    )
+                    // Remembered: PhCard sits in every list item; allocating the
+                    // gradient on each recomposition (image loads, state ticks)
+                    // added up across a whole screen of cards.
+                    remember(onSurfaceColor) {
+                        Brush.verticalGradient(
+                            0f to onSurfaceColor.copy(alpha = 0.02f),
+                            1f to Color.Transparent,
+                        )
+                    }
                 )
                 .border(
                     width = 1.dp,
@@ -199,6 +209,11 @@ fun StaggeredAppear(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
+    // Late items (fling / scrolled-down) skip the entrance entirely.
+    if (index >= Motion.STAGGER_MAX_ITEMS) {
+        androidx.compose.foundation.layout.Box(modifier) { content() }
+        return
+    }
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
     val delay = (index * Motion.STAGGER_STEP_MS).coerceAtMost(Motion.MAX_STAGGER_MS)

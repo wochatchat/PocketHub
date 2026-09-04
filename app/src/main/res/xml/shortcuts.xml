@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press launcher shortcuts: deep links routed through MainActivity's
+     pockethub:// handling (each host has a matching intent-filter). -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="notifications"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_notifications"
+        android:shortcutShortLabel="@string/tab_notifications"
+        android:shortcutLongLabel="@string/tab_notifications">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="pockethub://notifications" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="search"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_search"
+        android:shortcutShortLabel="@string/action_search"
+        android:shortcutLongLabel="@string/action_search">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="pockethub://search?query=" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="profile"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_profile"
+        android:shortcutShortLabel="@string/tab_profile"
+        android:shortcutLongLabel="@string/tab_profile">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="pockethub://profile" />
+    </shortcut>
+</shortcuts>
