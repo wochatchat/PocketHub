@@ -10,6 +10,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
+import com.pockethub.ui.theme.semanticColors
 
 /**
  * Small clickable hyperlink built from a single line of text. Opens [url] in a
@@ -26,9 +27,9 @@ fun LinkLabel(
     val annotated = buildAnnotatedString {
         pushStringAnnotation(tag = "URL", annotation = url)
         addStyle(
-    // Off-github links use the secondary hue — same rule as EXTERNAL markdown
-    // links in MarkdownRender, so in-app vs external stays consistent app-wide.
-    SpanStyle(color = MaterialTheme.colorScheme.secondary, textDecoration = TextDecoration.Underline),
+    // Off-github links use green — same rule as EXTERNAL markdown links in
+    // MarkdownText, so in-app vs external stays consistent app-wide.
+    SpanStyle(color = semanticColors().success, textDecoration = TextDecoration.Underline),
             start = 0,
             end = text.length,
         )

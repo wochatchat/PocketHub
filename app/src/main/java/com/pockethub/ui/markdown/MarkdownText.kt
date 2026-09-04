@@ -80,8 +80,9 @@ fun MarkdownText(
     val linkColor = MaterialTheme.colorScheme.primary
     val downloadColor = MaterialTheme.colorScheme.tertiary
     val imageLinkColor = MaterialTheme.colorScheme.secondary
-    // Off-github links: secondary hue, visibly different from in-app (primary).
-    val externalColor = MaterialTheme.colorScheme.secondary
+    // Off-github links: green (semantic success hue) — clearly distinct from
+    // in-app primary so users can tell before tapping.
+    val externalColor = semanticColors().success
 
     val codeBackgroundColor = MaterialTheme.colorScheme.surfaceVariant
     val accentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
