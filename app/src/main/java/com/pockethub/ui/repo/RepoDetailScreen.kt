@@ -183,6 +183,12 @@ fun RepoDetailScreen(
     LaunchedEffect(owner, repo, codeBrowserRef) {
         if (repoData != null) vm.onBranchChanged(owner, repo, codeBrowserRef)
     }
+    // Prefetch the data tabs once the repo is in — tab switches then render
+    // instantly instead of skeleton-first. Loaders are cache-aware, so this
+    // is a no-op for anything already fetched.
+    LaunchedEffect(repoData, owner, repo) {
+        if (repoData != null) vm.preloadTabs(owner, repo)
+    }
     LaunchedEffect(owner, repo, tab) {
         if (tab == RepoTab.ISSUES) vm.loadIssues(owner, repo)
         if (tab == RepoTab.PRS) vm.loadPulls(owner, repo)
