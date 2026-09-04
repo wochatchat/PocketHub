@@ -485,3 +485,32 @@ private fun StatPill(label: String, count: Int, onClick: (() -> Unit)? = null) {
     }
 }
 
+@Composable
+private fun UserAdditionalInfo(user: User?) {
+    val rows: List<Triple<androidx.compose.ui.graphics.vector.ImageVector, String, String>> = buildList {
+        user?.company?.takeIf { it.isNotBlank() }?.let { add(Triple(Icons.Outlined.Apartment, stringResource(R.string.company), it)) }
+        user?.location?.takeIf { it.isNotBlank() }?.let { add(Triple(Icons.Outlined.LocationOn, stringResource(R.string.location), it)) }
+        user?.blog?.takeIf { it.isNotBlank() }?.let { add(Triple(Icons.Outlined.Public, stringResource(R.string.website), it)) }
+        user?.email?.takeIf { it.isNotBlank() }?.let { add(Triple(Icons.Outlined.Email, stringResource(R.string.email), it)) }
+    }
+    if (rows.isEmpty()) return
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(0.dp),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            rows.forEach { (icon, label, value) ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(icon, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            }
+        }
+    }
+}

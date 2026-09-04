@@ -119,12 +119,11 @@ private fun formatRelativeShort(iso: String): String {
     } catch (_: Exception) {
         return iso
     }
-    val r = androidx.compose.ui.res.stringResource
     return when {
-        mins < 1 -> r(com.pockethub.R.string.time_just_now)
-        mins < 60 -> r(com.pockethub.R.string.time_minutes_ago, mins)
-        mins < 60 * 24 -> r(com.pockethub.R.string.time_hours_ago, mins / 60)
-        mins < 60L * 24 * 30 -> r(com.pockethub.R.string.time_days_ago, mins / (60 * 24))
-        else -> r(com.pockethub.R.string.time_months_ago, mins / (60L * 24 * 30))
+        mins < 1 -> androidx.compose.ui.res.stringResource(com.pockethub.R.string.time_just_now)
+        mins < 60 -> androidx.compose.ui.res.stringResource(com.pockethub.R.string.time_minutes_ago, mins)
+        mins < 60 * 24 -> androidx.compose.ui.res.stringResource(com.pockethub.R.string.time_hours_ago, mins / 60)
+        mins < 60L * 24 * 30 -> androidx.compose.ui.res.stringResource(com.pockethub.R.string.time_days_ago, mins / (60 * 24))
+        else -> androidx.compose.ui.res.stringResource(com.pockethub.R.string.time_months_ago, mins / (60L * 24 * 30))
     }
 }
