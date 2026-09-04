@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.FolderZip
 import androidx.compose.material.icons.outlined.Fullscreen
+import androidx.compose.material.icons.outlined.ZoomIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -64,6 +65,7 @@ import com.pockethub.data.download.DownloadManager
 import com.pockethub.ui.download.DownloadViewModel
 import com.pockethub.ui.markdown.CodeHighlighter
 import com.pockethub.util.relativeTime
+import com.pockethub.ui.components.Haptics
 
 
 
@@ -175,7 +177,10 @@ fun CodeTab(
                 TextButton(onClick = { vm.listDir(state.currentPath) }) { Text(stringResource(R.string.action_retry)) }
             }
 
-            else -> LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+            else -> LazyColumn(
+                state = com.pockethub.ui.components.rememberRestorableListState(contentReady = state.entries.isNotEmpty()),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+            ) {
                 items(state.entries, key = { it.path + it.sha + it.type }) { entry ->
                     ContentRow(
                         entry = entry,
@@ -372,6 +377,7 @@ private fun FileViewerContent(
     onFullScreen: () -> Unit = {},
 ) {
     val clipboard = LocalClipboardManager.current
+    val hapticView = androidx.compose.ui.platform.LocalView.current
     val context = LocalContext.current
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -392,6 +398,7 @@ private fun FileViewerContent(
             if (content != null) {
                 IconButton(onClick = {
                     clipboard.setText(AnnotatedString(content))
+                    hapticView.let { com.pockethub.ui.components.Haptics.confirm(it) }
                     android.widget.Toast.makeText(context, context.getString(R.string.copied_toast), android.widget.Toast.LENGTH_SHORT).show()
                 }) {
                     Icon(
@@ -412,7 +419,15 @@ private fun FileViewerContent(
             }
         }
         if (isLoading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            com.pockethub.ui.components.SkeletonCodeLines(Modifier.fillMaxSize())
+        } else if (entry.type == "file" && com.pockethub.util.FileTypes.isImage(entry.path)) {
+            // Image files render inline and tap into the built-in zoomable
+            // viewer — they were previously mislabeled "binary, unavailable".
+            ImageFilePane(
+                rawUrl = entry.downloadUrl ?: return@Column,
+                path = entry.path,
+                onDownload = onDownload,
+            )
         } else if (content != null) {
             SyntaxHighlightedCode(
                 code = content,
@@ -455,14 +470,63 @@ private class PreparedCode(
  * Line numbers scroll vertically with the code but stay pinned at the start
  * of each line.
  */
+/**
+ * Inline pane for image files in the code browser: Coil-rendered preview on
+ * a soft surface, tap opens the built-in zoomable viewer
+ * ([LocalImagePreviewer]), plus the standard download affordance.
+ */
+@Composable
+private fun ImageFilePane(
+    rawUrl: String,
+    path: String,
+    onDownload: () -> Unit,
+) {
+    val previewer = com.pockethub.ui.components.LocalImagePreviewer.current
+    Column(
+        Modifier.fillMaxSize().padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        com.pockethub.ui.components.PhAsyncImage(
+            model = rawUrl,
+            contentDescription = path,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
+                .clickable { previewer?.invoke(listOf(rawUrl), 0) },
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            path.substringAfterLast('/'),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            androidx.compose.material3.OutlinedButton(
+                onClick = { previewer?.invoke(listOf(rawUrl), 0) },
+            ) {
+                Icon(Icons.Outlined.ZoomIn, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.image_open_viewer))
+            }
+            androidx.compose.material3.OutlinedButton(onClick = onDownload) {
+                Icon(Icons.Outlined.Download, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.action_download))
+            }
+        }
+    }
+}
+
 @Composable
 internal fun SyntaxHighlightedCode(
     code: String,
     fileName: String,
     modifier: Modifier = Modifier,
 ) {
-    val vScroll = rememberScrollState()
-    val hScroll = rememberScrollState()
+    val vScroll = com.pockethub.ui.components.rememberRestorableScrollState(contentReady = code.isNotEmpty())
+    val hScroll = com.pockethub.ui.components.rememberRestorableScrollState(contentReady = code.isNotEmpty())
     // Capture the palette from the theme once, then cache the tokenized result.
     val colorScheme = MaterialTheme.colorScheme
     val palette = remember(colorScheme) {

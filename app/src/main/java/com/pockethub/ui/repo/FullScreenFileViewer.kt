@@ -21,9 +21,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -78,8 +80,11 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.pockethub.R
 import com.pockethub.data.remote.GitHubApi
+import com.pockethub.ui.components.Haptics
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.StateFlow
+
+import androidx.compose.ui.draw.clip
 import kotlinx.coroutines.launch
 
 /**
@@ -107,6 +112,7 @@ internal fun FullScreenFileViewer(
 ) {
     val state by vm.state.collectAsState()
     val clipboard = LocalClipboardManager.current
+    val hapticView = androidx.compose.ui.platform.LocalView.current
     val context = LocalContext.current
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -238,6 +244,7 @@ internal fun FullScreenFileViewer(
                     onCopy = {
                         state.fileContent?.let {
                             clipboard.setText(AnnotatedString(it))
+                            Haptics.confirm(hapticView)
                             Toast.makeText(context, context.getString(R.string.copied_toast), Toast.LENGTH_SHORT).show()
                         }
                     },
@@ -310,8 +317,27 @@ internal fun FullScreenFileViewer(
                         val entry = state.viewingFile
                         when {
                             entry == null -> EmptyHint()
-                            state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(strokeWidth = 2.dp)
+                            state.isLoading -> com.pockethub.ui.components.SkeletonCodeLines(Modifier.fillMaxSize())
+                            entry.type == "file" && com.pockethub.util.FileTypes.isImage(entry.path) -> {
+                                // Images: inline preview + tap-through to the
+                                // built-in zoomable viewer (download button in
+                                // the top bar already covers saving).
+                                val raw = entry.downloadUrl
+                                val previewer = com.pockethub.ui.components.LocalImagePreviewer.current
+                                if (raw != null) {
+                                    Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                                        com.pockethub.ui.components.PhAsyncImage(
+                                            model = raw,
+                                            contentDescription = entry.path,
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(MaterialTheme.shapes.large)
+                                                .clickable { previewer?.invoke(listOf(raw), 0) },
+                                        )
+                                    }
+                                } else {
+                                    EmptyHint()
+                                }
                             }
                             content != null -> SyntaxHighlightedCode(
                                 code = content,
@@ -366,13 +392,17 @@ private fun TopBar(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(
-                    filePath,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                // Show the path only when it adds information beyond the name
+                // (a bare "CONTRIBUTING.md / CONTRIBUTING.md" reads as a bug).
+                if (filePath.contains('/')) {
+                    Text(
+                        filePath.substringBeforeLast('/'),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         },
         actions = {
@@ -497,8 +527,18 @@ private fun FileTreePanel(
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
         when {
-            state.isLoadingTree -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(strokeWidth = 2.dp)
+            state.isLoadingTree -> Column(
+                Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                repeat(9) { i ->
+                    com.pockethub.ui.components.SkeletonBox(
+                        Modifier
+                            .fillMaxWidth(if (i % 3 == 0) 0.9f else 0.65f)
+                            .height(14.dp),
+                        cornerRadius = 6.dp,
+                    )
+                }
             }
             rows.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
@@ -508,7 +548,10 @@ private fun FileTreePanel(
                     modifier = Modifier.padding(16.dp),
                 )
             }
-            else -> LazyColumn(Modifier.fillMaxSize()) {
+            else -> LazyColumn(
+                state = com.pockethub.ui.components.rememberRestorableListState(contentReady = rows.isNotEmpty()),
+                modifier = Modifier.fillMaxSize(),
+            ) {
                 items(rows, key = { it.entry.path }) { row ->
                     TreeRowItem(
                         row = row,

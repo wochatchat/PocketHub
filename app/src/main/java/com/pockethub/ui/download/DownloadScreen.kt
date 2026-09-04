@@ -166,7 +166,10 @@ private fun ActiveDownloadsTab(vm: DownloadViewModel) {
         )
         return
     }
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp)) {
+    LazyColumn(
+        state = com.pockethub.ui.components.rememberRestorableListState(contentReady = active.isNotEmpty()),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
         items(active, key = { it.url }) { entity ->
             ActiveDownloadItem(
                 entity = entity,
@@ -217,7 +220,10 @@ private fun DoneDownloadsTab(vm: DownloadViewModel) {
         )
     }
 
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp)) {
+    LazyColumn(
+        state = com.pockethub.ui.components.rememberRestorableListState(contentReady = done.isNotEmpty()),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
         items(done, key = { it.url }) { entity ->
             DoneDownloadItem(
                 entity = entity,

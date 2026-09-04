@@ -162,7 +162,11 @@ fun RepoDetailScreen(
 
     LaunchedEffect(owner, repo) {
         vm.loadRepo(owner, repo)
-        vm.resetWorkflowBranch()
+        // NOTE: don't clear workflow branch/selections here. loadRepo() already
+        // resets them — but only when the owner/repo actually changed. Clearing
+        // unconditionally on every re-entry (e.g. returning from a workflow run
+        // detail) blanked the branch chip row until loadBranches refetched, which
+        // read as the filter chips flashing between one and two rows.
         // Deep-link / in-app link routing: open the repo on the tab the URL
         // asked for (e.g. github.com/o/r/issues → Issues tab).
         initialTab?.let { requested ->
@@ -178,6 +182,12 @@ fun RepoDetailScreen(
     // to the repo and gets cleared on navigation via the Compose nav graph.
     LaunchedEffect(owner, repo, codeBrowserRef) {
         if (repoData != null) vm.onBranchChanged(owner, repo, codeBrowserRef)
+    }
+    // Prefetch the data tabs once the repo is in — tab switches then render
+    // instantly instead of skeleton-first. Loaders are cache-aware, so this
+    // is a no-op for anything already fetched.
+    LaunchedEffect(repoData, owner, repo) {
+        if (repoData != null) vm.preloadTabs(owner, repo)
     }
     LaunchedEffect(owner, repo, tab) {
         if (tab == RepoTab.ISSUES) vm.loadIssues(owner, repo)

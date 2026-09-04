@@ -53,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -67,6 +68,7 @@ import java.util.Date
 import java.time.Duration
 import com.pockethub.util.parseIso
 import com.pockethub.util.parseIsoSafe
+import com.pockethub.ui.theme.semanticColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -145,6 +147,7 @@ fun WorkflowRunDetailScreen(
         }
 
         LazyColumn(
+            state = com.pockethub.ui.components.rememberRestorableListState(contentReady = run != null),
             modifier = Modifier.padding(padding).fillMaxSize(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -246,9 +249,12 @@ private fun RunHeaderCard(run: GitHubApi.WorkflowRun?, dateFmt: DateFormat) {
             Text("run #${r.runNumber}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            InfoPill(label = "branch", value = r.headBranch ?: "—")
+            Box(Modifier.weight(1f, fill = false)) {
+                InfoPill(label = stringResource(R.string.wf_pill_branch), value = r.headBranch ?: "—")
+            }
             Spacer(Modifier.width(10.dp))
-            InfoPill(label = "event", value = r.event ?: "—")
+            InfoPill(label = stringResource(R.string.wf_pill_event), value = r.event ?: "—")
+            Spacer(Modifier.weight(0.01f))
         }
         Text(
             "SHA ${r.headSha?.take(7) ?: "—"}",
@@ -301,7 +307,7 @@ private fun JobCard(
             Spacer(Modifier.width(10.dp))
             job.startedAt?.let {
                 Text(
-                    "Started ${dateFmt.format(parseIso(it))}",
+                    stringResource(R.string.wf_started_at, dateFmt.format(parseIso(it))),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -310,7 +316,7 @@ private fun JobCard(
             val durationMins = jobDurationMinutes(job)
             if (durationMins > 0) {
                 Text(
-                    "Duration ${"%.1f".format(durationMins)} min",
+                    stringResource(R.string.wf_duration_min, "%.1f".format(durationMins)),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -319,11 +325,19 @@ private fun JobCard(
         if (expanded) {
             Spacer(Modifier.height(4.dp))
             if (job.steps.isEmpty()) {
-                Text("No step metadata", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.wf_no_step_metadata), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     job.steps.forEachIndexed { localIndex, step ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        val succeeded = step.conclusion == "success"
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            // Successful steps are the expected case — de-emphasise
+                            // them so failures are the only thing that shouts.
+                            modifier = Modifier.graphicsLayer {
+                                alpha = if (succeeded) 0.72f else 1f
+                            },
+                        ) {
                             StepStatusIcon(status = step.status, conclusion = step.conclusion)
                             Spacer(Modifier.width(8.dp))
                             Text(
@@ -334,11 +348,15 @@ private fun JobCard(
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
-                            Text(
-                                step.conclusion ?: step.status,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = stepConclusionColor(step.conclusion),
-                            )
+                            // Success carries no word — the check icon is enough.
+                            // Failures / skips keep their colored label.
+                            if (!succeeded) {
+                                Text(
+                                    step.conclusion ?: step.status ?: "",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = stepConclusionColor(step.conclusion),
+                                )
+                            }
                         }
                     }
                 }
@@ -357,9 +375,10 @@ private fun jobDurationMinutes(job: GitHubApi.WorkflowJob): Double {
 @Composable
 private fun StatusBadge(status: String?, conclusion: String?) {
     val color = when (conclusion ?: status) {
-        "success", "completed" -> Color(0xFF2EA043)
-        "failure", "cancelled", "timed_out", "neutral" -> MaterialTheme.colorScheme.error
-        else -> MaterialTheme.colorScheme.primary
+        "success", "completed" -> semanticColors().success
+        "failure", "cancelled", "timed_out" -> semanticColors().danger
+        "neutral" -> semanticColors().neutral
+        else -> semanticColors().running
     }
     val label = conclusion ?: status ?: "—"
     Box(Modifier.clip(CircleShape).background(color.copy(alpha = 0.15f)).padding(horizontal = 8.dp, vertical = 3.dp)) {
@@ -370,7 +389,7 @@ private fun StatusBadge(status: String?, conclusion: String?) {
 @Composable
 private fun StepStatusIcon(status: String?, conclusion: String?) {
     val (icon, tint) = when (conclusion ?: status) {
-        "success" -> Icons.Outlined.CheckCircle to Color(0xFF2EA043)
+        "success" -> Icons.Outlined.CheckCircle to semanticColors().success
         "failure", "cancelled" -> Icons.Outlined.Close to MaterialTheme.colorScheme.error
         "skipped", "neutral" -> Icons.Outlined.Pending to MaterialTheme.colorScheme.onSurfaceVariant
         "in_progress", "queued" -> Icons.Outlined.Pending to MaterialTheme.colorScheme.primary
@@ -379,13 +398,14 @@ private fun StepStatusIcon(status: String?, conclusion: String?) {
     Icon(icon, null, modifier = Modifier.size(12.dp), tint = tint)
 }
 
+@Composable
 private fun stepConclusionColor(c: String?): Color {
     return when (c) {
-        "success" -> Color(0xFF2EA043)
-        "failure", "cancelled", "timed_out" -> Color(0xFFD73A49)
-        "skipped", "neutral" -> Color(0xFF959DA5)
-        null -> Color(0xFF2188FF)
-        else -> Color(0xFF959DA5)
+        "success" -> semanticColors().success
+        "failure", "cancelled", "timed_out" -> semanticColors().danger
+        "skipped", "neutral" -> semanticColors().neutral
+        null -> semanticColors().running
+        else -> semanticColors().neutral
     }
 }
 

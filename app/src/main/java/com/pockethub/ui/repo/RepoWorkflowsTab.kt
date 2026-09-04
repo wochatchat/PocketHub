@@ -62,7 +62,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pockethub.data.remote.GitHubApi
 import com.pockethub.ui.components.PhAsyncImage
-import androidx.compose.foundation.lazy.rememberLazyListState
+import com.pockethub.ui.theme.semanticColors
+import androidx.compose.runtime.saveable.rememberSaveable
 import java.util.Locale
 
 @Composable
@@ -77,12 +78,21 @@ internal fun WorkflowsTab(
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToWorkflowRun: (Long) -> Unit = {},
 ) {
+    // Sticky filter UI: once the chip rows have rendered, a transient empty
+    // workflows/branches list (refetch, branch switch) must not pluck the UI
+    // out and re-insert it — that read as chips "vanishing and returning".
+    var hadChips by remember { androidx.compose.runtime.mutableStateOf(false) }
+    if (workflows.isNotEmpty()) hadChips = true
+    val showChips = workflows.isNotEmpty() || hadChips
+    var hadBranchRow by remember { androidx.compose.runtime.mutableStateOf(false) }
+    if (branches.size > 1) hadBranchRow = true
+
     Column(Modifier.fillMaxSize()) {
         // Filter chips: row 1 = workflow (run script), row 2 = branch. Chips
         // render only when the repo actually HAS workflow scripts — a repo
         // without any shows no filter UI at all (branch row included). The
         // branch row additionally hides when the repo has at most one branch.
-        if (workflows.isNotEmpty()) {
+        if (showChips) {
             FilterChipRow(
                 modifier = Modifier.padding(top = 6.dp),
             ) {
@@ -91,7 +101,7 @@ internal fun WorkflowsTab(
                     selectedWorkflowId = selectedWorkflowId,
                     onSelect = { onFilterChange(it, selectedBranch) },
                 )
-                if (branches.size > 1) {
+                if (branches.size > 1 || hadBranchRow) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                     BranchFilterRow(
                         branches = branches,
@@ -199,16 +209,27 @@ private fun BranchFilterRow(
 }
 
 /** A refresh replaces the whole list — jump back to the newest run at the
- *  top instead of staying scrolled wherever the old list was. */
+ *  top instead of staying scrolled wherever the old list was. The jump only
+ *  fires when the list content actually CHANGED while this composable was
+ *  alive: re-running it on every recomposition yanked the scroll position
+ *  back to the top on returning from a run detail (the "filter chips fine
+ *  but list jumps" bug). */
 @Composable
 private fun WorkflowRunList(
     runs: List<GitHubApi.WorkflowRun>,
     onNavigateToUser: (String) -> Unit,
     onNavigateToWorkflowRun: (Long) -> Unit,
 ) {
-    val listState = rememberLazyListState()
+    val listState = com.pockethub.ui.components.rememberRestorableListState(contentReady = runs.isNotEmpty())
+    var seenFirstId by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0L) }
+    var seenSize by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0) }
     LaunchedEffect(runs.firstOrNull()?.id, runs.size) {
-        listState.scrollToItem(0)
+        val firstId = runs.firstOrNull()?.id ?: 0L
+        if (seenFirstId != 0L && (firstId != seenFirstId || runs.size != seenSize)) {
+            listState.scrollToItem(0)
+        }
+        seenFirstId = firstId
+        seenSize = runs.size
     }
     LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         items(runs, key = { it.id }) { run ->
@@ -379,7 +400,7 @@ internal fun conclusionBadge(run: GitHubApi.WorkflowRun): String = when (run.con
 @Composable
 internal fun conclusionColor(conclusion: String?): androidx.compose.ui.graphics.Color =
     when {
-        conclusion == "success" -> androidx.compose.ui.graphics.Color(0xFF2EA043)
+        conclusion == "success" -> semanticColors().success
         conclusion == "failure" || conclusion == "cancelled" || conclusion == "timed_out" ->
             MaterialTheme.colorScheme.error
         else -> MaterialTheme.colorScheme.primary

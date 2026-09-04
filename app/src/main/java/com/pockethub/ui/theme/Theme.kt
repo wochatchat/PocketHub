@@ -8,6 +8,7 @@ import androidx.compose.material3.Typography
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
@@ -222,6 +223,39 @@ private val FORCE_DARK_STYLE = AppStyle.LinearDark
 /** Color used for the status / navigation bars. Default dark — matches Linear dark theme. */
 private val LocalSystemBarsDark = compositionLocalOf { true }
 
+// ── Semantic status colors ───────────────────────────────────────────────────
+
+/**
+ * Status hues that must stay recognizable in all six styles — taken from
+ * GitHub's own Primer dark/light scales. UI chrome must never hardcode these:
+ * screens read them via [semanticColors], so "green = success" holds in Neon,
+ * Forest and Paper alike while every other accent follows the active palette.
+ */
+@Immutable
+data class SemanticColors(
+    val success: Color,
+    val danger: Color,
+    val merged: Color,
+    val warning: Color,
+    val running: Color,
+    /** De-emphasised outcome (skipped / neutral / unknown). */
+    val neutral: Color,
+)
+
+fun semanticForDark(dark: Boolean): SemanticColors = if (dark) SemanticColors(
+    success = Color(0xFF3FB950), danger = Color(0xFFF85149), merged = Color(0xFFA371F7),
+    warning = Color(0xFFD29922), running = Color(0xFF539BF5), neutral = Color(0xFF8B949E),
+) else SemanticColors(
+    success = Color(0xFF1A7F37), danger = Color(0xFFCF222E), merged = Color(0xFF8250DF),
+    warning = Color(0xFF9A6700), running = Color(0xFF0969DA), neutral = Color(0xFF57606A),
+)
+
+val LocalSemanticColors = compositionLocalOf { semanticForDark(true) }
+
+/** Semantic status colors of the active style. Read these, never `Color(0xFF…)`. */
+@Composable
+fun semanticColors(): SemanticColors = LocalSemanticColors.current
+
 /**
  * Derive the M3 "surface container" family from the palette's own surface /
  * surfaceVariant colors. The custom palettes only define the base roles, which
@@ -272,6 +306,7 @@ fun PocketHubTheme(
     }
     CompositionLocalProvider(
         LocalSystemBarsDark provides def.isDark,
+        LocalSemanticColors provides semanticForDark(def.isDark),
         LocalStyleTokens provides def.tokens,
         LocalAppStyle provides style,
     ) {

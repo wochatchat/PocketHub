@@ -1,29 +1,39 @@
 {
-  "version": "0.4.5",
+  "version": "0.4.6",
   "summary": {
-    "zh": "一批界面细节修复：评论操作菜单不再跑偏，「我」页不再残留账号切换块，工作流列表新增脚本/分支筛选。",
-    "en": "A batch of UI polish: the comment action menu stays put, the profile tab no longer shows a stray account block, and the Workflows tab gains script/branch filters."
+    "zh": "一批滚动与界面体验修复：所有页面的滚动位置在进出详情页后不再丢失，工作流筛选不再闪烁，仓库详情各 tab 数据预加载，切换即现。",
+    "en": "Scroll and navigation polish: scroll positions survive detail-page round trips on every screen, workflow filter chips no longer flash, and repo detail tabs are prefetched so switching renders instantly."
   },
   "items": [
     {
       "type": "fix",
-      "zh": "修复：issue 评论的「编辑/删除/复制」菜单弹窗位置漂移，现在紧贴省略号按钮弹出",
-      "en": "Comment edit/delete/copy popup no longer drifts — it opens right under the ellipsis button"
+      "zh": "修复：全 App 滚动位置丢失——从列表/详情页进出后返回，列表、概览 tab、issue/PR 详情、markdown 文件浏览等都恢复到原位置",
+      "en": "Scroll positions are now preserved across navigate-away-and-back on every screen: lists, overview tab, issue/PR details, markdown file viewer"
     },
     {
       "type": "fix",
-      "zh": "修复：工作流详情页已下载过的构建产物重进页面后显示异常、点击无响应，现在能正确恢复文件列表",
-      "en": "Run artifacts already downloaded now restore their file list on revisits instead of showing a dead download button"
+      "zh": "修复：markdown/图片等异步内容长高导致恢复位置偏移，恢复现在跟随内容增长持续贴位，用户一拖动立即交还控制权",
+      "en": "Restore now tracks late-loading content (markdown/images) and re-pins until the position sticks; any user drag immediately cancels the pin"
     },
     {
       "type": "fix",
-      "zh": "修复：「我」页底部残留的多余账号切换块（设置页已有完整账号管理）",
-      "en": "Removed the stray account switcher at the bottom of the profile tab (Settings already has full account management)"
+      "zh": "修复：工作流运行列表每次刷新都强制跳回顶部，从运行详情返回不再回顶；新构建出现或切换筛选时才回到最新",
+      "en": "Workflow run list no longer force-scrolls to top on return from a run detail; it only jumps for genuinely new runs or filter changes"
     },
     {
-      "type": "feat",
-      "zh": "工作流 tab 新增筛选 chips：上行选运行脚本、下行选分支，均可横滑；仓库无工作流脚本时不显示，仅一个分支时隐藏分支行",
-      "en": "Workflows tab filter chips: pick a workflow (row 1) and/or branch (row 2), horizontally scrollable; hidden entirely when the repo has no workflow scripts, branch row hidden with ≤1 branch"
+      "type": "fix",
+      "zh": "修复：工作流筛选 chips 行闪烁——从详情页返回时分支行先消失再弹出，现在保持稳定两行",
+      "en": "Workflow filter chip rows no longer flash between one and two rows when returning from a detail page"
+    },
+    {
+      "type": "perf",
+      "zh": "优化：仓库详情各数据 tab（Issues/PRs/Releases/工作流）进入后自动预加载，切换 tab 即时呈现不再转骨架",
+      "en": "Repo detail tabs (Issues/PRs/Releases/Workflows) are prefetched on entry, so tab switches render instantly instead of skeletons"
+    },
+    {
+      "type": "ui",
+      "zh": "界面：发现页信息源「更改」按钮紧跟来源名后；仓库列表项去掉多余序号",
+      "en": "Discover page: the source switch now sits right after the source name; repo list items drop the redundant rank numbers"
     }
   ]
 }

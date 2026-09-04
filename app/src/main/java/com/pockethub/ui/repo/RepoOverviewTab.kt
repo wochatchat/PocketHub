@@ -25,9 +25,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.ErrorOutline
-import androidx.compose.material.icons.outlined.ForkRight
+import androidx.compose.material.icons.outlined.CallSplit
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
@@ -50,6 +51,8 @@ import androidx.compose.ui.unit.sp
 import com.pockethub.data.model.Repository
 import com.pockethub.ui.markdown.MarkdownText
 import com.pockethub.ui.components.pressScale
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import com.pockethub.ui.theme.semanticColors
 import com.pockethub.ui.components.PhAsyncImage
 import com.pockethub.util.formatCount
 
@@ -65,6 +68,14 @@ internal fun StatsRow(
     val userClickModifier = Modifier.clickable { onNavigateToUser(data.owner.login) }
     val starInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val forkInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val starHapticView = androidx.compose.ui.platform.LocalView.current
+    // Watch the starred flip so the haptic lands on COMMIT, not on raw touch-down.
+    val starPress by starInteraction.collectIsPressedAsState()
+    var wasStarPress by remember { androidx.compose.runtime.mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(starPress) {
+        if (wasStarPress && !starPress) com.pockethub.ui.components.Haptics.confirm(starHapticView)
+        wasStarPress = starPress
+    }
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -92,10 +103,10 @@ internal fun StatsRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                if (isStarred) Icons.Outlined.Star else Icons.Outlined.StarBorder,
+                if (isStarred) Icons.Filled.Star else Icons.Outlined.StarBorder,
                 contentDescription = if (isStarred) stringResource(R.string.cd_unstar) else stringResource(R.string.cd_star),
                 modifier = Modifier.size(20.dp),
-                tint = if (isStarred) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = if (isStarred) semanticColors().warning else MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.width(4.dp))
             Text(data.stars.toString(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -111,10 +122,10 @@ internal fun StatsRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                if (isForking) Icons.Outlined.ForkRight else Icons.Outlined.ForkRight,
+                Icons.Outlined.CallSplit,
                 contentDescription = stringResource(R.string.action_fork),
                 modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = if (isForking) semanticColors().running else MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.width(4.dp))
             Text(
@@ -148,8 +159,8 @@ internal fun OverviewTab(
         Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             com.pockethub.ui.components.SkeletonBox(Modifier.fillMaxWidth(0.85f).height(18.dp))
             com.pockethub.ui.components.SkeletonBox(Modifier.fillMaxWidth(0.5f).height(14.dp))
-            com.pockethub.ui.components.SkeletonBox(Modifier.fillMaxWidth().height(120.dp), cornerRadius = 18.dp)
-            com.pockethub.ui.components.SkeletonBox(Modifier.fillMaxWidth().height(220.dp), cornerRadius = 18.dp)
+            com.pockethub.ui.components.SkeletonBox(Modifier.fillMaxWidth().height(120.dp))
+            com.pockethub.ui.components.SkeletonBox(Modifier.fillMaxWidth().height(220.dp))
         }
         return
     }
@@ -162,7 +173,7 @@ internal fun OverviewTab(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // ── Info card: owner, description, homepage, stats, topics ──
-            com.pockethub.ui.components.PhCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 18.dp) {
+            com.pockethub.ui.components.PhCard(modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     // Owner row — tap to open the profile. Trailing pill copies
                     // the repo URL to the clipboard (card top-right corner).
@@ -238,7 +249,7 @@ internal fun OverviewTab(
                                 .padding(horizontal = 10.dp, vertical = 6.dp),
                         ) {
                             Icon(
-                                Icons.Outlined.ForkRight,
+                                Icons.Outlined.CallSplit,
                                 null,
                                 modifier = Modifier.size(13.dp),
                                 tint = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -284,7 +295,7 @@ internal fun OverviewTab(
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         OverviewStat(Icons.Outlined.Star, formatCount(data.stars), MaterialTheme.colorScheme.tertiary)
-                        OverviewStat(Icons.Outlined.ForkRight, formatCount(data.forks), MaterialTheme.colorScheme.secondary)
+                        OverviewStat(Icons.Outlined.CallSplit, formatCount(data.forks), MaterialTheme.colorScheme.secondary)
                         OverviewStat(Icons.Outlined.ErrorOutline, formatCount(data.openIssues), MaterialTheme.colorScheme.primary)
                         data.language?.let { language ->
                             Spacer(Modifier.weight(1f))

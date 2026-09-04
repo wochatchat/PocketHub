@@ -9,7 +9,6 @@ import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
@@ -69,10 +68,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.pockethub.ui.components.CommentItem
 import com.pockethub.ui.markdown.MarkdownText
 import com.pockethub.ui.components.PhAsyncImage
+import com.pockethub.ui.theme.semanticColors
 import kotlinx.coroutines.launch
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -313,7 +314,7 @@ fun PullRequestDetailScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize(),
-            state = rememberLazyListState(),
+            state = com.pockethub.ui.components.rememberRestorableListState(contentReady = pr != null),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(16.dp),
         ) {
@@ -326,7 +327,7 @@ item(key = "title") {
                 // Title + state badge
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val stateColor = when {
-                        data.merged -> Color(0xFF8250DF) // purple for merged
+                        data.merged -> semanticColors().merged
                         data.state == "open" -> MaterialTheme.colorScheme.primary
                         else -> MaterialTheme.colorScheme.error
                     }
@@ -386,15 +387,18 @@ item(key = "state-toggle") {
                 if (!data.merged) {
                     val isOpen = data.state == "open"
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Button(
+                        // Outlined + tinted: closing is destructive-adjacent but
+                        // not the page's primary action — a solid error-red slab
+                        // outweighed everything else on the screen.
+                        androidx.compose.material3.OutlinedButton(
                             onClick = { vm.togglePrState(owner, repo, prNumber) },
                             enabled = !isTogglingState,
-                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                                containerColor = if (isOpen) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                            colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                                contentColor = if (isOpen) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                             ),
                         ) {
                             if (isTogglingState) {
-                                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
                             } else {
                                 Icon(
                                     if (isOpen) Icons.Outlined.Close else Icons.AutoMirrored.Outlined.OpenInNew,
@@ -404,7 +408,6 @@ item(key = "state-toggle") {
                                 Spacer(Modifier.width(6.dp))
                                 Text(
                                     stringResource(if (isOpen) R.string.pr_close_action else R.string.pr_reopen_action),
-                                    color = MaterialTheme.colorScheme.onPrimary,
                                 )
                             }
                         }
@@ -416,36 +419,62 @@ item(key = "state-toggle") {
 item(key = "branch") {
                 // Branch info: head → base
                 if (data.head != null && data.base != null) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                    Column(
+                        Modifier.fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                            .padding(10.dp),
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
                     ) {
-                        Icon(Icons.Outlined.Comment, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            data.head.ref,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text("→", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            data.base.ref,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.weight(1f))
-                        Text(
-                            stringResource(R.string.pr_files_summary, data.changedFiles, data.additions, data.deletions),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.Comment, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                data.head.ref,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false),
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text("→", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                data.base.ref,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Row(
+                            Modifier.padding(start = 22.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            val sem = com.pockethub.ui.theme.semanticColors()
+                            Text(
+                                stringResource(R.string.pr_files_summary, data.changedFiles, data.additions, data.deletions),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                "+${data.additions}",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = sem.success,
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                "-${data.deletions}",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = sem.danger,
+                            )
+                        }
                     }
                 }
                 }

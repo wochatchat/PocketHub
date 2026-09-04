@@ -17,7 +17,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +41,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
@@ -63,7 +67,7 @@ import androidx.compose.ui.unit.dp
  * PocketHub motion tokens. One place to keep every animation consistent:
  * springs for interactions (press / selection), tweens for entrances.
  */
-private object Motion {
+object Motion {
     /** Interactive press / toggle springs — snappy with a slight bounce. */
     fun press() = spring<Float>(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow)
     fun settle() = spring<Float>(dampingRatio = 0.9f, stiffness = Spring.StiffnessMedium)
@@ -80,6 +84,9 @@ private object Motion {
 /**
  * Press feedback: the content scales down slightly while pressed and springs
  * back on release. Apply to any clickable element for a tactile feel.
+ *
+ * Also emits a light selection tick on press-down — pressable surfaces get
+ * tactile confirmation for free, no call-site wiring.
  */
 @Composable
 fun Modifier.pressScale(
@@ -89,6 +96,8 @@ fun Modifier.pressScale(
 ): Modifier {
     val source = interactionSource ?: remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
+    val view = androidx.compose.ui.platform.LocalView.current
+    LaunchedEffect(pressed) { if (pressed && enabled) Haptics.tick(view) }
     val scale by animateFloatAsState(
         targetValue = if (pressed && enabled) pressedScale else 1f,
         animationSpec = Motion.press(),
@@ -104,24 +113,33 @@ fun Modifier.pressScale(
  * The signature card of the redesigned UI: a softly-lit surface with a hairline
  * border, a whisper of vertical light and spring press feedback. Replaces
  * flat/boxed list items everywhere.
+ *
+ * Defaults that keep every card coherent:
+ *  - [container] lifts one tone above the page background (surfaceContainerLow)
+ *    so cards float instead of dissolving into it;
+ *  - [cornerRadius] follows the active style's extraLarge shape (Paper gets its
+ *    tight 12dp, Neon its sharp 0dp, Lavender its ballooned 32dp) — pass an
+ *    explicit value only for genuine outliers.
  */
 @Composable
 fun PhCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
-    cornerRadius: Dp = 18.dp,
-    container: Color = MaterialTheme.colorScheme.surface,
+    cornerRadius: Dp? = null,
+    container: Color = MaterialTheme.colorScheme.surfaceContainerLow,
     borderColor: Color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     content: @Composable () -> Unit,
 ) {
     val pressed by interactionSource.collectIsPressedAsState()
+    val view = androidx.compose.ui.platform.LocalView.current
+    LaunchedEffect(pressed) { if (pressed && onClick != null) Haptics.tick(view) }
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.975f else 1f,
         animationSpec = Motion.press(),
         label = "ph_card_press",
     )
-    val shape = RoundedCornerShape(cornerRadius)
+    val shape = cornerRadius?.let { RoundedCornerShape(it) } ?: MaterialTheme.shapes.extraLarge
     val border by animateFloatAsState(
         targetValue = if (pressed) 1f else 0f,
         animationSpec = tween(120),
@@ -268,6 +286,30 @@ fun SkeletonList(
     }
 }
 
+/**
+ * Skeleton shaped like a code document — ragged line widths, tight leading.
+ * The loading state for every file/patch viewer, so content "takes the
+ * shape" of code instead of a spinner (same principle as SkeletonList).
+ */
+@Composable
+fun SkeletonCodeLines(
+    modifier: Modifier = Modifier,
+    lines: Int = 14,
+) {
+    val widths = listOf(
+        0.35f, 0.62f, 0.80f, 0.48f, 0.90f, 0.42f, 0.72f, 0.86f,
+        0.38f, 0.66f, 0.76f, 0.52f, 0.92f, 0.50f,
+    )
+    Column(
+        modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(11.dp),
+    ) {
+        repeat(lines.coerceAtMost(widths.size)) { i ->
+            SkeletonBox(Modifier.fillMaxWidth(widths[i]).height(12.dp), cornerRadius = 4.dp)
+        }
+    }
+}
+
 // ── Small functional atoms ───────────────────────────────────────────────────
 
 /** Section header with an accent tick — consistent section titles app-wide. */
@@ -363,10 +405,46 @@ fun EmptyStateV2(
 fun rememberRestorableScrollState(contentReady: Boolean): ScrollState {
     val scrollState = rememberScrollState()
     var savedValue by rememberSaveable { mutableIntStateOf(0) }
-    LaunchedEffect(scrollState.value) { savedValue = scrollState.value }
+    // True while we're still pinning the position back to [savedValue]. Plain
+    // remember: a fresh return session restarts the window.
+    var restoring by remember { androidx.compose.runtime.mutableStateOf(false) }
+    // Restore FIRST — declared before the mirror so the same-frame effect
+    // order can't overwrite the target with the freshly restored (possibly
+    // clamped) state.
     LaunchedEffect(contentReady) {
-        if (contentReady && savedValue > 0 && scrollState.value == 0) {
-            scrollState.scrollTo(savedValue)
+        if (contentReady && savedValue > 0 && scrollState.value < savedValue) {
+            restoring = true
+            scrollState.scrollTo(savedValue.coerceAtMost(scrollState.maxValue))
+        }
+    }
+    // Mirror the live position — but never while re-applying it, or the
+    // intermediate clamped offsets would overwrite the restore target.
+    LaunchedEffect(scrollState.value) {
+        if (!restoring) savedValue = scrollState.value
+    }
+    if (restoring) {
+        // Content height keeps growing after the restore (markdown parse,
+        // image loads, readme fetch). Re-pin on every growth step until the
+        // saved offset is reachable, then hand control back.
+        LaunchedEffect(scrollState.maxValue) {
+            if (scrollState.value < savedValue) {
+                scrollState.scrollTo(savedValue.coerceAtMost(scrollState.maxValue))
+            }
+            if (scrollState.maxValue >= savedValue) restoring = false
+        }
+        // Watchdog: content that never reaches the target (data trimmed on
+        // refresh) must not block position mirroring forever.
+        LaunchedEffect(Unit) {
+            kotlinx.coroutines.delay(3000)
+            restoring = false
+        }
+        // A user drag cancels the pin immediately.
+        LaunchedEffect(scrollState.interactionSource) {
+            scrollState.interactionSource.interactions.collect { interaction ->
+                if (interaction is androidx.compose.foundation.interaction.DragInteraction.Start) {
+                    restoring = false
+                }
+            }
         }
     }
     return scrollState
@@ -386,16 +464,99 @@ fun rememberRestorableListState(contentReady: Boolean): LazyListState {
     val listState = rememberLazyListState()
     var savedIndex by rememberSaveable { mutableIntStateOf(0) }
     var savedOffset by rememberSaveable { mutableIntStateOf(0) }
-    // Mirror the live position continuously.
-    LaunchedEffect(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) {
-        savedIndex = listState.firstVisibleItemIndex
-        savedOffset = listState.firstVisibleItemScrollOffset
-    }
-    // Re-apply once content exists AND the built-in restore was clamped away.
+    // Same growth-tracking restore as [rememberRestorableScrollState]: the
+    // first re-apply can still clamp while late content (markdown, images,
+    // readme) inflates item heights, so keep re-pinning until reachable.
+    var restoring by remember { androidx.compose.runtime.mutableStateOf(false) }
+    // Restore FIRST (before the mirror) — same same-frame ordering argument
+    // as [rememberRestorableScrollState].
     LaunchedEffect(contentReady) {
-        if (contentReady && savedIndex > 0 && listState.firstVisibleItemIndex == 0) {
+        if (contentReady && savedIndex > 0 && listState.firstVisibleItemIndex < savedIndex) {
+            restoring = true
             listState.scrollToItem(savedIndex, savedOffset)
         }
     }
+    // Mirror the live position continuously — never while re-applying it.
+    LaunchedEffect(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) {
+        if (!restoring) {
+            savedIndex = listState.firstVisibleItemIndex
+            savedOffset = listState.firstVisibleItemScrollOffset
+        }
+    }
+    if (restoring) {
+        // Watchdog: content that never reaches the target (data trimmed on
+        // refresh) must not block position mirroring forever.
+        LaunchedEffect(Unit) {
+            kotlinx.coroutines.delay(3000)
+            restoring = false
+        }
+        LaunchedEffect(listState.layoutInfo.totalItemsCount) {
+            val total = listState.layoutInfo.totalItemsCount
+            if (total == 0) return@LaunchedEffect
+            if (total > savedIndex) {
+                listState.scrollToItem(savedIndex, savedOffset)
+                restoring = false
+            } else {
+                // Items still streaming in (comments, diffs) — hold at the
+                // deepest reached position until the target index exists.
+                listState.scrollToItem(total - 1)
+            }
+        }
+        // A user drag cancels the pin immediately.
+        LaunchedEffect(listState.interactionSource) {
+            listState.interactionSource.interactions.collect { interaction ->
+                if (interaction is androidx.compose.foundation.interaction.DragInteraction.Start) {
+                    restoring = false
+                }
+            }
+        }
+    }
     return listState
+}
+
+/** Grid twin of [rememberRestorableListState] for [LazyVerticalGrid] screens. */
+@Composable
+fun rememberRestorableGridState(contentReady: Boolean): LazyGridState {
+    val gridState = rememberLazyGridState()
+    var savedIndex by rememberSaveable { mutableIntStateOf(0) }
+    var savedOffset by rememberSaveable { mutableIntStateOf(0) }
+    var restoring by remember { androidx.compose.runtime.mutableStateOf(false) }
+    // Restore FIRST (before the mirror) — same same-frame ordering argument
+    // as [rememberRestorableScrollState].
+    LaunchedEffect(contentReady) {
+        if (contentReady && savedIndex > 0 && gridState.firstVisibleItemIndex < savedIndex) {
+            restoring = true
+            gridState.scrollToItem(savedIndex, savedOffset)
+        }
+    }
+    LaunchedEffect(gridState.firstVisibleItemIndex, gridState.firstVisibleItemScrollOffset) {
+        if (!restoring) {
+            savedIndex = gridState.firstVisibleItemIndex
+            savedOffset = gridState.firstVisibleItemScrollOffset
+        }
+    }
+    if (restoring) {
+        LaunchedEffect(Unit) {
+            kotlinx.coroutines.delay(3000)
+            restoring = false
+        }
+        LaunchedEffect(gridState.layoutInfo.totalItemsCount) {
+            val total = gridState.layoutInfo.totalItemsCount
+            if (total == 0) return@LaunchedEffect
+            if (total > savedIndex) {
+                gridState.scrollToItem(savedIndex, savedOffset)
+                restoring = false
+            } else {
+                gridState.scrollToItem(total - 1)
+            }
+        }
+        LaunchedEffect(gridState.interactionSource) {
+            gridState.interactionSource.interactions.collect { interaction ->
+                if (interaction is androidx.compose.foundation.interaction.DragInteraction.Start) {
+                    restoring = false
+                }
+            }
+        }
+    }
+    return gridState
 }

@@ -54,6 +54,7 @@ import com.pockethub.R
 import com.pockethub.data.remote.GitHubApi
 import com.pockethub.util.userMessage
 import com.pockethub.ui.markdown.MarkdownText
+import com.pockethub.ui.components.Haptics
 import dagger.hilt.android.lifecycle.HiltViewModel
 import android.util.Base64
 import javax.inject.Inject
@@ -61,6 +62,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+import androidx.compose.foundation.clickable
+
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.runtime.remember
 import kotlinx.serialization.json.decodeFromJsonElement
 
 /**
@@ -99,13 +106,28 @@ class FileViewerViewModel @Inject constructor(
                     _state.update { it.copy(isLoading = false, error = "Unexpected response") }
                     return@launch
                 }
-                val decoded = if (fetched.encoding == "base64" && fetched.content.isNotBlank()) {
-                    try {
-                        String(Base64.decode(fetched.content.replace("\n", ""), Base64.DEFAULT), Charsets.UTF_8)
-                    } catch (_: Exception) { null }
-                } else null
+                val decoded: String? = when {
+                    com.pockethub.util.FileTypes.isKnownBinary(fetched.path) -> null
+                    fetched.encoding == "base64" && fetched.content.isNotBlank() -> {
+                        try {
+                            Base64.decode(fetched.content.replace("\n", ""), Base64.DEFAULT)
+                                .toString(Charsets.UTF_8)
+                        } catch (_: Exception) { null }
+                    }
+                    fetched.encoding != "base64" && fetched.downloadUrl != null -> {
+                        // Large text file (>1MB): GitHub omits base64 — fetch raw.
+                        runCatching {
+                            val req = okhttp3.Request.Builder().url(fetched.downloadUrl!!).build()
+                            okhttp3.OkHttpClient().newCall(req).execute().use { resp ->
+                                if (!resp.isSuccessful) null else resp.body?.string()
+                            }
+                        }.getOrNull()
+                    }
+                    else -> null
+                }
+                val binary = decoded == null || com.pockethub.util.FileTypes.looksBinary(decoded)
                 _state.update {
-                    it.copy(isLoading = false, content = decoded, isBinary = decoded == null)
+                    it.copy(isLoading = false, content = if (binary) null else decoded, isBinary = binary)
                 }
             } catch (e: Exception) {
                 issueReporter.reportError("FileViewer", "load", e)
@@ -134,6 +156,7 @@ fun FileViewerScreen(
 ) {
     val state by vm.state.collectAsState()
     val clipboard = LocalClipboardManager.current
+    val hapticView = androidx.compose.ui.platform.LocalView.current
     val context = LocalContext.current
 
     LaunchedEffect(owner, repo, path, ref) { vm.load(owner, repo, path, ref) }
@@ -169,6 +192,7 @@ fun FileViewerScreen(
                     if (state.content != null) {
                         IconButton(onClick = {
                             clipboard.setText(AnnotatedString(state.content!!))
+                            Haptics.confirm(hapticView)
                             Toast.makeText(context, context.getString(R.string.copied_toast), Toast.LENGTH_SHORT).show()
                         }) {
                             Icon(
@@ -190,15 +214,42 @@ fun FileViewerScreen(
                 .background(MaterialTheme.colorScheme.surface),
         ) {
             when {
-                state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(strokeWidth = 2.dp)
-                }
+                state.isLoading -> com.pockethub.ui.components.SkeletonCodeLines(Modifier.fillMaxSize())
                 state.error != null -> Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
                     Text(
                         state.error ?: "",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+                com.pockethub.util.FileTypes.isImage(path) -> {
+                    // Image file: inline preview, tap opens the built-in
+                    // zoomable viewer (works even when GitHub omits base64 —
+                    // the URL is the same raw endpoint Coil loads).
+                    val raw = remember(path, owner, repo, ref) {
+                        "https://raw.githubusercontent.com/$owner/$repo/${ref ?: "HEAD"}/$path"
+                    }
+                    val previewer = com.pockethub.ui.components.LocalImagePreviewer.current
+                    Column(
+                        Modifier.fillMaxSize().padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        com.pockethub.ui.components.PhAsyncImage(
+                            model = raw,
+                            contentDescription = path,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(MaterialTheme.shapes.large)
+                                .clickable { previewer?.invoke(listOf(raw), 0) },
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            stringResource(R.string.image_open_viewer),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
                 state.isBinary || state.content == null ->
                     Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {

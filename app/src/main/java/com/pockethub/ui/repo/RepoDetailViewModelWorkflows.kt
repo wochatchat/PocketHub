@@ -50,7 +50,9 @@ internal fun RepoDetailViewModel.setWorkflowFilter(owner: String, repo: String, 
     if (changed) loadWorkflowRuns(owner, repo)
 }
 
-/** Load workflow definitions so the user can pick one to dispatch manually. */
+/** Load workflow definitions so the user can pick one to dispatch manually.
+ *  Failure keeps the previous list — wiping it made the filter chips vanish
+ *  and re-appear on the next tab visit (the "disappearing chips" bug). */
 internal fun RepoDetailViewModel.loadWorkflows(owner: String, repo: String, branch: String? = null) {
     viewModelScope.launch {
         if (_isLoadingWorkflows.value) return@launch
@@ -62,7 +64,7 @@ internal fun RepoDetailViewModel.loadWorkflows(owner: String, repo: String, bran
             branch?.let { _workflowBranch.update { it } }
         } catch (e: Exception) {
             issueReporter.reportError("RepoDetail", "loadWorkflows", e)
-            _workflows.update { emptyList() }
+            // Keep stale chips rather than flashing the whole filter UI away.
             _dispatchMessage.update { e.userMessage("Failed to load workflow") }
         } finally {
             _isLoadingWorkflows.update { false }
@@ -113,12 +115,13 @@ internal fun RepoDetailViewModel.setWorkflowBranch(owner: String, repo: String, 
     loadBranches(owner, repo)
 }
 
-/** Load branches for the given repo; called when the dispatch dialog opens or branch changes. */
+/** Load branches for the given repo; called when the dispatch dialog opens or branch changes.
+ *  Does NOT clear the list up front — clearing first made the branch chip row
+ *  blink out and back on every branch switch. */
 internal fun RepoDetailViewModel.loadBranches(owner: String, repo: String) {
     viewModelScope.launch {
         if (_isLoadingBranches.value) return@launch
         _isLoadingBranches.update { true }
-        _branches.update { emptyList() }
         try {
             // Fetch up to 100 branches (max per_page). If a repo has more,
             // the dialog shows the first page which covers the common cases;

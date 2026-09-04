@@ -49,6 +49,7 @@ import com.pockethub.data.remote.GoogleTranslate
 import com.pockethub.data.remote.UpdateChecker
 import com.pockethub.ui.theme.LocalStyleTokens
 import com.pockethub.util.humanBytes
+import com.pockethub.ui.theme.semanticColors
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -266,7 +267,7 @@ private fun ChangelogSection(notes: String) {
     if (items.isEmpty()) return
     val display = buildList {
         parseStructuredSummary(notes, isZh)?.let {
-            add(ChangeItem(tag = tags.summary, text = it, tagColor = Color(0xFF3FB950)))
+            add(ChangeItem(tag = tags.summary, text = it, tagColor = changelogTagColor("feat")))
         }
         addAll(items)
     }
@@ -453,13 +454,24 @@ private data class ChangeItem(
     val tagColor: Color,
 )
 
+/**
+ * Composable bridge to the theme's semantic hues for changelog tags —
+ * parse helpers stay pure by receiving colors resolved at call time.
+ */
+private object SemanticChangeColors {
+    val success @Composable get() = semanticColors().success
+    val running @Composable get() = semanticColors().running
+    val warning @Composable get() = semanticColors().warning
+    val neutral @Composable get() = semanticColors().neutral
+}
+
 /** Color per changelog item type (mirrors parseChangelogItems' palette). */
+@Composable
 private fun changelogTagColor(type: String): Color = when (type) {
-    "feat" -> Color(0xFF3FB950)
-    "fix" -> Color(0xFF58A6FF)
-    "perf", "refactor" -> Color(0xFFD29922)
-    "revert" -> Color(0xFF58A6FF)
-    else -> Color(0xFF8B949E)
+    "feat" -> SemanticChangeColors.success
+    "fix", "revert" -> SemanticChangeColors.running
+    "perf", "refactor" -> SemanticChangeColors.warning
+    else -> SemanticChangeColors.neutral
 }
 
 /**
@@ -520,12 +532,13 @@ private data class ChangelogTags(
  * headers (lines starting with `#`) are dropped, since we want a tall vertical
  * list rather than a markdown essay.
  */
+@Composable
 private fun parseChangelogItems(notes: String, tags: ChangelogTags): List<ChangeItem> {
-    val featColor = Color(0xFF3FB950)
-    val fixColor = Color(0xFF58A6FF)
-    val refactorColor = Color(0xFFD29922)
-    val choreColor = Color(0xFF8B949E)
-    val otherColor = Color(0xFF8B949E)
+    val featColor = semanticColors().success
+    val fixColor = semanticColors().running
+    val refactorColor = semanticColors().warning
+    val choreColor = semanticColors().neutral
+    val otherColor = semanticColors().neutral
 
     return notes.lines().mapNotNull { rawLine ->
         // Strip leading "- " / "* " bullet.

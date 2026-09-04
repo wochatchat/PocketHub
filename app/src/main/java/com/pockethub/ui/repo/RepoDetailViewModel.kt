@@ -278,6 +278,22 @@ class RepoDetailViewModel @Inject constructor(
     internal var loadedOwner: String? = null
     internal var loadedRepo: String? = null
 
+    /**
+     * Prefetch the data tabs' first pages right after the repo itself loads,
+     * so switching tabs shows content instead of a skeleton. Every loader is
+     * cache-aware (same filter + data present → no-op), so this is quiet on
+     * re-entry and the per-tab loads below stay safe to repeat.
+     */
+    fun preloadTabs(owner: String, repo: String) {
+        if (loadedOwner != owner || loadedRepo != repo) return
+        loadIssues(owner, repo)
+        loadPulls(owner, repo)
+        loadReleases(owner, repo)
+        loadWorkflows(owner, repo)
+        loadBranches(owner, repo)
+        loadWorkflowRuns(owner, repo)
+    }
+
     fun loadRepo(owner: String, repo: String, force: Boolean = false): Job? {
         if (!force && loadedOwner == owner && loadedRepo == repo && _repo.value != null) return null
         loadedOwner = owner; loadedRepo = repo

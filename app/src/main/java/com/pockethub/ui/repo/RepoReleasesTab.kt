@@ -83,7 +83,10 @@ internal fun ReleasesTab(
         }
         return
     }
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    LazyColumn(
+        state = com.pockethub.ui.components.rememberRestorableListState(contentReady = releases.isNotEmpty()),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+    ) {
         items(releases, key = { it.id }) { release ->
             var showDeleteConfirm by remember { mutableStateOf(false) }
             Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {

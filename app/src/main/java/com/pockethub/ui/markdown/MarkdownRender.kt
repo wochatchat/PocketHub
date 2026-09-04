@@ -616,7 +616,22 @@ private fun AnnotatedString.Builder.emitInline(
         if (src[i] == '[') {
             val closeBracket = src.indexOf(']', i + 1)
             if (closeBracket != -1 && closeBracket + 1 < src.length && src[closeBracket + 1] == '(') {
-                val closeParen = src.indexOf(')', closeBracket + 2)
+                // URL may contain balanced parentheses (CommonMark allows them;
+                // GitHub PR titles end up in links all the time). A naive
+                // indexOf(')') closed the destination early and the leftover
+                // "...)(tail)" leaked into the visible text — swallowing chars.
+                var closeParen = -1
+                var depth = 0
+                var k = closeBracket + 2
+                while (k < src.length) {
+                    when (src[k]) {
+                        '\\' -> k++          // skip escaped char
+                        '(' -> depth++
+                        ')' -> { if (depth == 0) break; depth-- }
+                    }
+                    k++
+                }
+                closeParen = if (k < src.length) k else -1
                 if (closeParen != -1) {
                     val linkText = src.substring(i + 1, closeBracket)
                     val linkUrl = src.substring(closeBracket + 2, closeParen).trim()

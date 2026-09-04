@@ -30,7 +30,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.ForkRight
+import androidx.compose.material.icons.outlined.CallSplit
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.History
@@ -96,6 +96,7 @@ fun HistoryScreen(
         } else {
             LazyColumn(
                 Modifier.padding(padding).fillMaxSize(),
+                state = com.pockethub.ui.components.rememberRestorableListState(contentReady = history.isNotEmpty()),
                 verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             ) {
@@ -107,7 +108,7 @@ fun HistoryScreen(
                     com.pockethub.ui.components.PhCard(
                         modifier = Modifier.fillMaxWidth(),
                         onClick = { onNavigateToRepo(entry.owner, entry.repo) },
-                        cornerRadius = 18.dp,
+                        
                     ) {
                         Column(Modifier.padding(16.dp)) {
                             // Header: avatar + owner — mirrors RepositoryRow on the repos tab.
@@ -173,7 +174,7 @@ fun HistoryScreen(
                                     Text(com.pockethub.util.formatCount(entry.stars ?: 0), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Outlined.ForkRight, null, modifier = Modifier.size(13.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Icon(Icons.Outlined.CallSplit, null, modifier = Modifier.size(13.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Spacer(Modifier.width(4.dp))
                                     Text(com.pockethub.util.formatCount(entry.forks ?: 0), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }

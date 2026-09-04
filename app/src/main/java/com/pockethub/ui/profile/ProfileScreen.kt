@@ -472,8 +472,17 @@ private fun WorkListCard(
             }
 
             when {
-                isLoading -> Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                isLoading -> Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    repeat(3) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            com.pockethub.ui.components.SkeletonBox(Modifier.size(36.dp), shape = androidx.compose.foundation.shape.CircleShape)
+                            Spacer(Modifier.width(12.dp))
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                com.pockethub.ui.components.SkeletonBox(Modifier.fillMaxWidth(0.5f).height(13.dp))
+                                com.pockethub.ui.components.SkeletonBox(Modifier.fillMaxWidth(0.8f).height(10.dp))
+                            }
+                        }
+                    }
                 }
                 error != null -> Column(Modifier.fillMaxWidth().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(error!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)

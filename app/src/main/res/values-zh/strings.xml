@@ -467,7 +467,7 @@
     <string name="pr_opened_at">%1$s 创建</string>
     <string name="pr_close_action">关闭 pull request</string>
     <string name="pr_reopen_action">重新打开 pull request</string>
-    <string name="pr_files_summary">%1$d 个文件 · +%2$d / -%3$d</string>
+    <string name="pr_files_summary">%1$d 个文件</string>
 
     <!-- PR Checks -->
     <string name="checks_passed">检查：%1$d/%2$d 通过</string>
@@ -654,4 +654,15 @@
     <string name="attachment_too_large">图片 %.1f MB，超过 2 MB 上限，请换一张更小的截图。</string>
     <string name="attachment_too_large_unknown">图片超过 2 MB 上限，请换一张更小的截图。</string>
     <string name="attachment_rate_limited">上传太频繁，请稍等几秒后重试。</string>
+    <string name="wf_pill_branch">分支</string>
+    <string name="wf_pill_event">触发</string>
+    <string name="wf_started_at">开始于 %1$s</string>
+    <string name="wf_duration_min">耗时 %1$s 分钟</string>
+    <string name="wf_no_step_metadata">没有步骤详情</string>
+    <string name="time_just_now">刚刚</string>
+    <string name="time_minutes_ago">%1$d 分钟前</string>
+    <string name="time_hours_ago">%1$d 小时前</string>
+    <string name="time_days_ago">%1$d 天前</string>
+    <string name="time_months_ago">%1$d 个月前</string>
+    <string name="image_open_viewer">查看大图</string>
 </resources>

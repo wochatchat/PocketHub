@@ -55,6 +55,7 @@ import com.pockethub.ui.markdown.MarkdownText
 import java.text.DateFormat
 import com.pockethub.util.parseIso
 import com.pockethub.ui.components.PhAsyncImage
+import com.pockethub.ui.theme.semanticColors
 
 
 @Composable
@@ -98,7 +99,7 @@ internal fun ReviewItem(
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             val stateColor = when (review.state) {
-                "APPROVED" -> Color(0xFF2EA043)
+                "APPROVED" -> semanticColors().success
                 "CHANGES_REQUESTED" -> MaterialTheme.colorScheme.error
                 else -> MaterialTheme.colorScheme.onSurfaceVariant
             }
@@ -174,7 +175,7 @@ internal fun FileDiffItem(
     busyCommentIds: Set<Long>,
 ) {
     val statusColor = when (file.status) {
-        "added" -> Color(0xFF2EA043)
+        "added" -> semanticColors().success
         "removed" -> MaterialTheme.colorScheme.error
         "modified" -> MaterialTheme.colorScheme.primary
         "renamed" -> MaterialTheme.colorScheme.tertiary

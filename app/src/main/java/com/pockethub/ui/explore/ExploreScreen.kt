@@ -138,6 +138,7 @@ fun ExploreScreen(
             modifier = modifier,
         ) {
         LazyColumn(
+            state = com.pockethub.ui.components.rememberRestorableListState(contentReady = trending.isNotEmpty() || featured.isNotEmpty() || feed.isNotEmpty()),
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -218,8 +219,9 @@ fun ExploreScreen(
                 }
             }
 
-            // Wall-of-text source badge — tells you what is powering the current tab.
-            // Tap to drill into the feed-source settings screen.
+            // Source badge — one quiet glyph + name + "change" affordance on the far
+// edge. Dev jargon ("API", proxy hosts) stays out of the copy; the details
+// live in Feed Sources.
             item {
                 Row(
                     modifier = Modifier
@@ -231,19 +233,19 @@ fun ExploreScreen(
                     Icon(
                         Icons.Outlined.Public,
                         null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(12.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     )
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(5.dp))
                     Text(
-                        stringResource(R.string.feed_source_label, sourceDisplayName(currentSource)),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        sourceDisplayName(currentSource),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                     )
-                    Spacer(Modifier.width(4.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         stringResource(R.string.feed_source_change),
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
