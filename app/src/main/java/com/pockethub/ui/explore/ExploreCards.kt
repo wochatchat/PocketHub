@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -39,6 +41,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.pockethub.data.model.FeedEvent
 import com.pockethub.data.remote.feed.CommunitySignal
 import com.pockethub.data.remote.feed.DiscoverItem
@@ -241,15 +244,34 @@ internal fun DiscoverItemCard(
     onClick: () -> Unit,
     onNavigateToUser: (String) -> Unit = {},
     modifier: Modifier = Modifier,
+    rank: Int = 0,
 ) {
-    com.pockethub.ui.components.EnhancedCard(
+    com.pockethub.ui.components.PhCard(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp),
         onClick = onClick,
-        elevation = 2.dp,
-        gradientIntensity = 0.06f,
     ) {
+        Row(Modifier.padding(start = 12.dp)) {
+            // Rank rail — a quiet number anchored to the card's left edge,
+            // giving trending lists the scannability of a chart.
+            if (rank > 0) {
+                Box(
+                    Modifier.width(30.dp).fillMaxHeight().padding(top = 14.dp),
+                    contentAlignment = Alignment.TopStart,
+                ) {
+                    Text(
+                        text = rank.toString(),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                    )
+                }
+                Spacer(Modifier.width(4.dp))
+            }
+            Column(Modifier.padding(top = 14.dp, end = 16.dp, bottom = 14.dp)) {
+            // Name line — the repo IS the headline: large, loud, single line.
+            // Owner demotes to an eyebrow prefix; the avatar keeps it human.
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val avatar = item.ownerAvatarUrl
                 if (!avatar.isNullOrBlank()) {
@@ -257,26 +279,27 @@ internal fun DiscoverItemCard(
                         model = avatar,
                         contentDescription = item.owner,
                         modifier = Modifier
-                            .size(20.dp)
+                            .size(18.dp)
                             .clip(CircleShape)
                             .clickable { onNavigateToUser(item.owner) },
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(6.dp))
                 }
                 Text(
                     text = item.owner,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .clickable { onNavigateToUser(item.owner) }
-                        .weight(1f, fill = false),
                 )
-                Text(" / ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    text = " / ",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
                 Text(
                     text = item.repo,
-                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -284,42 +307,52 @@ internal fun DiscoverItemCard(
             }
 
             if (!item.description.isNullOrBlank()) {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(5.dp))
                 Text(
                     text = item.description,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 3,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
+                    lineHeight = 17.sp,
                 )
             }
 
-            // Momentum strip — OSS Insight total_score, GitHub Trending API currentPeriodStars.
+            // Momentum badge — filled pill, the card's one saturated accent.
             if (item.starDelta != null) {
-                Spacer(Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.AutoMirrored.Outlined.TrendingUp,
-                        null,
-                        modifier = Modifier.size(12.dp),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = stringResource(
-                            R.string.feed_item_star_delta,
-                            formatCount(item.starDelta.delta),
-                            item.starDelta.periodLabel,
-                        ),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
+                Spacer(Modifier.height(8.dp))
+                Row {
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Outlined.TrendingUp,
+                                null,
+                                modifier = Modifier.size(12.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = stringResource(
+                                    R.string.feed_item_star_delta,
+                                    formatCount(item.starDelta.delta),
+                                    item.starDelta.periodLabel,
+                                ),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
                 }
             }
 
-            // Community signal strip — HN / Reddit only.
             item.communitySignal?.let { sig ->
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 CommunitySignalRow(sig)
             }
 
@@ -332,19 +365,19 @@ internal fun DiscoverItemCard(
                     Spacer(Modifier.width(12.dp))
                 }
                 if (item.stars > 0) {
-                    Icon(Icons.Outlined.Star, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.width(4.dp))
+                    Icon(Icons.Outlined.Star, null, modifier = Modifier.size(13.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(3.dp))
                     Text(formatCount(item.stars), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(12.dp))
                 }
                 if (item.forks > 0) {
-                    Icon(Icons.Outlined.CallSplit, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.width(4.dp))
+                    Icon(Icons.Outlined.CallSplit, null, modifier = Modifier.size(13.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(3.dp))
                     Text(formatCount(item.forks), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             if (item.topics.isNotEmpty()) {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(7.dp))
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -368,7 +401,9 @@ internal fun DiscoverItemCard(
                     }
                 }
             }
+            }
         }
+    }
 }
 
 @Composable

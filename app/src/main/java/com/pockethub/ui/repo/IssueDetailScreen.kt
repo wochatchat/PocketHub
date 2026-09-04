@@ -417,7 +417,11 @@ fun IssueDetailScreen(
                     Spacer(Modifier.height(8.dp))
                     HorizontalDivider()
                     Text(stringResource(R.string.issue_activity), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    events.forEach { ev -> com.pockethub.ui.components.IssueEventRow(ev, onNavigateToUser) }
+                    // Own compact container: the parent's 12dp spacedBy doubled
+                    // the visual gap between event rows to ~16dp.
+                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        events.forEach { ev -> com.pockethub.ui.components.IssueEventRow(ev, onNavigateToUser) }
+                    }
                     if (eventsError != null) {
                         Text(
                             eventsError!!,

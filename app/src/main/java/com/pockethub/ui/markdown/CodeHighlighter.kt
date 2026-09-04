@@ -29,29 +29,51 @@ object CodeHighlighter {
 
     /** Infer a language tag from a file name's extension. */
     fun languageFor(fileName: String): String {
-        val ext = fileName.substringAfterLast('.', "").lowercase()
+        val base = fileName.substringAfterLast('/', "")
+        val ext = base.substringAfterLast('.', "").lowercase()
         return when (ext) {
             "kt", "kts" -> "kotlin"
             "java" -> "java"
-            "py" -> "python"
+            "py", "pyw" -> "python"
             "js", "jsx", "mjs", "cjs" -> "javascript"
-            "ts", "tsx" -> "typescript"
+            "ts", "tsx", "mts", "cts" -> "typescript"
             "rs" -> "rust"
             "go" -> "go"
             "c", "h" -> "c"
             "cpp", "cc", "cxx", "hpp" -> "cpp"
             "cs" -> "csharp"
-            "json" -> "json"
-            "xml", "html", "htm", "svg" -> "xml"
+            "json", "jsonc", "json5" -> "json"
+            "xml", "html", "htm", "svg", "xaml", "plist", "csproj", "vbproj", "props", "targets" -> "xml"
             "yml", "yaml" -> "yaml"
             "sh", "bash", "zsh" -> "shell"
-            "md" -> "markdown"
+            "md", "markdown" -> "markdown"
             "rb" -> "ruby"
             "php" -> "php"
             "swift" -> "swift"
             "sql" -> "sql"
-            "gradle", "toml", "ini", "properties", "cfg" -> "properties"
-            else -> ""
+            "gradle", "toml", "ini", "properties", "cfg", "conf", "editorconfig", "env" -> "properties"
+            "dart" -> "dart"
+            "lua" -> "lua"
+            "scala", "sc" -> "scala"
+            "pl", "pm" -> "perl"
+            "r", "rmd" -> "r"
+            "vue" -> "xml"   // template section highlights reasonably as XML
+            "svelte" -> "xml"
+            "proto", "protobuf" -> "c"   // close enough for keyword coloring
+            "bat", "cmd" -> "shell"
+            "ps1", "psm1" -> "shell"
+            "dockerfile" -> "shell"
+            "cmake" -> "properties"
+            "groovy", "jenkinsfile" -> "java"
+            "vbs", "vb" -> "csharp"
+            "m", "mm" -> "c"   // Objective-C
+            "hbs", "handlebars", "ejs" -> "xml"
+            "css", "scss", "sass", "less" -> "javascript"  // JS tokenizer handles braces/strings/comments well
+            else -> when {
+                base.equals("dockerfile", true) || base.equals("makefile", true) ||
+                    base.equals("cmakelists.txt", true) -> "shell"
+                else -> ""
+            }
         }
     }
 
@@ -194,6 +216,13 @@ object CodeHighlighter {
     /** Extensions to the keyword map for languages that alias another's set. */
     private fun keywordsFor(lang: String): Set<String> = when (lang) {
         "markdown" -> emptySet()
+        // Languages without their own keyword table fall back to a close cousin
+        // so the tokenizer still colors structure instead of plain text.
+        "dart" -> KEYWORDS["java"].orEmpty() + setOf("final", "const", "late", "async", "await", "extends", "with", "mixin")
+        "lua" -> KEYWORDS["python"].orEmpty() + setOf("function", "end", "local", "then", "elseif", "nil", "repeat", "until")
+        "scala" -> KEYWORDS["kotlin"].orEmpty() + setOf("def", "match", "case", "implicit", "sealed", "trait", "object")
+        "perl" -> KEYWORDS["python"].orEmpty() + setOf("my", "use", "sub", "unless", "foreach", "local", "no")
+        "r" -> KEYWORDS["python"].orEmpty() + setOf("function", "library", "require", "TRUE", "FALSE", "NULL", "NA")
         else -> KEYWORDS[lang].orEmpty()
     }
 
@@ -299,9 +328,21 @@ object CodeHighlighter {
                         }
                         i = j
                     }
+                    // Punctuation / whitespace run — batch plain segments instead of
+                    // appending char-by-char (per-char ranges on a 200k-char file
+                    // meant hundreds of thousands of span objects and visible jank).
                     else -> {
-                        append(c)
-                        i++
+                        var j = i
+                        while (j < n) {
+                            val d = code[j]
+                            if (d.isLetter() || d == '_' || d == '"' || d == '\'' || d == '`' ||
+                                d == '/' || d == '#' || d == '@' || d.isDigit()
+                            ) break
+                            j++
+                        }
+                        if (j == i) j = i + 1 // safety: always make progress
+                        append(code.substring(i, j))
+                        i = j
                     }
                 }
             }
@@ -346,7 +387,17 @@ object CodeHighlighter {
                     } else append(w)
                     i = j
                 }
-                else -> { append(c); i++ }
+                else -> {
+                    // Batch punctuation/whitespace runs (same jank fix as the
+                    // general tokenizer — per-char spans froze large JSON).
+                    var j = i
+                    while (j < n && !code[j].isLetter() && code[j] != '"' &&
+                        !(code[j].isDigit() || code[j] == '-')
+                    ) j++
+                    if (j == i) j = i + 1
+                    append(code.substring(i, j))
+                    i = j
+                }
             }
         }
     }

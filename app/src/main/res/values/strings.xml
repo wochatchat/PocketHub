@@ -532,7 +532,7 @@
     <string name="pr_opened_at">opened %1$s</string>
     <string name="pr_close_action">Close pull request</string>
     <string name="pr_reopen_action">Reopen pull request</string>
-    <string name="pr_files_summary">%1$d files · +%2$d / -%3$d</string>
+    <string name="pr_files_summary">%1$d files</string>
 
     <!-- PR Checks -->
     <string name="checks_passed">Checks: %1$d/%2$d passed</string>
@@ -661,4 +661,9 @@
     <string name="wf_started_at">Started %1$s</string>
     <string name="wf_duration_min">Duration %1$s min</string>
     <string name="wf_no_step_metadata">No step metadata</string>
+    <string name="time_just_now">just now</string>
+    <string name="time_minutes_ago">%1$dm ago</string>
+    <string name="time_hours_ago">%1$dh ago</string>
+    <string name="time_days_ago">%1$dd ago</string>
+    <string name="time_months_ago">%1$dmo ago</string>
 </resources>

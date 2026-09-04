@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
@@ -218,8 +219,9 @@ fun ExploreScreen(
                 }
             }
 
-            // Source badge — one quiet glyph + name, tap to change. Dev jargon ("API",
-// proxy hosts) stays out of the copy; the details live in Feed Sources.
+            // Source badge — one quiet glyph + name + "change" affordance on the far
+// edge. Dev jargon ("API", proxy hosts) stays out of the copy; the details
+// live in Feed Sources.
             item {
                 Row(
                     modifier = Modifier
@@ -239,6 +241,12 @@ fun ExploreScreen(
                         sourceDisplayName(currentSource),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        stringResource(R.string.feed_source_change),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
@@ -478,9 +486,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.repoItems(
             EmptyState(stringResource(R.string.no_repositories_found), stringResource(R.string.no_discover_items_subtitle), icon = Icons.AutoMirrored.Outlined.Article)
         }
         else -> {
-            items(repos, key = { it.id }) { item ->
+            itemsIndexed(repos, key = { _, it -> it.id }) { index, item ->
                 DiscoverItemCard(
                     item = item,
+                    rank = index + 1,
                     onClick = { onNavigateToRepo(item.owner, item.repo) },
                     onNavigateToUser = onNavigateToUser,
                     modifier = Modifier.animateItem(),

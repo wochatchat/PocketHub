@@ -178,12 +178,33 @@ class CodeBrowserViewModel @Inject constructor(
                 val element = api.getContents(s.owner, s.repo, entry.path, s.ref)
                 if (element is JsonObject) {
                     val fetched = json.decodeFromJsonElement<GitHubApi.ContentEntry>(element)
-                    val decoded = if (fetched.encoding == "base64" && fetched.content.isNotBlank()) {
-                        try {
-                            String(Base64.decode(fetched.content.replace("\n", ""), Base64.DEFAULT), Charsets.UTF_8)
-                        } catch (_: Exception) { null }
-                    } else null
-                    _state.update { it.copy(isLoading = false, viewingFile = fetched, fileContent = decoded) }
+                    // GitHub omits base64 content for files >1MB (encoding stays
+                    // "none") — fall back to the raw download URL instead of
+                    // mislabeling the file as binary.
+                    val decoded: String? = when {
+                        com.pockethub.util.FileTypes.isKnownBinary(fetched.path) -> null
+                        fetched.encoding == "base64" && fetched.content.isNotBlank() -> {
+                            try {
+                                Base64.decode(fetched.content.replace("\n", ""), Base64.DEFAULT)
+                                    .toString(Charsets.UTF_8)
+                            } catch (_: Exception) { null }
+                        }
+                        fetched.encoding != "base64" && fetched.downloadUrl != null -> {
+                            // Large text file: fetch raw bytes directly.
+                            runCatching {
+                                val req = okhttp3.Request.Builder().url(fetched.downloadUrl!!).build()
+                                okhttp3.OkHttpClient().newCall(req).execute().use { resp ->
+                                    if (!resp.isSuccessful) null else resp.body?.string()
+                                }
+                            }.getOrNull()
+                        }
+                        else -> null
+                    }
+                    val binary = decoded == null ||
+                        com.pockethub.util.FileTypes.looksBinary(decoded)
+                    _state.update {
+                        it.copy(isLoading = false, viewingFile = fetched, fileContent = if (binary) null else decoded)
+                    }
                 } else {
                     _state.update { it.copy(isLoading = false) }
                 }

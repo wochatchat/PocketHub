@@ -479,13 +479,13 @@ private fun CommitFileCard(
             Text(
                 "+${file.additions}",
                 style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
-                color = Color(0xFF3FB950),
+                color = semanticColors().success,
             )
             Spacer(Modifier.width(6.dp))
             Text(
                 "−${file.deletions}",
                 style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
-                color = Color(0xFFF85149),
+                color = semanticColors().danger,
             )
         }
 
@@ -504,9 +504,9 @@ private fun CommitFileCard(
                 ) {
                     lines.forEach { (type, oldNumber, newNumber, text) ->
                         val color = when (type) {
-                            '+' -> Color(0xFF3FB950)
-                            '-' -> Color(0xFFF85149)
-                            '@' -> Color(0xFF58A6FF)
+                            '+' -> semanticColors().success
+                            '-' -> semanticColors().danger
+                            '@' -> semanticColors().running
                             else -> MaterialTheme.colorScheme.onSurfaceVariant
                         }
                         val lineNo = newNumber ?: oldNumber

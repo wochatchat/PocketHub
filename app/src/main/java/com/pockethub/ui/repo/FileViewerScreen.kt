@@ -100,13 +100,28 @@ class FileViewerViewModel @Inject constructor(
                     _state.update { it.copy(isLoading = false, error = "Unexpected response") }
                     return@launch
                 }
-                val decoded = if (fetched.encoding == "base64" && fetched.content.isNotBlank()) {
-                    try {
-                        String(Base64.decode(fetched.content.replace("\n", ""), Base64.DEFAULT), Charsets.UTF_8)
-                    } catch (_: Exception) { null }
-                } else null
+                val decoded: String? = when {
+                    com.pockethub.util.FileTypes.isKnownBinary(fetched.path) -> null
+                    fetched.encoding == "base64" && fetched.content.isNotBlank() -> {
+                        try {
+                            Base64.decode(fetched.content.replace("\n", ""), Base64.DEFAULT)
+                                .toString(Charsets.UTF_8)
+                        } catch (_: Exception) { null }
+                    }
+                    fetched.encoding != "base64" && fetched.downloadUrl != null -> {
+                        // Large text file (>1MB): GitHub omits base64 — fetch raw.
+                        runCatching {
+                            val req = okhttp3.Request.Builder().url(fetched.downloadUrl!!).build()
+                            okhttp3.OkHttpClient().newCall(req).execute().use { resp ->
+                                if (!resp.isSuccessful) null else resp.body?.string()
+                            }
+                        }.getOrNull()
+                    }
+                    else -> null
+                }
+                val binary = decoded == null || com.pockethub.util.FileTypes.looksBinary(decoded)
                 _state.update {
-                    it.copy(isLoading = false, content = decoded, isBinary = decoded == null)
+                    it.copy(isLoading = false, content = if (binary) null else decoded, isBinary = binary)
                 }
             } catch (e: Exception) {
                 issueReporter.reportError("FileViewer", "load", e)
