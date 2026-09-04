@@ -467,7 +467,6 @@ private class PreparedCode(
  * Line numbers scroll vertically with the code but stay pinned at the start
  * of each line.
  */
-@Composable
 /**
  * Inline pane for image files in the code browser: Coil-rendered preview on
  * a soft surface, tap opens the built-in zoomable viewer
@@ -517,6 +516,7 @@ private fun ImageFilePane(
     }
 }
 
+@Composable
 internal fun SyntaxHighlightedCode(
     code: String,
     fileName: String,
