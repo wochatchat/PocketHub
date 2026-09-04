@@ -17,7 +17,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -403,10 +405,46 @@ fun EmptyStateV2(
 fun rememberRestorableScrollState(contentReady: Boolean): ScrollState {
     val scrollState = rememberScrollState()
     var savedValue by rememberSaveable { mutableIntStateOf(0) }
-    LaunchedEffect(scrollState.value) { savedValue = scrollState.value }
+    // True while we're still pinning the position back to [savedValue]. Plain
+    // remember: a fresh return session restarts the window.
+    var restoring by remember { androidx.compose.runtime.mutableStateOf(false) }
+    // Restore FIRST — declared before the mirror so the same-frame effect
+    // order can't overwrite the target with the freshly restored (possibly
+    // clamped) state.
     LaunchedEffect(contentReady) {
-        if (contentReady && savedValue > 0 && scrollState.value == 0) {
-            scrollState.scrollTo(savedValue)
+        if (contentReady && savedValue > 0 && scrollState.value < savedValue) {
+            restoring = true
+            scrollState.scrollTo(savedValue.coerceAtMost(scrollState.maxValue))
+        }
+    }
+    // Mirror the live position — but never while re-applying it, or the
+    // intermediate clamped offsets would overwrite the restore target.
+    LaunchedEffect(scrollState.value) {
+        if (!restoring) savedValue = scrollState.value
+    }
+    if (restoring) {
+        // Content height keeps growing after the restore (markdown parse,
+        // image loads, readme fetch). Re-pin on every growth step until the
+        // saved offset is reachable, then hand control back.
+        LaunchedEffect(scrollState.maxValue) {
+            if (scrollState.value < savedValue) {
+                scrollState.scrollTo(savedValue.coerceAtMost(scrollState.maxValue))
+            }
+            if (scrollState.maxValue >= savedValue) restoring = false
+        }
+        // Watchdog: content that never reaches the target (data trimmed on
+        // refresh) must not block position mirroring forever.
+        LaunchedEffect(Unit) {
+            kotlinx.coroutines.delay(3000)
+            restoring = false
+        }
+        // A user drag cancels the pin immediately.
+        LaunchedEffect(scrollState.interactionSource) {
+            scrollState.interactionSource.interactions.collect { interaction ->
+                if (interaction is androidx.compose.foundation.interaction.DragInteraction.Start) {
+                    restoring = false
+                }
+            }
         }
     }
     return scrollState
@@ -426,15 +464,51 @@ fun rememberRestorableListState(contentReady: Boolean): LazyListState {
     val listState = rememberLazyListState()
     var savedIndex by rememberSaveable { mutableIntStateOf(0) }
     var savedOffset by rememberSaveable { mutableIntStateOf(0) }
-    // Mirror the live position continuously.
-    LaunchedEffect(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) {
-        savedIndex = listState.firstVisibleItemIndex
-        savedOffset = listState.firstVisibleItemScrollOffset
-    }
-    // Re-apply once content exists AND the built-in restore was clamped away.
+    // Same growth-tracking restore as [rememberRestorableScrollState]: the
+    // first re-apply can still clamp while late content (markdown, images,
+    // readme) inflates item heights, so keep re-pinning until reachable.
+    var restoring by remember { androidx.compose.runtime.mutableStateOf(false) }
+    // Restore FIRST (before the mirror) — same same-frame ordering argument
+    // as [rememberRestorableScrollState].
     LaunchedEffect(contentReady) {
-        if (contentReady && savedIndex > 0 && listState.firstVisibleItemIndex == 0) {
+        if (contentReady && savedIndex > 0 && listState.firstVisibleItemIndex < savedIndex) {
+            restoring = true
             listState.scrollToItem(savedIndex, savedOffset)
+        }
+    }
+    // Mirror the live position continuously — never while re-applying it.
+    LaunchedEffect(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) {
+        if (!restoring) {
+            savedIndex = listState.firstVisibleItemIndex
+            savedOffset = listState.firstVisibleItemScrollOffset
+        }
+    }
+    if (restoring) {
+        // Watchdog: content that never reaches the target (data trimmed on
+        // refresh) must not block position mirroring forever.
+        LaunchedEffect(Unit) {
+            kotlinx.coroutines.delay(3000)
+            restoring = false
+        }
+        LaunchedEffect(listState.layoutInfo.totalItemsCount) {
+            val total = listState.layoutInfo.totalItemsCount
+            if (total == 0) return@LaunchedEffect
+            if (total > savedIndex) {
+                listState.scrollToItem(savedIndex, savedOffset)
+                restoring = false
+            } else {
+                // Items still streaming in (comments, diffs) — hold at the
+                // deepest reached position until the target index exists.
+                listState.scrollToItem(total - 1)
+            }
+        }
+        // A user drag cancels the pin immediately.
+        LaunchedEffect(listState.interactionSource) {
+            listState.interactionSource.interactions.collect { interaction ->
+                if (interaction is androidx.compose.foundation.interaction.DragInteraction.Start) {
+                    restoring = false
+                }
+            }
         }
     }
     return listState
@@ -446,13 +520,42 @@ fun rememberRestorableGridState(contentReady: Boolean): LazyGridState {
     val gridState = rememberLazyGridState()
     var savedIndex by rememberSaveable { mutableIntStateOf(0) }
     var savedOffset by rememberSaveable { mutableIntStateOf(0) }
-    LaunchedEffect(gridState.firstVisibleItemIndex, gridState.firstVisibleItemScrollOffset) {
-        savedIndex = gridState.firstVisibleItemIndex
-        savedOffset = gridState.firstVisibleItemScrollOffset
-    }
+    var restoring by remember { androidx.compose.runtime.mutableStateOf(false) }
+    // Restore FIRST (before the mirror) — same same-frame ordering argument
+    // as [rememberRestorableScrollState].
     LaunchedEffect(contentReady) {
-        if (contentReady && savedIndex > 0 && gridState.firstVisibleItemIndex == 0) {
+        if (contentReady && savedIndex > 0 && gridState.firstVisibleItemIndex < savedIndex) {
+            restoring = true
             gridState.scrollToItem(savedIndex, savedOffset)
+        }
+    }
+    LaunchedEffect(gridState.firstVisibleItemIndex, gridState.firstVisibleItemScrollOffset) {
+        if (!restoring) {
+            savedIndex = gridState.firstVisibleItemIndex
+            savedOffset = gridState.firstVisibleItemScrollOffset
+        }
+    }
+    if (restoring) {
+        LaunchedEffect(Unit) {
+            kotlinx.coroutines.delay(3000)
+            restoring = false
+        }
+        LaunchedEffect(gridState.layoutInfo.totalItemsCount) {
+            val total = gridState.layoutInfo.totalItemsCount
+            if (total == 0) return@LaunchedEffect
+            if (total > savedIndex) {
+                gridState.scrollToItem(savedIndex, savedOffset)
+                restoring = false
+            } else {
+                gridState.scrollToItem(total - 1)
+            }
+        }
+        LaunchedEffect(gridState.interactionSource) {
+            gridState.interactionSource.interactions.collect { interaction ->
+                if (interaction is androidx.compose.foundation.interaction.DragInteraction.Start) {
+                    restoring = false
+                }
+            }
         }
     }
     return gridState
