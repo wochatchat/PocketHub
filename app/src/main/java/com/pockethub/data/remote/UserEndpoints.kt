@@ -7,9 +7,7 @@ package com.pockethub.data.remote
 
 import com.pockethub.data.model.Repository
 import com.pockethub.data.model.User
-import retrofit2.http.Body
 import retrofit2.http.GET
-import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -40,18 +38,4 @@ interface UserEndpoints {
     // ──────────────────────────────────────────────
     //  Trending (unofficial — scraped or search-based)
     // ──────────────────────────────────────────────
-}
-
-// ──────────────────────────────────────────────
-//  Contributions calendar (GraphQL v4) — powers
-//  the profile heatmap card.
-// ──────────────────────────────────────────────
-interface UserContributionEndpoints {
-
-    /**
-     * Contribution calendar for [login] — 53 weeks × 7 days of counts, the
-     * same data GitHub's own profile heatmap shows. REST has no equivalent.
-     */
-    @POST("graphql")
-    suspend fun contributionCalendar(@Body body: GitHubApi.GraphQLRequest): GitHubApi.GraphQLResponse
 }

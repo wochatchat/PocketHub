@@ -28,8 +28,7 @@ interface GitHubApi :
     EventEndpoints,
     SearchEndpoints,
     OAuthEndpoints,
-    GraphQLEndpoints,
-    UserContributionEndpoints {
+    GraphQLEndpoints {
 
     @kotlinx.serialization.Serializable
     data class GitHubErrorBody(

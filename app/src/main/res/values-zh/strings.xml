@@ -220,13 +220,6 @@
     <string name="readme_title">README</string>
     <string name="readme_loading">正在加载 README…</string>
     <string name="readme_empty">该代码库没有 README 文档</string>
-    <string name="contrib_total">贡献</string>
-    <string name="contrib_commits">提交</string>
-    <string name="contrib_prs">PR</string>
-    <string name="contrib_issues">Issue</string>
-    <string name="contrib_reviews">评审</string>
-    <string name="contrib_less">少</string>
-    <string name="contrib_more">多</string>
     <string name="no_open_issues">没有开放的 issues</string>
     <string name="no_releases_yet">还没有 releases</string>
     <string name="no_workflow_runs">没有工作流运行记录</string>

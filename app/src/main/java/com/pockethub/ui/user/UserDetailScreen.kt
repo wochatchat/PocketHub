@@ -109,7 +109,6 @@ fun UserDetailScreen(
     val followActionInProgress by vm.followActionInProgress.collectAsState()
     val followers by vm.followers.collectAsState()
     val followingList by vm.followingList.collectAsState()
-    val contributions by vm.contributions.collectAsState()
     val isLoadingFollowLists by vm.isLoadingFollowLists.collectAsState()
     val context = LocalContext.current
 
@@ -190,19 +189,6 @@ fun UserDetailScreen(
                     onFollowersClick = { followSheetTab = 0 },
                     onFollowingClick = { followSheetTab = 1 },
                 )
-            }
-
-            // Contributions heatmap + totals (hidden when the API returns nothing —
-            // e.g. organizations or fresh accounts with an empty calendar).
-            contributions?.let { calendar ->
-                item {
-                    com.pockethub.ui.components.PhCard(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
-                        com.pockethub.ui.components.ContributionHeatmap(
-                            calendar = calendar,
-                            modifier = Modifier.padding(12.dp),
-                        )
-                    }
-                }
             }
 
             // Additional info

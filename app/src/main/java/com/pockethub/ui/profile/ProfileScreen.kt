@@ -100,7 +100,6 @@ fun ProfileScreen(
     val topRepos by vm.topRepos.collectAsState()
     val isLoadingRepos by vm.isLoadingRepos.collectAsState()
     val starredTotal by vm.starredTotal.collectAsState()
-    val contributions by vm.contributions.collectAsState()
     val workTab by vm.workTab.collectAsState()
     val workItems by vm.workItems.collectAsState()
     val isLoadingWork by vm.isLoadingWork.collectAsState()
@@ -153,18 +152,6 @@ fun ProfileScreen(
 
             // Quick stats row (followers / following / repos)
             item { StatsRow(user, starredTotal, onFollowersClick = { user?.login?.let { onNavigateToUser(it, 0) } }, onFollowingClick = { user?.login?.let { onNavigateToUser(it, 1) } }) }
-
-            // Contributions heatmap + totals (hidden when unavailable).
-            contributions?.let { calendar ->
-                item {
-                    com.pockethub.ui.components.PhCard(Modifier.fillMaxWidth()) {
-                        com.pockethub.ui.components.ContributionHeatmap(
-                            calendar = calendar,
-                            modifier = Modifier.padding(12.dp),
-                        )
-                    }
-                }
-            }
 
             // Work-list — Assigned / Mentioned / Created / Involved items needing attention.
             // Placed right under the stats so opening the app shows "what's on me" first.
