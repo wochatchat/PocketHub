@@ -83,7 +83,8 @@ import com.pockethub.data.remote.GitHubApi
 import com.pockethub.ui.components.Haptics
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
+
+import androidx.compose.ui.draw.clipimport kotlinx.coroutines.launch
 
 /**
  * Data surface the full-screen viewer needs. Implemented by the GitHub-backed

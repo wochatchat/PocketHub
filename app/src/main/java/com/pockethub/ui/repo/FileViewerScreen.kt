@@ -64,7 +64,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 import androidx.compose.foundation.clickable
-import kotlinx.serialization.json.decodeFromJsonElement
+
+
+import androidx.compose.foundation.layout.Arrangementimport androidx.compose.runtime.rememberimport kotlinx.serialization.json.decodeFromJsonElement
 
 /**
  * Loads a single repo file (Contents API) for [FileViewerScreen].
