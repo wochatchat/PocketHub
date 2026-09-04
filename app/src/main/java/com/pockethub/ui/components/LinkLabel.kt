@@ -26,7 +26,9 @@ fun LinkLabel(
     val annotated = buildAnnotatedString {
         pushStringAnnotation(tag = "URL", annotation = url)
         addStyle(
-            SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline),
+    // Off-github links use the secondary hue — same rule as EXTERNAL markdown
+    // links in MarkdownRender, so in-app vs external stays consistent app-wide.
+    SpanStyle(color = MaterialTheme.colorScheme.secondary, textDecoration = TextDecoration.Underline),
             start = 0,
             end = text.length,
         )

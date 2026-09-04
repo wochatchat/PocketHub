@@ -761,7 +761,7 @@ internal fun AnnotatedString.Builder.appendLink(
     linkColor: Color,
     downloadColor: Color,
     imageLinkColor: Color,
-    @Suppress("UNUSED_PARAMETER") externalColor: Color,
+    externalColor: Color,
 ) {
     // Tiny textual cue (emoji-free) for downloadable links — rendered before the styled span.
     val prefix = when (kind) {
@@ -777,7 +777,10 @@ internal fun AnnotatedString.Builder.appendLink(
         LinkKind.DOWNLOADABLE -> SpanStyle(color = downloadColor, textDecoration = TextDecoration.Underline, fontWeight = FontWeight.Medium)
         LinkKind.IMAGE_URL -> SpanStyle(color = imageLinkColor, textDecoration = TextDecoration.Underline)
         LinkKind.GITHUB_REPO, LinkKind.GITHUB_USER, LinkKind.GITHUB_ISSUE, LinkKind.GITHUB_COMMIT,
-        LinkKind.IMAGE, LinkKind.EXTERNAL -> SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline)
+        LinkKind.IMAGE -> SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline)
+        // Off-github links get a different hue so users can tell in-app
+        // navigation from "this opens in a browser" before tapping.
+        LinkKind.EXTERNAL -> SpanStyle(color = externalColor, textDecoration = TextDecoration.Underline)
     }
     addStyle(style, start, start + displayText.length)
     append(displayText)
