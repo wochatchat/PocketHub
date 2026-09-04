@@ -149,6 +149,7 @@ fun PhCard(
         animationSpec = tween(120),
         label = "ph_card_border",
     )
+    val onSurfaceColor = MaterialTheme.colorScheme.onSurface
 
     Surface(
         modifier = modifier.graphicsLayer {
@@ -166,9 +167,9 @@ fun PhCard(
                     // Remembered: PhCard sits in every list item; allocating the
                     // gradient on each recomposition (image loads, state ticks)
                     // added up across a whole screen of cards.
-                    remember(MaterialTheme.colorScheme.onSurface) {
+                    remember(onSurfaceColor) {
                         Brush.verticalGradient(
-                            0f to MaterialTheme.colorScheme.onSurface.copy(alpha = 0.02f),
+                            0f to onSurfaceColor.copy(alpha = 0.02f),
                             1f to Color.Transparent,
                         )
                     }

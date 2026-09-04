@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -38,15 +39,17 @@ fun ContributionHeatmap(
     modifier: Modifier = Modifier,
 ) {
     val surface = MaterialTheme.colorScheme.surfaceVariant
+    val primary = MaterialTheme.colorScheme.primary
     // 5 activity levels, low → high; level 0 = empty cell. Alpha-based ramp so
     // it tracks the theme in both light and dark without a bespoke palette.
-    val levelColors = remember(surface) {
+    // (Colors read in composition; only the list itself is remembered.)
+    val levelColors = remember(surface, primary) {
         listOf(
             surface.copy(alpha = 0.55f),
             surface,
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.45f),
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-            MaterialTheme.colorScheme.primary,
+            primary.copy(alpha = 0.45f),
+            primary.copy(alpha = 0.7f),
+            primary,
         )
     }
     fun colorFor(count: Int) = when {
