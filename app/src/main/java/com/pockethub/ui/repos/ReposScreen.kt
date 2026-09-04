@@ -72,7 +72,7 @@ fun ReposScreen(
     val error by vm.error.collectAsState()
     val tab by vm.currentTab.collectAsState()
     val filter by vm.currentFilter.collectAsState()
-    val listState = rememberLazyGridState()
+    val listState = com.pockethub.ui.components.rememberRestorableGridState(contentReady = repos.isNotEmpty())
 
     // ReposScreen is disposed when the user leaves the Repos tab and recomposed
     // on return (HomeScreen uses `when(selectedTab)` to switch content).  A fresh

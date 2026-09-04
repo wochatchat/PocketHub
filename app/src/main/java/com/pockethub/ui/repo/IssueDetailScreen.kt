@@ -239,11 +239,12 @@ fun IssueDetailScreen(
             return@Scaffold
         }
 
+        val issueScroll = com.pockethub.ui.components.rememberRestorableScrollState(contentReady = issue != null)
         Column(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(issueScroll)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {

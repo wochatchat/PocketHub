@@ -63,7 +63,7 @@ import androidx.compose.ui.unit.dp
 import com.pockethub.data.remote.GitHubApi
 import com.pockethub.ui.components.PhAsyncImage
 import com.pockethub.ui.theme.semanticColors
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.saveable.rememberSaveable
 import java.util.Locale
 
 @Composable
@@ -209,16 +209,27 @@ private fun BranchFilterRow(
 }
 
 /** A refresh replaces the whole list — jump back to the newest run at the
- *  top instead of staying scrolled wherever the old list was. */
+ *  top instead of staying scrolled wherever the old list was. The jump only
+ *  fires when the list content actually CHANGED while this composable was
+ *  alive: re-running it on every recomposition yanked the scroll position
+ *  back to the top on returning from a run detail (the "filter chips fine
+ *  but list jumps" bug). */
 @Composable
 private fun WorkflowRunList(
     runs: List<GitHubApi.WorkflowRun>,
     onNavigateToUser: (String) -> Unit,
     onNavigateToWorkflowRun: (Long) -> Unit,
 ) {
-    val listState = rememberLazyListState()
+    val listState = com.pockethub.ui.components.rememberRestorableListState(contentReady = runs.isNotEmpty())
+    var seenFirstId by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0L) }
+    var seenSize by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0) }
     LaunchedEffect(runs.firstOrNull()?.id, runs.size) {
-        listState.scrollToItem(0)
+        val firstId = runs.firstOrNull()?.id ?: 0L
+        if (seenFirstId != 0L && (firstId != seenFirstId || runs.size != seenSize)) {
+            listState.scrollToItem(0)
+        }
+        seenFirstId = firstId
+        seenSize = runs.size
     }
     LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         items(runs, key = { it.id }) { run ->

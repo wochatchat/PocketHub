@@ -87,7 +87,7 @@ internal fun IssuesTab(
     onClick: (Int) -> Unit,
     onNavigateToUser: (String) -> Unit = {},
 ) {
-    val listState = rememberLazyListState()
+    val listState = com.pockethub.ui.components.rememberRestorableListState(contentReady = issues.isNotEmpty())
     val shouldLoadMore by remember {
         derivedStateOf {
             val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
@@ -231,7 +231,7 @@ internal fun PullsTab(
     onClick: (Int) -> Unit,
     onNavigateToUser: (String) -> Unit = {},
 ) {
-    val listState = rememberLazyListState()
+    val listState = com.pockethub.ui.components.rememberRestorableListState(contentReady = pulls.isNotEmpty())
     val shouldLoadMore by remember {
         derivedStateOf {
             val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0

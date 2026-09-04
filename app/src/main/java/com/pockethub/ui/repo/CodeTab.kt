@@ -177,7 +177,10 @@ fun CodeTab(
                 TextButton(onClick = { vm.listDir(state.currentPath) }) { Text(stringResource(R.string.action_retry)) }
             }
 
-            else -> LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+            else -> LazyColumn(
+                state = com.pockethub.ui.components.rememberRestorableListState(contentReady = state.entries.isNotEmpty()),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+            ) {
                 items(state.entries, key = { it.path + it.sha + it.type }) { entry ->
                     ContentRow(
                         entry = entry,
@@ -522,8 +525,8 @@ internal fun SyntaxHighlightedCode(
     fileName: String,
     modifier: Modifier = Modifier,
 ) {
-    val vScroll = rememberScrollState()
-    val hScroll = rememberScrollState()
+    val vScroll = com.pockethub.ui.components.rememberRestorableScrollState(contentReady = code.isNotEmpty())
+    val hScroll = com.pockethub.ui.components.rememberRestorableScrollState(contentReady = code.isNotEmpty())
     // Capture the palette from the theme once, then cache the tokenized result.
     val colorScheme = MaterialTheme.colorScheme
     val palette = remember(colorScheme) {

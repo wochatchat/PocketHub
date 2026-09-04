@@ -246,6 +246,7 @@ fun CommitDetailScreen(
         val data = commit ?: return@Scaffold
 
         LazyColumn(
+            state = com.pockethub.ui.components.rememberRestorableListState(contentReady = commit != null),
             modifier = Modifier.padding(padding).fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {

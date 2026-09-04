@@ -147,6 +147,7 @@ fun WorkflowRunDetailScreen(
         }
 
         LazyColumn(
+            state = com.pockethub.ui.components.rememberRestorableListState(contentReady = run != null),
             modifier = Modifier.padding(padding).fillMaxSize(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),

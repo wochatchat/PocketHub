@@ -9,7 +9,6 @@ import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
@@ -315,7 +314,7 @@ fun PullRequestDetailScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize(),
-            state = rememberLazyListState(),
+            state = com.pockethub.ui.components.rememberRestorableListState(contentReady = pr != null),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(16.dp),
         ) {

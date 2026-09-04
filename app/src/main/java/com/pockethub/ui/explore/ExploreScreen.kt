@@ -138,6 +138,7 @@ fun ExploreScreen(
             modifier = modifier,
         ) {
         LazyColumn(
+            state = com.pockethub.ui.components.rememberRestorableListState(contentReady = trending.isNotEmpty() || featured.isNotEmpty() || feed.isNotEmpty()),
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {

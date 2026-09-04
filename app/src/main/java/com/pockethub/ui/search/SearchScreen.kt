@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -88,7 +87,9 @@ fun SearchScreen(
     val error by vm.error.collectAsState()
     val searchedQuery by vm.searchedQuery.collectAsState()
 
-    val listState = rememberLazyListState()
+    val listState = com.pockethub.ui.components.rememberRestorableListState(
+        contentReady = repos.isNotEmpty() || users.isNotEmpty() || issues.isNotEmpty(),
+    )
     val shouldLoadMore by remember {
         derivedStateOf {
             val info = listState.layoutInfo

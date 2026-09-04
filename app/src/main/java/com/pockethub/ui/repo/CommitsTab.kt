@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ListAlt
@@ -61,7 +60,7 @@ fun CommitsTab(
     val commits by vm.commits.collectAsState()
     val isLoading by vm.isLoading.collectAsState()
     val error by vm.error.collectAsState()
-    val listState = rememberLazyListState()
+    val listState = com.pockethub.ui.components.rememberRestorableListState(contentReady = commits.isNotEmpty())
 
     LaunchedEffect(owner, repo, ref) { vm.loadCommits(owner, repo, ref) }
     // Pull-to-refresh on the repo detail screen bumps [refreshTick]; re-fetch so

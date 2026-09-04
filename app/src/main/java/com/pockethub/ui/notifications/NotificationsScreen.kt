@@ -185,7 +185,10 @@ fun NotificationsScreen(
                 return@Column
             }
 
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+            LazyColumn(
+                state = com.pockethub.ui.components.rememberRestorableListState(contentReady = notifications.isNotEmpty()),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+            ) {
                 grouped.forEach { (repoFullName, items) ->
                     item(key = "header-$repoFullName") {
                         Spacer(Modifier.size(8.dp))

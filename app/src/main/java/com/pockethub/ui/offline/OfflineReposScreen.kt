@@ -93,6 +93,7 @@ fun OfflineReposScreen(
             }
         } else {
             LazyColumn(
+                state = com.pockethub.ui.components.rememberRestorableListState(contentReady = repos.isNotEmpty()),
                 Modifier.padding(padding).fillMaxSize(),
             ) {
                 items(repos, key = { it.url }) { entity ->

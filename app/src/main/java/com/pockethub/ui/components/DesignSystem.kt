@@ -39,6 +39,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
@@ -436,4 +438,22 @@ fun rememberRestorableListState(contentReady: Boolean): LazyListState {
         }
     }
     return listState
+}
+
+/** Grid twin of [rememberRestorableListState] for [LazyVerticalGrid] screens. */
+@Composable
+fun rememberRestorableGridState(contentReady: Boolean): LazyGridState {
+    val gridState = rememberLazyGridState()
+    var savedIndex by rememberSaveable { mutableIntStateOf(0) }
+    var savedOffset by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(gridState.firstVisibleItemIndex, gridState.firstVisibleItemScrollOffset) {
+        savedIndex = gridState.firstVisibleItemIndex
+        savedOffset = gridState.firstVisibleItemScrollOffset
+    }
+    LaunchedEffect(contentReady) {
+        if (contentReady && savedIndex > 0 && gridState.firstVisibleItemIndex == 0) {
+            gridState.scrollToItem(savedIndex, savedOffset)
+        }
+    }
+    return gridState
 }

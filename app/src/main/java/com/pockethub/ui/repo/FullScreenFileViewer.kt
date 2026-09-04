@@ -548,7 +548,10 @@ private fun FileTreePanel(
                     modifier = Modifier.padding(16.dp),
                 )
             }
-            else -> LazyColumn(Modifier.fillMaxSize()) {
+            else -> LazyColumn(
+                state = com.pockethub.ui.components.rememberRestorableListState(contentReady = rows.isNotEmpty()),
+                modifier = Modifier.fillMaxSize(),
+            ) {
                 items(rows, key = { it.entry.path }) { row ->
                     TreeRowItem(
                         row = row,

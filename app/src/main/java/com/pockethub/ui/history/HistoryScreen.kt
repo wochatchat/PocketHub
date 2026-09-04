@@ -95,6 +95,7 @@ fun HistoryScreen(
             )
         } else {
             LazyColumn(
+                state = com.pockethub.ui.components.rememberRestorableListState(contentReady = history.isNotEmpty()),
                 Modifier.padding(padding).fillMaxSize(),
                 verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
