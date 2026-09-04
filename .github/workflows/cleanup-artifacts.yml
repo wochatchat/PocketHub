@@ -27,7 +27,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          total=$(gh api "repos/${GH_REPO}/artifacts" --jq '.total_count')
+          total=$(gh api "repos/${GH_REPO}/actions/artifacts" --jq '.total_count')
           echo "Total artifacts: ${total}"
           if [ "${total}" -le 10 ]; then
             echo "Nothing to clean up."
@@ -36,7 +36,7 @@ jobs:
 
           # Artifact list API returns newest first; ids 11..N (oldest) get deleted.
           # Exclude already-expired ones — DELETE on those is a no-op but wastes quota.
-          to_delete=$(gh api "repos/${GH_REPO}/artifacts?per_page=100" --paginate \
+          to_delete=$(gh api "repos/${GH_REPO}/actions/artifacts?per_page=100" --paginate \
             --jq '.artifacts[] | select(.expired != true) | .id' \
             | tail -n +11)
           if [ -z "${to_delete}" ]; then
@@ -46,7 +46,7 @@ jobs:
 
           deleted=0
           for id in ${to_delete}; do
-            gh api -X DELETE "repos/${GH_REPO}/artifacts/${id}" && deleted=$((deleted + 1)) \
+            gh api -X DELETE "repos/${GH_REPO}/actions/artifacts/${id}" && deleted=$((deleted + 1)) \
               || echo "WARN: failed to delete artifact ${id}"
           done
           echo "Deleted ${deleted} artifacts; kept the newest 10."
