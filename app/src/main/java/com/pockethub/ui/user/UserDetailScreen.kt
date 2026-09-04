@@ -191,6 +191,20 @@ fun UserDetailScreen(
                 )
             }
 
+            // Contributions heatmap + totals (hidden when the API returns nothing —
+            // e.g. organizations or fresh accounts with an empty calendar).
+            val contributions by vm.contributions.collectAsState()
+            contributions?.let { calendar ->
+                item {
+                    com.pockethub.ui.components.PhCard(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+                        com.pockethub.ui.components.ContributionHeatmap(
+                            calendar = calendar,
+                            modifier = Modifier.padding(12.dp),
+                        )
+                    }
+                }
+            }
+
             // Additional info
             item { UserAdditionalInfo(user) }
 

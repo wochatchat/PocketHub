@@ -9,6 +9,7 @@ import com.pockethub.data.remote.AccountRepository
 import com.pockethub.data.remote.AuthInterceptor
 import com.pockethub.data.remote.CachedRepository
 import com.pockethub.data.remote.GitHubApi
+import com.pockethub.data.remote.getContributionCalendar
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -59,6 +60,10 @@ class ProfileViewModel @Inject constructor(
 
     private val _starredTotal = MutableStateFlow(0)
     val starredTotal: StateFlow<Int> = _starredTotal
+
+    /** Contributions heatmap + totals (null = not loaded / failed — card hides). */
+    private val _contributions = MutableStateFlow<com.pockethub.data.remote.ContributionCalendar?>(null)
+    val contributions: StateFlow<com.pockethub.data.remote.ContributionCalendar?> = _contributions
 
     /** My public activity feed (PushEvent / WatchEvent / ForkEvent …). Loaded once when the page opens. */
     private val _events = MutableStateFlow<List<com.pockethub.data.model.FeedEvent>>(emptyList())
@@ -118,6 +123,10 @@ class ProfileViewModel @Inject constructor(
                 _hasMoreRepos.value = true
                 launch { try { loadMoreRepos(reset = true) } catch (_: Exception) {} }
                 launch { try { _starredTotal.value = cache.getStarredTotalCount() } catch (_: Exception) {} }
+                launch {
+                    try { _contributions.value = api.getContributionCalendar(me.login) }
+                    catch (_: Exception) { _contributions.value = null }
+                }
                 launch {
                     _isLoadingEvents.update { true }
                     try { _events.value = runCatching { api.getUserEvents(me.login) }.getOrDefault(emptyList()) }

@@ -8,6 +8,7 @@ import com.pockethub.data.model.Repository
 import com.pockethub.data.model.User
 import com.pockethub.data.remote.CachedRepository
 import com.pockethub.data.remote.GitHubApi
+import com.pockethub.data.remote.getContributionCalendar
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -62,9 +63,14 @@ class UserDetailViewModel @Inject constructor(
     private val _isSelf = MutableStateFlow(false)
     val isSelf: StateFlow<Boolean> = _isSelf
 
+    /** Contributions heatmap + totals (null = not loaded / failed — card hides). */
+    private val _contributions = MutableStateFlow<com.pockethub.data.remote.ContributionCalendar?>(null)
+    val contributions: StateFlow<com.pockethub.data.remote.ContributionCalendar?> = _contributions.asStateFlow()
+
     fun loadUser(login: String, force: Boolean = false) {
         if (!force && loadedLogin == login && _user.value != null) return
         loadedLogin = login
+        _contributions.value = null
         viewModelScope.launch {
             _isLoading.update { true }
             _error.update { null }
@@ -95,6 +101,14 @@ class UserDetailViewModel @Inject constructor(
                         _events.update { runCatching { api.getUserEvents(login) }.getOrDefault(emptyList()) }
                     } finally {
                         _isLoadingEvents.update { false }
+                    }
+                }
+                // Contribution heatmap — GraphQL only, non-fatal (card hides on failure).
+                launch {
+                    try {
+                        _contributions.value = api.getContributionCalendar(login)
+                    } catch (_: Exception) {
+                        _contributions.value = null
                     }
                 }
                 // Determine whether this is the authenticated user's own profile,

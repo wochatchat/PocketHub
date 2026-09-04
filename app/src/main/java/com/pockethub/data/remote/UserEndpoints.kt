@@ -39,3 +39,17 @@ interface UserEndpoints {
     //  Trending (unofficial — scraped or search-based)
     // ──────────────────────────────────────────────
 }
+
+// ──────────────────────────────────────────────
+//  Contributions calendar (GraphQL v4) — powers
+//  the profile heatmap card.
+// ──────────────────────────────────────────────
+interface UserContributionEndpoints {
+
+    /**
+     * Contribution calendar for [login] — 53 weeks × 7 days of counts, the
+     * same data GitHub's own profile heatmap shows. REST has no equivalent.
+     */
+    @POST("graphql")
+    suspend fun contributionCalendar(@Body body: GitHubApi.GraphQLRequest): GitHubApi.GraphQLResponse
+}

@@ -283,6 +283,13 @@
     <string name="readme_title">README</string>
     <string name="readme_loading">Loading README…</string>
     <string name="readme_empty">This repository has no README file</string>
+    <string name="contrib_total">Contributions</string>
+    <string name="contrib_commits">Commits</string>
+    <string name="contrib_prs">PRs</string>
+    <string name="contrib_issues">Issues</string>
+    <string name="contrib_reviews">Reviews</string>
+    <string name="contrib_less">Less</string>
+    <string name="contrib_more">More</string>
     <string name="no_open_issues">No open issues</string>
     <string name="no_releases_yet">No releases yet</string>
     <string name="no_workflow_runs">No workflow runs</string>
