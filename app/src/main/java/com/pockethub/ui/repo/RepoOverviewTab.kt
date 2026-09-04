@@ -145,6 +145,7 @@ internal fun OverviewTab(
     repoData: Repository?,
     readme: String?,
     isLoading: Boolean,
+    isLoadingReadme: Boolean = false,
     readmeMissing: Boolean = false,
     translatedReadme: String? = null,
     showTranslated: Boolean = false,
@@ -340,7 +341,12 @@ internal fun OverviewTab(
             // ── README section ──
             // Empty state only when a fetch FINISHED and found nothing
             // (readmeMissing) — never while the request is still running.
-            val showReadmeSection = readme != null || isLoading || (readmeMissing && repoData != null)
+            // isLoadingReadme keeps the section mounted with a skeleton while
+            // the README is in flight: previously, once repoData arrived
+            // (isLoading=false) but the slower README fetch hadn't landed, the
+            // section unmounted entirely and the tab below the info card went
+            // blank for a second or two.
+            val showReadmeSection = readme != null || isLoading || isLoadingReadme || (readmeMissing && repoData != null)
             if (showReadmeSection) {
                 Row(
                     Modifier.fillMaxWidth(),
@@ -423,6 +429,17 @@ internal fun OverviewTab(
                         onLinkClick = onLinkClick,
                         imageGallery = imageGallery,
                     )
+                } else if (isLoadingReadme) {
+                    // Skeleton paragraphs — same visual weight as the incoming
+                    // markdown so the swap-in doesn't shift layout.
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        com.pockethub.ui.components.SkeletonBox(Modifier.fillMaxWidth(0.9f).height(13.dp))
+                        com.pockethub.ui.components.SkeletonBox(Modifier.fillMaxWidth().height(13.dp))
+                        com.pockethub.ui.components.SkeletonBox(Modifier.fillMaxWidth(0.75f).height(13.dp))
+                        com.pockethub.ui.components.SkeletonBox(Modifier.fillMaxWidth(0.6f).height(120.dp))
+                        com.pockethub.ui.components.SkeletonBox(Modifier.fillMaxWidth(0.85f).height(13.dp))
+                        com.pockethub.ui.components.SkeletonBox(Modifier.fillMaxWidth(0.5f).height(13.dp))
+                    }
                 } else if (isLoading) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)

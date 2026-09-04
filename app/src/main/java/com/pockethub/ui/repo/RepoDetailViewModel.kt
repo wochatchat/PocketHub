@@ -316,6 +316,11 @@ class RepoDetailViewModel @Inject constructor(
                     _readme.value = null
                     _readmeMissing.value = false
                 }
+                // README does not depend on the repo payload — start it in
+                // parallel instead of sequencing it after getRepository +
+                // history write, which cost an extra round trip before the
+                // overview tab had anything to render (blank-readme complaint).
+                loadReadme(owner, repo)
                 _repo.update { cache.getRepository(owner, repo) }
                 _repo.value?.let { r ->
                     history.recordVisit(
@@ -333,7 +338,6 @@ class RepoDetailViewModel @Inject constructor(
                         ),
                     )
                 }
-                loadReadme(owner, repo)
                 checkStar(owner, repo)
                 checkWatch(owner, repo)
             } catch (e: Exception) {
@@ -386,7 +390,12 @@ class RepoDetailViewModel @Inject constructor(
     /** Branch the current README was loaded for — used to skip redundant reloads. */
     internal var readmeRef: String? = null
 
+    private val _isLoadingReadme = MutableStateFlow(false)
+    /** True while a README fetch is in flight — overview shows a skeleton instead of blank space. */
+    val isLoadingReadme: StateFlow<Boolean> = _isLoadingReadme.asStateFlow()
+
     internal fun loadReadme(owner: String, repo: String, ref: String? = null): Job = viewModelScope.launch {
+        _isLoadingReadme.update { true }
         try {
             val resp = cache.getReadme(owner, repo, ref = ref)
             val markdown = if (resp.encoding == "base64" && resp.content.isNotBlank()) {
@@ -403,6 +412,8 @@ class RepoDetailViewModel @Inject constructor(
         } catch (_: Exception) {
             _readme.update { null }
             _readmeMissing.update { true }
+        } finally {
+            _isLoadingReadme.update { false }
         }
     }
 

@@ -105,6 +105,7 @@ fun RepoDetailScreen(
     val releases by vm.releases.collectAsState()
     val workflowRuns by vm.workflowRuns.collectAsState()
     val readme by vm.readme.collectAsState()
+    val isLoadingReadme by vm.isLoadingReadme.collectAsState()
     val readmeMissing by vm.readmeMissing.collectAsState()
     val isLoading by vm.isLoading.collectAsState()
     val isRefreshing by vm.isRefreshing.collectAsState()
@@ -471,6 +472,7 @@ fun RepoDetailScreen(
                     repoData,
                     readme,
                     isLoading,
+                    isLoadingReadme = isLoadingReadme,
                     readmeMissing = readmeMissing,
                     translatedReadme = translatedReadme,
                     showTranslated = showTranslated,
