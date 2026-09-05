@@ -266,6 +266,7 @@ fun PocketHubApp(
                         onNavigateToUser = { login -> navController.navigate(Routes.userDetail(login)) },
                         onNavigateToHistory = { navController.navigate(Routes.HISTORY) },
                         onNavigateToDownloads = { navController.navigate(Routes.downloads("done")) },
+                        onNavigateToOfflineRepos = { navController.navigate(Routes.OFFLINE_REPOS) },
                         onNavigateToNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                     )
                 }

@@ -8,7 +8,6 @@ import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,11 +15,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
@@ -57,7 +56,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,7 +64,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.pockethub.data.local.AccountEntity
-import com.pockethub.data.model.Repository
 import com.pockethub.data.model.User
 import com.pockethub.ui.components.PhAsyncImage
 import com.pockethub.ui.search.issueOwnerRepo
@@ -92,10 +89,6 @@ fun ProfileScreen(
 ) {
     val user by vm.user.collectAsState()
     val isRefreshing by vm.isLoading.collectAsState()
-    // Belt-and-suspenders scroll restore: re-applies the saved position once
-    // content exists, covering cases where the saveable state was clamped to
-    // the top while the list was briefly empty at restore time.
-    val listState = com.pockethub.ui.components.rememberRestorableListState(contentReady = user != null)
     val activeAccount by vm.activeAccount.collectAsState()
     val starredTotal by vm.starredTotal.collectAsState()
     val workTab by vm.workTab.collectAsState()
@@ -125,7 +118,9 @@ fun ProfileScreen(
                         // bell instead of a bottom tab.
                         IconButton(onClick = onNavigateToNotifications) {
                             if (unreadCount > 0) {
-                                BadgedBox(badge = { Badge { Text(if (unreadCount > 99) "99+" else unreadCount.toString()) } }) {
+                                // Pull the badge left — a wide count ("50"+) anchored at
+                                // the icon's top-right corner otherwise clips off-screen.
+                                BadgedBox(badge = { Badge(modifier = Modifier.offset(x = (-6).dp)) { Text(if (unreadCount > 99) "99+" else unreadCount.toString()) } }) {
                                     Icon(Icons.Outlined.Notifications, contentDescription = stringResource(R.string.tab_notifications))
                                 }
                             } else {
@@ -148,51 +143,38 @@ fun ProfileScreen(
             onRefresh = { vm.refresh() },
             modifier = modifier.padding(padding),
         ) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            // Profile header card
-            item { ProfileHeader(user, activeAccount) }
-
-            // Quick stats row (followers / following / repos)
-            item { StatsRow(user, starredTotal, onFollowersClick = { user?.login?.let { onNavigateToUser(it, 0) } }, onFollowingClick = { user?.login?.let { onNavigateToUser(it, 1) } }) }
-
-            // Work-list — Assigned / Mentioned / Created / Involved items needing attention.
-            // Placed right under the stats so opening the app shows "what's on me" first.
-            item { WorkListCard(
-                tab = workTab,
-                onSwitchTab = vm::switchWorkTab,
-                items = workItems,
-                isLoading = isLoadingWork,
-                error = workError,
-                onRetry = vm::refreshWorkList,
-                onOpenIssue = onNavigateToIssue,
-                onOpenPR = onNavigateToPR,
-            ) }
-
-            // App restructure: the old 仓库/动态 segmented switch (and both lists)
-            // is gone. In its place: a settings-style quick-access card with the
-            // four utilities that used to be profile top-bar icons + the offline
-            // repos entry that used to live in Settings.
-            item { QuickAccessCard(
-                onDownloads = onNavigateToDownloads,
-                onOfflineRepos = onNavigateToOfflineRepos,
-                onHistory = onNavigateToHistory,
-                onSettings = onNavigateToSettings,
-            ) }
-
-            // Contact / extra info
-            item { AdditionalInfo(user) }
-
-            // NOTE: the multi-account switcher lives in Settings now
-            // (d48f796/f47a788). A duplicate left here by c667920 was removed —
-            // it rendered a stray "账号/(当前, @login)" block at the bottom of
-            // this tab. Don't re-add it; extend the Settings switcher instead.
-
-            item { Spacer(Modifier.height(24.dp)) }
-        }
+            // This page is a dashboard rather than a document feed: its sections
+            // are fixed, so keep one stable layout instead of a nested LazyColumn.
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                ProfileHeader(user, activeAccount)
+                StatsRow(
+                    user,
+                    starredTotal,
+                    onFollowersClick = { user?.login?.let { onNavigateToUser(it, 0) } },
+                    onFollowingClick = { user?.login?.let { onNavigateToUser(it, 1) } },
+                )
+                WorkListCard(
+                    tab = workTab,
+                    onSwitchTab = vm::switchWorkTab,
+                    items = workItems,
+                    isLoading = isLoadingWork,
+                    error = workError,
+                    onRetry = vm::refreshWorkList,
+                    onOpenIssue = onNavigateToIssue,
+                    onOpenPR = onNavigateToPR,
+                )
+                QuickAccessCard(
+                    onDownloads = onNavigateToDownloads,
+                    onOfflineRepos = onNavigateToOfflineRepos,
+                    onHistory = onNavigateToHistory,
+                    onSettings = onNavigateToSettings,
+                )
+                AdditionalInfo(user)
+                Spacer(Modifier.height(24.dp))
+            }
         }
     }
 }
@@ -448,8 +430,8 @@ private fun WorkListCard(
                 else -> Column(
                     Modifier
                         .fillMaxWidth()
-                        // Hard height cap: a busy board must never stretch the
-                        // profile page — overflow scrolls inside the card.
+                        // The dashboard shell stays fixed; only a busy workbench
+                        // scrolls inside its bounded card.
                         .heightIn(max = 300.dp)
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(6.dp),

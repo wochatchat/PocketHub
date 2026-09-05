@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -81,6 +82,7 @@ fun HomeScreen(
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToHistory: () -> Unit,
     onNavigateToDownloads: () -> Unit,
+    onNavigateToOfflineRepos: () -> Unit,
     onNavigateToNotifications: () -> Unit,
 ) {
     // App restructure: notifications are off the bottom bar — the bell moved
@@ -134,7 +136,9 @@ fun HomeScreen(
                         // entries live in-page now; only the bell stays up here.
                         2 -> IconButton(onClick = onNavigateToNotifications) {
                             if (unreadCount > 0) {
-                                BadgedBox(badge = { Badge { Text(if (unreadCount > 99) "99+" else unreadCount.toString()) } }) {
+                                // Pull the badge left — a wide count ("50"+) anchored at
+                                // the icon's top-right corner otherwise clips off-screen.
+                                BadgedBox(badge = { Badge(modifier = Modifier.offset(x = (-6).dp)) { Text(if (unreadCount > 99) "99+" else unreadCount.toString()) } }) {
                                     Icon(Icons.Outlined.Notifications, contentDescription = stringResource(R.string.tab_notifications))
                                 }
                             } else {
@@ -225,6 +229,10 @@ fun HomeScreen(
                 onNavigateToIssue = onNavigateToIssue,
                 onNavigateToPR = onNavigateToPR,
                 onNavigateToCommit = onNavigateToCommit,
+                onNavigateToDownloads = onNavigateToDownloads,
+                onNavigateToHistory = onNavigateToHistory,
+                onNavigateToOfflineRepos = onNavigateToOfflineRepos,
+                onNavigateToNotifications = onNavigateToNotifications,
                 onBack = {},
                 showTopBar = false,
             )
