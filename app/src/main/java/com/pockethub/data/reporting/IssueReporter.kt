@@ -261,22 +261,34 @@ class IssueReporter @Inject constructor(
         android.os.Handler(Looper.getMainLooper())
     }
 
-    /** Drop pre-policy `error` entries so the digest is crash/ANR-only. */
+    /**
+     * Drop pre-policy `error` entries so the digest is crash/ANR-only.
+     *
+     * Runs ONCE per install (flag in SharedPreferences): without the gate,
+     * every process start wiped ALL `error` entries — including severe ones
+     * written by the previous session via [reportError] — so a severe error
+     * never survived a restart (issue #13 regression window).
+     */
     private fun pruneLegacyErrors() {
+        val prefs = context.getSharedPreferences("issue_reporter", Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_LEGACY_ERRORS_PRUNED, false)) return
         reporterScope.launch {
             runCatching {
                 mutex.withLock {
-                    if (!logFile.exists()) return@withLock
-                    val lines = logFile.readLines()
-                    val kept = lines.filter { line ->
-                        line.isBlank() || runCatching {
-                            JSONObject(line).optString("kind") != IssueKind.ERROR.id
-                        }.getOrDefault(true)
+                    if (logFile.exists()) {
+                        val lines = logFile.readLines()
+                        val kept = lines.filter { line ->
+                            line.isBlank() || runCatching {
+                                JSONObject(line).optString("kind") != IssueKind.ERROR.id
+                            }.getOrDefault(true)
+                        }
+                        when {
+                            kept.isEmpty() -> logFile.delete()
+                            kept.size != lines.size -> logFile.writeText(kept.joinToString("\n") + "\n")
+                        }
                     }
-                    when {
-                        kept.isEmpty() -> logFile.delete()
-                        kept.size != lines.size -> logFile.writeText(kept.joinToString("\n") + "\n")
-                    }
+                    // Set only after a successful pass — a crashed prune retries next start.
+                    prefs.edit().putBoolean(KEY_LEGACY_ERRORS_PRUNED, true).apply()
                 }
             }
         }
@@ -329,6 +341,7 @@ class IssueReporter @Inject constructor(
         private const val HEARTBEAT_TICK_MS = 2_000L
         private const val ANR_THRESHOLD_MS = 5_000L
         private const val ANR_COOLDOWN_MS = 15_000L
+        private const val KEY_LEGACY_ERRORS_PRUNED = "legacy_errors_pruned"
     }
 }
 
