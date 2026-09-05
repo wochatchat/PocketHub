@@ -64,6 +64,8 @@ class IssueReporter @Inject constructor(
 
     private fun breadcrumbsSnapshot(): String = breadcrumbs.joinToString("\n")
     private val watchDogRunning = AtomicBoolean(false)
+    /** Current main-thread heartbeat runnable; null once the watchdog stops. */
+    @Volatile private var anrTicker: Runnable? = null
     private val heartbeatMs = AtomicLong(System.currentTimeMillis())
     private val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US)
 
@@ -221,38 +223,50 @@ class IssueReporter @Inject constructor(
         // emit an ANR event.
         val mainThread = Looper.getMainLooper().thread
         reporterScope.launch {
-            // Heartbeat ticker on the main thread.
+            // Heartbeat ticker on the main thread. Re-posts itself ONLY while
+            // [anrTicker] still points at it — a cancelled watchdog coroutine
+            // stops the chain instead of leaving a runnable waking the main
+            // thread every 2s for the rest of the process (idle battery drain).
             val ticker = object : Runnable {
                 override fun run() {
                     heartbeatMs.set(System.currentTimeMillis())
-                    mainThreadHandler.postDelayed(this, HEARTBEAT_TICK_MS)
+                    anrTicker?.let { mainThreadHandler.postDelayed(it, HEARTBEAT_TICK_MS) }
                 }
             }
+            anrTicker = ticker
             mainThreadHandler.postDelayed(ticker, HEARTBEAT_TICK_MS)
-            while (true) {
-                kotlinx.coroutines.delay(HEARTBEAT_TICK_MS)
-                val last = heartbeatMs.get()
-                val lag = System.currentTimeMillis() - last
-                if (lag > ANR_THRESHOLD_MS) {
-                    // Build a synthetic stack trace of the main thread for diagnostics.
-                    val mainStack = mainThread.stackTrace
-                        .joinToString("\n")
-                        .take(MAX_STACK)
-                    report(
-                        kind = IssueKind.ANR,
-                        subject = "Main thread blocked for ${lag}ms (threshold ${ANR_THRESHOLD_MS}ms)",
-                        stackTrace = mainStack,
-                        threadName = mainThread.name,
-                        extra = mapOf(
-                            "threadState" to mainThread.state.name,
-                            "lagMs" to lag.toString(),
-                            BKEY_BREADCRUMBS to breadcrumbsSnapshot(),
-                        ),
-                    )
-                    // Back-off so we don't emit a flood of dupes for the same stall.
-                    kotlinx.coroutines.delay(ANR_COOLDOWN_MS)
-                    heartbeatMs.set(System.currentTimeMillis())
+            try {
+                while (true) {
+                    kotlinx.coroutines.delay(HEARTBEAT_TICK_MS)
+                    val last = heartbeatMs.get()
+                    val lag = System.currentTimeMillis() - last
+                    if (lag > ANR_THRESHOLD_MS) {
+                        // Build a synthetic stack trace of the main thread for diagnostics.
+                        val mainStack = mainThread.stackTrace
+                            .joinToString("\n")
+                            .take(MAX_STACK)
+                        report(
+                            kind = IssueKind.ANR,
+                            subject = "Main thread blocked for ${lag}ms (threshold ${ANR_THRESHOLD_MS}ms)",
+                            stackTrace = mainStack,
+                            threadName = mainThread.name,
+                            extra = mapOf(
+                                "threadState" to mainThread.state.name,
+                                "lagMs" to lag.toString(),
+                                BKEY_BREADCRUMBS to breadcrumbsSnapshot(),
+                            ),
+                        )
+                        // Back-off so we don't emit a flood of dupes for the same stall.
+                        kotlinx.coroutines.delay(ANR_COOLDOWN_MS)
+                        heartbeatMs.set(System.currentTimeMillis())
+                    }
                 }
+            } finally {
+                // Watchdog shut down (scope cancelled): stop the main-thread
+                // heartbeat chain and allow a future reinstall.
+                anrTicker = null
+                mainThreadHandler.removeCallbacks(ticker)
+                watchDogRunning.set(false)
             }
         }
     }
