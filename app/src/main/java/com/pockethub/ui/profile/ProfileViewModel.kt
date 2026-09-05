@@ -113,16 +113,10 @@ class ProfileViewModel @Inject constructor(
                 }
                 val me = api.getAuthenticatedUser()
                 _user.update { me }
-                // Reset pagination then fetch page 1 (clears anything stale).
-                _reposPage.value = 1
-                _hasMoreRepos.value = true
-                launch { try { loadMoreRepos(reset = true) } catch (_: Exception) {} }
+                // App restructure: the profile page no longer shows the repos
+                // list / activity feed, so their fetches are gone too. The
+                // state holders stay in place for a possible rollback.
                 launch { try { _starredTotal.value = cache.getStarredTotalCount() } catch (_: Exception) {} }
-                launch {
-                    _isLoadingEvents.update { true }
-                    try { _events.value = runCatching { api.getUserEvents(me.login) }.getOrDefault(emptyList()) }
-                    finally { _isLoadingEvents.update { false } }
-                }
                 // Auto-load the default work tab once we know the active login.
                 loadWorkList(_workTab.value, force = false)
             } catch (e: Exception) {

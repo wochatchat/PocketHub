@@ -555,6 +555,7 @@
 
     <!-- 个人首页工作台 -->
     <string name="work_list_title">工作台</string>
+    <string name="profile_quick_entries">快捷入口</string>
     <string name="work_tab_assigned">指派给我的</string>
     <string name="work_tab_mentioned">提及我的</string>
     <string name="work_tab_created">我创建的</string>

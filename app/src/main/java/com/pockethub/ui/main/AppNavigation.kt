@@ -266,6 +266,7 @@ fun PocketHubApp(
                         onNavigateToUser = { login -> navController.navigate(Routes.userDetail(login)) },
                         onNavigateToHistory = { navController.navigate(Routes.HISTORY) },
                         onNavigateToDownloads = { navController.navigate(Routes.downloads("done")) },
+                        onNavigateToNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                     )
                 }
 
@@ -279,6 +280,10 @@ fun PocketHubApp(
                         onNavigateToPR = { o, r, n -> navController.navigate(Routes.prDetail(o, r, n)) },
                         onNavigateToCommit = { o, r, sha -> navController.navigate(Routes.commitDetail(o, r, sha)) },
                         onNavigateToUser = { login, followTab -> navController.navigate(Routes.userDetail(login, followTab)) },
+                        onNavigateToDownloads = { navController.navigate(Routes.downloads("done")) },
+                        onNavigateToHistory = { navController.navigate(Routes.HISTORY) },
+                        onNavigateToOfflineRepos = { navController.navigate(Routes.OFFLINE_REPOS) },
+                        onNavigateToNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                         onBack = { navController.popBackStack() },
                     )
                 }

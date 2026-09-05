@@ -268,15 +268,11 @@ fun SettingsScreen(
 
             // Data management — moved out of the account section: storage and
             // network tweaks have nothing to do with account identity.
+            // App restructure: the offline repos entry moved to the profile
+            // quick-access card (under the workbench); only network prefs remain.
             SectionHeader(stringResource(R.string.section_data))
             com.pockethub.ui.components.PhCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Column {
-            ListItem(
-                leadingContent = { Icon(Icons.Outlined.FolderZip, contentDescription = null) },
-                headlineContent = { Text(stringResource(R.string.offline_repos)) },
-                supportingContent = { Text(stringResource(R.string.offline_repos_summary)) },
-                modifier = Modifier.clickable { onNavigateToOfflineRepos() },
-            )
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.RocketLaunch, contentDescription = null) },
                 headlineContent = { Text(stringResource(R.string.mirror_prefix_title)) },

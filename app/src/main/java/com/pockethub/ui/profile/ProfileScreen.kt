@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
@@ -30,38 +29,35 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Apartment
-import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.ErrorOutline
-import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.FolderZip
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Merge
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -86,6 +82,10 @@ fun ProfileScreen(
     onNavigateToPR: (String, String, Int) -> Unit = { _, _, _ -> },
     onNavigateToCommit: (String, String, String) -> Unit = { _, _, _ -> },
     onNavigateToUser: (String, Int) -> Unit = { _, _ -> },
+    onNavigateToDownloads: () -> Unit = {},
+    onNavigateToHistory: () -> Unit = {},
+    onNavigateToOfflineRepos: () -> Unit = {},
+    onNavigateToNotifications: () -> Unit = {},
     onBack: () -> Unit,
     showTopBar: Boolean = true,
     vm: ProfileViewModel = hiltViewModel(),
@@ -97,23 +97,18 @@ fun ProfileScreen(
     // the top while the list was briefly empty at restore time.
     val listState = com.pockethub.ui.components.rememberRestorableListState(contentReady = user != null)
     val activeAccount by vm.activeAccount.collectAsState()
-    val topRepos by vm.topRepos.collectAsState()
-    val isLoadingRepos by vm.isLoadingRepos.collectAsState()
     val starredTotal by vm.starredTotal.collectAsState()
     val workTab by vm.workTab.collectAsState()
     val workItems by vm.workItems.collectAsState()
     val isLoadingWork by vm.isLoadingWork.collectAsState()
     val workError by vm.workError.collectAsState()
-    val events by vm.events.collectAsState()
-    val isLoadingEvents by vm.isLoadingEvents.collectAsState()
-    val hasMoreRepos by vm.hasMoreRepos.collectAsState()
-    val isLoadingMoreRepos by vm.isLoadingMoreRepos.collectAsState()
 
-    // 0 = repos, 1 = activity — mirrors UserDetailScreen so the layout & toggle UX
-    // is identical when moving between your own profile and another user's.
-    // rememberSaveable: survives navigate-away/back (A → B → A restores the
-    // segmented tab the user was on when they left this page).
-    var sectionTab by rememberSaveable { mutableIntStateOf(0) }
+    // Unread badge for the top-right bell. When embedded in the home shell this
+    // resolves to the same NotificationsViewModel the shell holds (same nav
+    // entry scope); standalone it fetches its own.
+    val badgeNotifVm: com.pockethub.ui.notifications.NotificationsViewModel = hiltViewModel()
+    val badgeNotifications by badgeNotifVm.notifications.collectAsState()
+    val unreadCount = badgeNotifications.count { it.unread }
 
     Scaffold(
         topBar = {
@@ -126,6 +121,17 @@ fun ProfileScreen(
                         }
                     },
                     actions = {
+                        // App restructure: notifications live behind the top-right
+                        // bell instead of a bottom tab.
+                        IconButton(onClick = onNavigateToNotifications) {
+                            if (unreadCount > 0) {
+                                BadgedBox(badge = { Badge { Text(if (unreadCount > 99) "99+" else unreadCount.toString()) } }) {
+                                    Icon(Icons.Outlined.Notifications, contentDescription = stringResource(R.string.tab_notifications))
+                                }
+                            } else {
+                                Icon(Icons.Outlined.Notifications, contentDescription = stringResource(R.string.tab_notifications))
+                            }
+                        }
                         IconButton(onClick = { user?.login?.let { onNavigateToUserDetail(it) } }) {
                             Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.cd_open_in_browser))
                         }
@@ -166,113 +172,16 @@ fun ProfileScreen(
                 onOpenPR = onNavigateToPR,
             ) }
 
-            // Repos / Activity segmented switch — keeps the profile layout visually
-            // identical to UserDetailScreen so toggling between "all repos" and "feed"
-            // lives behind one control instead of being a long scroll.
-            item {
-                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        listOf(R.string.user_repos_chip, R.string.user_activity_chip).forEachIndexed { idx, label ->
-                            SegmentedButton(
-                                selected = sectionTab == idx,
-                                onClick = { sectionTab = idx },
-                                shape = SegmentedButtonDefaults.itemShape(idx, 2),
-                            ) {
-                                Text(stringResource(label), style = MaterialTheme.typography.labelMedium)
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            if (sectionTab == 0) Icons.Outlined.Folder else Icons.Outlined.History,
-                            null,
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            stringResource(if (sectionTab == 0) R.string.user_repositories else R.string.user_activity),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                }
-            }
-
-            // Repos (segmented 0) — paginated list of all the user's repositories.
-            if (sectionTab == 0) {
-                if (isLoadingRepos && topRepos.isEmpty()) {
-                    item {
-                        com.pockethub.ui.components.SkeletonList(Modifier.fillMaxWidth(), rows = 4, topPadding = 0.dp)
-                    }
-                } else if (topRepos.isEmpty()) {
-                    item {
-                        Text(
-                            stringResource(R.string.profile_no_repos_yet),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                        )
-                    }
-                } else {
-                    items(topRepos, key = { it.id }) { repo ->
-                        // Same rich row as the Repos tab (仓库) list — one visual
-                        // language for repo cards app-wide. 16dp side padding keeps
-                        // the card aligned with every other section on this page.
-                        com.pockethub.ui.repos.RepositoryRow(
-                            repo = repo,
-                            onOpen = { onNavigateToRepo(repo.owner.login, repo.name) },
-                            onOpenOwner = { onNavigateToUserDetail(repo.owner.login) },
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                        )
-                    }
-                    if (isLoadingMoreRepos) {
-                        item {
-                            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                            }
-                        }
-                    } else if (hasMoreRepos) {
-                        item {
-                            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.Center) {
-                                TextButton(onClick = { vm.loadMoreRepos() }) {
-                                    Text(stringResource(R.string.load_more_repos))
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                // Activity (segmented 1) — recent public events from the signed-in user.
-                if (isLoadingEvents && events.isEmpty()) {
-                    item {
-                        com.pockethub.ui.components.SkeletonList(Modifier.fillMaxWidth(), rows = 4, topPadding = 0.dp)
-                    }
-                } else if (events.isEmpty()) {
-                    item {
-                        Text(
-                            stringResource(R.string.user_no_activity),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                        )
-                    }
-                } else {
-                    items(events, key = { it.id }) { ev ->
-                        com.pockethub.ui.components.ActivityCard(
-                            event = ev,
-                            onNavigateToRepo = { full ->
-                                val parts = full.split("/", limit = 2)
-                                if (parts.size == 2) onNavigateToRepo(parts[0], parts[1])
-                            },
-                            onNavigateToIssue = onNavigateToIssue,
-                            onNavigateToPR = onNavigateToPR,
-                            onNavigateToCommit = { o, r, sha -> onNavigateToCommit(o, r, sha) },
-                        )
-                    }
-                }
-            }
+            // App restructure: the old 仓库/动态 segmented switch (and both lists)
+            // is gone. In its place: a settings-style quick-access card with the
+            // four utilities that used to be profile top-bar icons + the offline
+            // repos entry that used to live in Settings.
+            item { QuickAccessCard(
+                onDownloads = onNavigateToDownloads,
+                onOfflineRepos = onNavigateToOfflineRepos,
+                onHistory = onNavigateToHistory,
+                onSettings = onNavigateToSettings,
+            ) }
 
             // Contact / extra info
             item { AdditionalInfo(user) }
@@ -284,6 +193,48 @@ fun ProfileScreen(
 
             item { Spacer(Modifier.height(24.dp)) }
         }
+        }
+    }
+}
+
+/**
+ * Quick-access card — settings-style text rows for the utilities that used to
+ * be profile top-bar icons (downloads / history / settings) plus the offline
+ * repos entry that used to live in Settings. Same visual language as the
+ * Settings page: SectionHeader + PhCard + ListItem rows.
+ */
+@Composable
+private fun QuickAccessCard(
+    onDownloads: () -> Unit,
+    onOfflineRepos: () -> Unit,
+    onHistory: () -> Unit,
+    onSettings: () -> Unit,
+) {
+    Column(Modifier.fillMaxWidth()) {
+        com.pockethub.ui.components.SectionHeader(stringResource(R.string.profile_quick_entries))
+        com.pockethub.ui.components.PhCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+            Column {
+                ListItem(
+                    leadingContent = { Icon(Icons.Outlined.Download, contentDescription = null) },
+                    headlineContent = { Text(stringResource(R.string.download_screen_title)) },
+                    modifier = Modifier.clickable(onClick = onDownloads),
+                )
+                ListItem(
+                    leadingContent = { Icon(Icons.Outlined.FolderZip, contentDescription = null) },
+                    headlineContent = { Text(stringResource(R.string.offline_repos)) },
+                    modifier = Modifier.clickable(onClick = onOfflineRepos),
+                )
+                ListItem(
+                    leadingContent = { Icon(Icons.Outlined.History, contentDescription = null) },
+                    headlineContent = { Text(stringResource(R.string.browse_history)) },
+                    modifier = Modifier.clickable(onClick = onHistory),
+                )
+                ListItem(
+                    leadingContent = { Icon(Icons.Outlined.Settings, contentDescription = null) },
+                    headlineContent = { Text(stringResource(R.string.settings)) },
+                    modifier = Modifier.clickable(onClick = onSettings),
+                )
+            }
         }
     }
 }

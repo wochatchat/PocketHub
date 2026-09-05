@@ -16,12 +16,9 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -84,11 +81,13 @@ fun HomeScreen(
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToHistory: () -> Unit,
     onNavigateToDownloads: () -> Unit,
+    onNavigateToNotifications: () -> Unit,
 ) {
+    // App restructure: notifications are off the bottom bar — the bell moved
+    // to the profile tab's top-right corner.
     val items = listOf(
         BottomNavItem("explore", R.string.tab_explore, Icons.AutoMirrored.Outlined.TrendingUp, Icons.AutoMirrored.Outlined.TrendingUp),
         BottomNavItem("repos", R.string.tab_repos, Icons.Outlined.Folder, Icons.Outlined.Folder),
-        BottomNavItem("notifications", R.string.tab_notifications, Icons.Outlined.Notifications, Icons.Outlined.Notifications),
         BottomNavItem("profile", R.string.tab_profile, Icons.Outlined.Person, Icons.Outlined.Person),
     )
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
@@ -131,15 +130,15 @@ fun HomeScreen(
                         0, 1 -> IconButton(onClick = { onNavigateToSearch("") }) {
                             Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.action_search))
                         }
-                        3 -> {
-                            IconButton(onClick = onNavigateToDownloads) {
-                                Icon(Icons.Outlined.Download, contentDescription = stringResource(R.string.cd_open_download))
-                            }
-                            IconButton(onClick = onNavigateToHistory) {
-                                Icon(Icons.Outlined.History, contentDescription = stringResource(R.string.browse_history))
-                            }
-                            IconButton(onClick = onNavigateToSettings) {
-                                Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.settings))
+                        // Profile tab: bell (with unread badge) + the three text
+                        // entries live in-page now; only the bell stays up here.
+                        2 -> IconButton(onClick = onNavigateToNotifications) {
+                            if (unreadCount > 0) {
+                                BadgedBox(badge = { Badge { Text(if (unreadCount > 99) "99+" else unreadCount.toString()) } }) {
+                                    Icon(Icons.Outlined.Notifications, contentDescription = stringResource(R.string.tab_notifications))
+                                }
+                            } else {
+                                Icon(Icons.Outlined.Notifications, contentDescription = stringResource(R.string.tab_notifications))
                             }
                         }
                     }
@@ -187,32 +186,17 @@ fun HomeScreen(
                             indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
                         ),
                         icon = {
-                            if (index == 2 && unreadCount > 0) {
-                                BadgedBox(badge = { Badge { Text(if (unreadCount > 99) "99+" else unreadCount.toString()) } }) {
-                                    Icon(
-                                        item.selectedIcon, contentDescription = stringResource(item.labelRes),
-                                        tint = tint,
-                                        modifier = Modifier
-                                            .size(26.dp)
-                                            .graphicsLayer {
-                                                scaleX = iconScale
-                                                scaleY = iconScale
-                                            },
-                                    )
-                                }
-                            } else {
-                                Icon(
-                                    if (selected) item.selectedIcon else item.unselectedIcon,
-                                    contentDescription = stringResource(item.labelRes),
-                                    tint = tint,
-                                    modifier = Modifier
-                                        .size(26.dp)
-                                        .graphicsLayer {
-                                            scaleX = iconScale
-                                            scaleY = iconScale
-                                        },
-                                )
-                            }
+                            Icon(
+                                if (selected) item.selectedIcon else item.unselectedIcon,
+                                contentDescription = stringResource(item.labelRes),
+                                tint = tint,
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .graphicsLayer {
+                                        scaleX = iconScale
+                                        scaleY = iconScale
+                                    },
+                            )
                         },
                         label = { Text(stringResource(item.labelRes), style = MaterialTheme.typography.labelSmall) },
                     )
@@ -232,13 +216,6 @@ fun HomeScreen(
                 modifier = Modifier.padding(innerPadding),
                 onNavigateToRepo = onNavigateToRepo,
                 onNavigateToUser = onNavigateToUser,
-            )
-            2 -> com.pockethub.ui.notifications.NotificationsScreen(
-                modifier = Modifier.padding(innerPadding),
-                onNavigateToRepo = onNavigateToRepo,
-                onNavigateToIssue = onNavigateToIssue,
-                onNavigateToPR = onNavigateToPR,
-                showTopBar = false,
             )
             else -> com.pockethub.ui.profile.ProfileScreen(
                 modifier = Modifier.padding(innerPadding),

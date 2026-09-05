@@ -620,6 +620,7 @@
 
     <!-- Profile work-list -->
     <string name="work_list_title">Work list</string>
+    <string name="profile_quick_entries">Quick access</string>
     <string name="work_tab_assigned">Assigned</string>
     <string name="work_tab_mentioned">Mentioned</string>
     <string name="work_tab_created">Created</string>
