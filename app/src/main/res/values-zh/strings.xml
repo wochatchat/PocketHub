@@ -188,8 +188,6 @@
     <!-- Profile -->
     <string name="title_profile">我</string>
     <string name="profile_loading">加载中…</string>
-    <string name="load_more_repos">加载更多</string>
-    <string name="profile_no_repos_yet">还没有内容 — 加载完成后会显示在这里。</string>
     <string name="accounts">账号</string>
     <string name="active">当前</string>
     <string name="followers">关注者</string>
@@ -416,7 +414,6 @@
     <string name="clear_cache_summary">当前 %1$s</string>
     <string name="section_data">数据</string>
     <string name="offline_repos">离线仓库</string>
-    <string name="offline_repos_summary">浏览已下载的仓库 zip 压缩包，全程离线可用</string>
     <string name="offline_repos_empty">还没有离线仓库\n先下载一个仓库 zip 吧</string>
     <string name="offline_extract_failed">解压 zip 归档失败</string>
     <string name="accounts_summary">已存储 %1$d 个账号</string>
@@ -561,7 +558,6 @@
     <string name="work_tab_created">我创建的</string>
     <string name="work_tab_involved">与我相关</string>
     <string name="work_list_empty">没有需要处理的内容，已全部搞定。</string>
-    <string name="work_list_more">还有 %1$d 条</string>
 
     <!-- 应用更新 -->
     <string name="update_check_now">检查更新</string>

@@ -1,21 +1,13 @@
 package com.pockethub.ui.main
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
-import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
@@ -23,37 +15,24 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -65,7 +44,6 @@ import com.pockethub.ui.repos.ReposTab
 
 /** Bottom nav item definition. */
 private data class BottomNavItem(
-    val route: String,
     val labelRes: Int,
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector,
@@ -80,7 +58,6 @@ fun HomeScreen(
     onNavigateToRepo: (String, String) -> Unit,
     onNavigateToIssue: (String, String, Int) -> Unit,
     onNavigateToPR: (String, String, Int) -> Unit,
-    onNavigateToCommit: (String, String, String) -> Unit = { _, _, _ -> },
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToUserTab: (String, Int) -> Unit = { _, _ -> },
     onNavigateToHistory: () -> Unit,
@@ -93,9 +70,9 @@ fun HomeScreen(
     // App restructure: notifications are off the bottom bar — the bell moved
     // to the profile tab's top-right corner.
     val items = listOf(
-        BottomNavItem("explore", R.string.tab_explore, Icons.AutoMirrored.Outlined.TrendingUp, Icons.AutoMirrored.Outlined.TrendingUp),
-        BottomNavItem("repos", R.string.tab_repos, Icons.Outlined.Folder, Icons.Outlined.Folder),
-        BottomNavItem("profile", R.string.tab_profile, Icons.Outlined.Person, Icons.Outlined.Person),
+        BottomNavItem(R.string.tab_explore, Icons.AutoMirrored.Outlined.TrendingUp, Icons.AutoMirrored.Outlined.TrendingUp),
+        BottomNavItem(R.string.tab_repos, Icons.Outlined.Folder, Icons.Outlined.Folder),
+        BottomNavItem(R.string.tab_profile, Icons.Outlined.Person, Icons.Outlined.Person),
     )
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var reposTabIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -107,7 +84,6 @@ fun HomeScreen(
         }
     }
     // Double-tap the selected Explore tab to force-fetch its active section.
-    // See [DeepNavTabGesture.pickRound].
     var lastTabClickAtMillis by rememberSaveable { mutableStateOf(0L) }
     var lastClickedTab by rememberSaveable { mutableIntStateOf(0) }
     // Bumps whenever a refresh is requested by double-tapping. Screens read it via
@@ -241,10 +217,8 @@ fun HomeScreen(
                 onNavigateToSettings = onNavigateToSettings,
                 onNavigateToUserDetail = onNavigateToUser,
                 onNavigateToUser = onNavigateToUserTab,
-                onNavigateToRepo = onNavigateToRepo,
                 onNavigateToIssue = onNavigateToIssue,
                 onNavigateToPR = onNavigateToPR,
-                onNavigateToCommit = onNavigateToCommit,
                 onNavigateToReposTab = { tab ->
                     reposTabIndex = if (tab == ReposTab.STARRED) 1 else 0
                     selectedTab = 1

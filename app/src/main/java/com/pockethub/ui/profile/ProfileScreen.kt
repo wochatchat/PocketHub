@@ -76,10 +76,8 @@ fun ProfileScreen(
     modifier: Modifier = Modifier,
     onNavigateToSettings: () -> Unit,
     onNavigateToUserDetail: (String) -> Unit,
-    onNavigateToRepo: (String, String) -> Unit,
     onNavigateToIssue: (String, String, Int) -> Unit = { _, _, _ -> },
     onNavigateToPR: (String, String, Int) -> Unit = { _, _, _ -> },
-    onNavigateToCommit: (String, String, String) -> Unit = { _, _, _ -> },
     onNavigateToUser: (String, Int) -> Unit = { _, _ -> },
     onNavigateToDownloads: () -> Unit = {},
     onNavigateToHistory: () -> Unit = {},
@@ -304,10 +302,10 @@ private fun ProfileHeader(user: User?, activeAccount: AccountEntity?) {
 private fun StatsRow(
     user: User?,
     starredTotal: Int,
-    onFollowersClick: (() -> Unit)? = null,
-    onFollowingClick: (() -> Unit)? = null,
-    onReposClick: (() -> Unit)? = null,
-    onStarredClick: (() -> Unit)? = null,
+    onFollowersClick: () -> Unit,
+    onFollowingClick: () -> Unit,
+    onReposClick: () -> Unit,
+    onStarredClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -325,16 +323,14 @@ private fun StatsRow(
 }
 
 @Composable
-private fun StatPill(label: String, count: Int, onClick: (() -> Unit)? = null) {
-    val mod = if (onClick != null) {
-        Modifier
+private fun StatPill(label: String, count: Int, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
             .clip(MaterialTheme.shapes.small)
             .clickable(onClick = onClick)
-            .padding(horizontal = 6.dp, vertical = 2.dp)
-    } else {
-        Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-    }
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = mod) {
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    ) {
         Text(count.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -449,8 +445,7 @@ private fun WorkListCard(
                 else -> Column(
                     Modifier
                         .fillMaxWidth()
-                        // The dashboard shell stays fixed; only a busy workbench
-                        // scrolls inside its bounded card.
+                        // Keep a busy workbench bounded and independently scrollable.
                         .heightIn(max = 300.dp)
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -468,14 +463,6 @@ private fun WorkListCard(
                                 if (issue.pullRequest != null) onOpenPR(owner, name, issue.number)
                                 else onOpenIssue(owner, name, issue.number)
                             },
-                        )
-                    }
-                    if (items.size > 8) {
-                        Text(
-                            stringResource(R.string.work_list_more, items.size - 8),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp),
                         )
                     }
                 }

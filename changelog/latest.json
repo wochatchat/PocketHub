@@ -1,39 +1,29 @@
 {
-  "version": "0.4.7",
+  "version": "0.4.8",
   "summary": {
-    "zh": "一批快赢改进：仓库详情读取更快（README 提前并行加载 + markdown 后台解析），链接区分站内站外（站外绿色），Release APK 一键直装，文件预览双击全屏，桌面长按快捷方式。",
-    "en": "A batch of quick wins: faster repo detail (parallel README + off-main markdown parsing), in-app vs external links now color-coded (external green), one-tap APK install from Releases, double-tap fullscreen file preview, and launcher shortcuts."
+    "zh": "我与通知页面重构：底栏精简为发现、仓库、我，通知移至我的页面右上角；个人页工作台与快捷入口重新整理，并清理相关冗余代码。",
+    "en": "Refactor of the Profile and Notifications surfaces: the bottom bar is now Explore, Repositories, and Profile, notifications move to the Profile top bar, and related redundant code is removed."
   },
   "items": [
     {
-      "type": "perf",
-      "zh": "优化：概览页 README 与仓库信息并行加载，不再串行白等两轮网络；加载中显示骨架屏，不再整块空白",
-      "en": "Overview: README loads in parallel with the repo payload instead of after it, with a skeleton while in flight — no more blank gap"
-    },
-    {
-      "type": "perf",
-      "zh": "优化：markdown 行内解析（链接/加粗/代码片）移入后台线程，长 README 首屏不再卡顿；卡片渐变等高频重组开销同步削减",
-      "en": "Markdown inline tokenization (links/bold/code chips) moved off the UI thread — long READMEs no longer jank first layout; per-recomposition card allocations trimmed"
+      "type": "ui",
+      "zh": "界面：移除通知底部 tab，通知入口改为我的页面右上角铃铛，并保留独立通知页面的原有内容与深链。",
+      "en": "UI: removed the Notifications bottom tab and moved its entry to the Profile top-right bell while keeping the standalone page, content, and deep link."
     },
     {
       "type": "ui",
-      "zh": "界面：markdown 链接区分站内/站外——站内保持主题色可跳转 app 内页面，站外绿色，一眼分辨是否离开 GitHub",
-      "en": "Markdown links are color-coded: in-GitHub links keep the theme color and route inside the app, external links render green"
+      "zh": "界面：我的页面移除仓库/动态分段区块，工作台下统一展示下载、离线仓库、浏览历史和设置；页面与工作台均支持合理滚动。",
+      "en": "UI: removed the Profile repos/activity segment and consolidated Downloads, Offline repositories, History, and Settings below the workbench with sensible page and workbench scrolling."
     },
     {
-      "type": "feature",
-      "zh": "新功能：Releases 页点 APK 附件下载完成后自动拉起系统安装器（已缓存则立即安装），不用再绕下载页",
-      "en": "Releases: tapping an .apk asset auto-opens the system installer once downloaded (or immediately if cached) — no detour through Downloads"
+      "type": "navigation",
+      "zh": "导航：关注者和关注中沿用个人主页弹窗路径；仓库和已标星统计按钮直达首页仓库 tab 的对应子 tab。",
+      "en": "Navigation: Followers and Following reuse the profile popup flow; Repositories and Starred statistics jump to the matching Home repository sub-tab."
     },
     {
-      "type": "feature",
-      "zh": "新功能：代码 tab 文件预览双击进入全屏浏览（文件树默认隐藏，可拖出），工具栏按钮行为不变；图片预览保持单击缩放",
-      "en": "Code tab: double-tap a file preview to jump into the fullscreen viewer (tree hidden by default, draggable back); toolbar button unchanged; images keep single-tap zoom"
-    },
-    {
-      "type": "feature",
-      "zh": "新功能：桌面长按图标快捷方式——通知、搜索、我的，直达对应页面；顺带修复冷启动深链丢失与带参深链不路由两个问题",
-      "en": "Launcher shortcuts (long-press the icon): Notifications, Search, Profile. Also fixes cold-start deep links being dropped and query-carrying links not routing"
+      "type": "cleanup",
+      "zh": "整理：删除个人页旧仓库分页/动态加载、设置页重复入口、重复首次加载、无效导航参数和通知页孤立代码；工作台请求增加时序保护。",
+      "en": "Cleanup: removed obsolete Profile repo/activity loading, duplicate Settings entry, duplicate initial loads, dead navigation parameters, and orphaned notification code; workbench requests now ignore stale responses."
     }
   ]
 }

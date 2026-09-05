@@ -2,9 +2,6 @@ package com.pockethub.ui.notifications
 
 import com.pockethub.R
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -26,18 +23,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.CircleNotifications
-import androidx.compose.material.icons.outlined.Done
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Merge
-import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.NewReleases
-import androidx.compose.material.icons.outlined.Unsubscribe
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -57,7 +48,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,7 +60,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.pockethub.data.model.GitHubNotification
 import com.pockethub.data.model.NotificationReason
 import com.pockethub.ui.components.PhAsyncImage
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,7 +69,6 @@ fun NotificationsScreen(
     onNavigateToIssue: (String, String, Int) -> Unit = { _, _, _ -> },
     onNavigateToPR: (String, String, Int) -> Unit = { _, _, _ -> },
     onBack: () -> Unit = {},
-    showTopBar: Boolean = true,
     vm: NotificationsViewModel = hiltViewModel(),
 ) {
     val notifications by vm.notifications.collectAsState()
@@ -90,8 +78,6 @@ fun NotificationsScreen(
     val tab by vm.currentTab.collectAsState()
     val reasonFilter by vm.reasonFilter.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
-    val context = androidx.compose.ui.platform.LocalContext.current
     var pendingUnsubId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(actionMessage) {
@@ -109,16 +95,14 @@ fun NotificationsScreen(
 
     Scaffold(
         topBar = {
-            if (showTopBar) {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.tab_notifications), fontWeight = FontWeight.SemiBold) },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back))
-                        }
-                    },
-                )
-            }
+            TopAppBar(
+                title = { Text(stringResource(R.string.tab_notifications), fontWeight = FontWeight.SemiBold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back))
+                    }
+                },
+            )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->

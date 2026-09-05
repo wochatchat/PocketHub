@@ -275,7 +275,6 @@ fun PocketHubApp(
                         onNavigateToRepo = { owner, repo -> navController.navigate(Routes.repoDetail(owner, repo)) },
                         onNavigateToIssue = { owner, repo, number -> navController.navigate(Routes.issueDetail(owner, repo, number)) },
                         onNavigateToPR = { owner, repo, number -> navController.navigate(Routes.prDetail(owner, repo, number)) },
-                        onNavigateToCommit = { o, r, sha -> navController.navigate(Routes.commitDetail(o, r, sha)) },
                         onNavigateToUser = { login -> navController.navigate(Routes.userDetail(login)) },
                         onNavigateToUserTab = { login, followTab -> navController.navigate(Routes.userDetail(login, followTab)) },
                         onNavigateToHistory = { navController.navigate(Routes.HISTORY) },
@@ -290,10 +289,8 @@ fun PocketHubApp(
                         modifier = Modifier.fillMaxSize(),
                         onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                         onNavigateToUserDetail = { login -> navController.navigate(Routes.userDetail(login)) },
-                        onNavigateToRepo = { owner, repo -> navController.navigate(Routes.repoDetail(owner, repo)) },
                         onNavigateToIssue = { o, r, n -> navController.navigate(Routes.issueDetail(o, r, n)) },
                         onNavigateToPR = { o, r, n -> navController.navigate(Routes.prDetail(o, r, n)) },
-                        onNavigateToCommit = { o, r, sha -> navController.navigate(Routes.commitDetail(o, r, sha)) },
                         onNavigateToUser = { login, followTab -> navController.navigate(Routes.userDetail(login, followTab)) },
                         onNavigateToDownloads = { navController.navigate(Routes.downloads("done")) },
                         onNavigateToHistory = { navController.navigate(Routes.HISTORY) },
@@ -345,7 +342,6 @@ fun PocketHubApp(
                     SettingsScreen(
                         onBack = { navController.popBackStack() },
                         onNavigateToFeedSources = { navController.navigate(Routes.FEED_SOURCES) },
-                        onNavigateToOfflineRepos = { navController.navigate(Routes.OFFLINE_REPOS) },
                         onSignOut = { appVm.signOut() },
                     )
                 }

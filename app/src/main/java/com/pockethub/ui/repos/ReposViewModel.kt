@@ -49,10 +49,6 @@ class ReposViewModel @Inject constructor(
     private var loadJob: Job? = null
     private var loadRequestId = 0
 
-    init {
-        load()
-    }
-
     fun switchTab(tab: ReposTab) {
         currentTab.value = tab
         currentPage = 1

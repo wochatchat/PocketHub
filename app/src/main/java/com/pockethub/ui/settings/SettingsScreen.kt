@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -30,7 +29,6 @@ import androidx.compose.material.icons.outlined.Brightness2
 import androidx.compose.material.icons.outlined.Brightness6
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CleaningServices
-import androidx.compose.material.icons.outlined.FolderZip
 import androidx.compose.material.icons.outlined.GTranslate
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.RocketLaunch
@@ -38,7 +36,6 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Logout
 import androidx.compose.material.icons.outlined.ManageAccounts
-import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.SystemUpdate
@@ -93,7 +90,6 @@ import com.pockethub.ui.components.SectionHeader
 fun SettingsScreen(
     onBack: () -> Unit,
     onNavigateToFeedSources: () -> Unit = {},
-    onNavigateToOfflineRepos: () -> Unit = {},
     onSignOut: () -> Unit = {},
     vm: SettingsViewModel = hiltViewModel(),
 ) {

@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import com.pockethub.util.userMessage
 import androidx.lifecycle.viewModelScope
 import com.pockethub.data.local.AccountEntity
-import com.pockethub.data.model.Repository
 import com.pockethub.data.remote.AccountRepository
 import com.pockethub.data.remote.AuthInterceptor
 import com.pockethub.data.remote.CachedRepository
@@ -13,8 +12,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -42,35 +41,8 @@ class ProfileViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
-    private val _topRepos = MutableStateFlow<List<Repository>>(emptyList())
-    val topRepos: StateFlow<List<Repository>> = _topRepos
-
-    private val _isLoadingRepos = MutableStateFlow(false)
-    val isLoadingRepos: StateFlow<Boolean> = _isLoadingRepos
-
-    // ── Repository pagination ──
-    // Show *all* of the user's own repositories (not just a top-10 slice), paging
-    // through the API 30-per-page and appending lazy-loaded chunks to the visible list.
-    private val _reposPage = MutableStateFlow(1)
-    private val _hasMoreRepos = MutableStateFlow(true)
-    val hasMoreRepos: StateFlow<Boolean> = _hasMoreRepos.asStateFlow()
-    private val _isLoadingMoreRepos = MutableStateFlow(false)
-    val isLoadingMoreRepos: StateFlow<Boolean> = _isLoadingMoreRepos.asStateFlow()
-
     private val _starredTotal = MutableStateFlow(0)
     val starredTotal: StateFlow<Int> = _starredTotal
-
-    /** My public activity feed (PushEvent / WatchEvent / ForkEvent …). Loaded once when the page opens. */
-    private val _events = MutableStateFlow<List<com.pockethub.data.model.FeedEvent>>(emptyList())
-    val events: StateFlow<List<com.pockethub.data.model.FeedEvent>> = _events
-    private val _isLoadingEvents = MutableStateFlow(false)
-    val isLoadingEvents: StateFlow<Boolean> = _isLoadingEvents
-
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error
-
-    val allAccounts: StateFlow<List<AccountEntity>> =
-        accounts.allAccounts.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val activeAccount: StateFlow<AccountEntity?> =
         accounts.activeAccount.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -90,79 +62,26 @@ class ProfileViewModel @Inject constructor(
 
     private var loadedWorkLogin: String? = null
     private var loadedWorkTab: WorkTab? = null
-
-    /** Set during force refresh so nested repo loads bypass the TTL cache —
-     *  pull-to-refresh must actually hit the network, not re-serve a fresh
-     *  cache blob (fake-refresh bug). */
-    private var forceRefreshInFlight = false
+    private var workRequestId = 0
 
     init { loadProfile() }
 
     fun loadProfile(force: Boolean = false) {
         viewModelScope.launch {
             _isLoading.update { true }
-            _error.update { null }
-            forceRefreshInFlight = force
             try {
                 val token = accounts.getActiveToken()
                 if (token.isNotBlank()) authInterceptor.token = token
-                if (force) {
-                    cache.invalidateMyRepositories()
-                    _topRepos.value = emptyList()
-                    _events.value = emptyList()
-                }
                 val me = api.getAuthenticatedUser()
                 _user.update { me }
-                // App restructure: the profile page no longer shows the repos
-                // list / activity feed, so their fetches are gone too. The
-                // state holders stay in place for a possible rollback.
-                launch { try { _starredTotal.value = cache.getStarredTotalCount() } catch (_: Exception) {} }
-                // Auto-load the default work tab once we know the active login.
-                loadWorkList(_workTab.value, force = false)
+                launch {
+                    try { _starredTotal.value = cache.getStarredTotalCount() } catch (_: Exception) {}
+                }
+                loadWorkList(_workTab.value, force = force)
             } catch (e: Exception) {
                 issueReporter.reportError("Profile", "loadProfile", e)
-                _error.update { e.userMessage("Failed to load profile") }
             } finally {
-                forceRefreshInFlight = false
                 _isLoading.update { false }
-            }
-        }
-    }
-
-    /**
-     * Append the next page of my repositories (pushed-sorted). When [reset] is
-     * true the list is cleared and page 1 is fetched fresh.
-     *
-     * GitHub's repository listing has no total_count, so we infer "more" from
-     * the returned chunk size — a page smaller than the API's per-page cap
-     * (currently 30) means we've reached the end.
-     */
-    fun loadMoreRepos(reset: Boolean = false) {
-        val login = _user.value?.login ?: return
-        if (!reset && (_isLoadingMoreRepos.value || !_hasMoreRepos.value)) return
-        viewModelScope.launch {
-            _isLoadingMoreRepos.update { true }
-            if (reset) {
-                _isLoadingRepos.value = true
-                _reposPage.value = 1
-                _hasMoreRepos.value = true
-            }
-            val nextPage = if (reset) 1 else _reposPage.value + 1
-            try {
-                // During a forced refresh bypass the TTL cache so the pull-to-refresh
-                // result reflects the network, not a just-cached blob.
-                val chunk = cache.getMyRepositories(page = nextPage, sort = "pushed", forceFresh = forceRefreshInFlight && reset)
-                if (reset) _topRepos.value = chunk
-                else _topRepos.value = _topRepos.value + chunk
-                _reposPage.value = nextPage
-                // End-of-list detection: a short page means no more are coming.
-                _hasMoreRepos.value = chunk.size >= 30
-            } catch (_: Exception) {
-                if (reset) _topRepos.value = emptyList()
-                _hasMoreRepos.value = false
-            } finally {
-                _isLoadingMoreRepos.value = false
-                if (reset) _isLoadingRepos.value = false
             }
         }
     }
@@ -179,6 +98,7 @@ class ProfileViewModel @Inject constructor(
         if (!force && loadedWorkLogin == login && loadedWorkTab == tab && _workItems.value.isNotEmpty()) return
         loadedWorkLogin = login
         loadedWorkTab = tab
+        val requestId = ++workRequestId
         viewModelScope.launch {
             _isLoadingWork.update { true }
             _workError.update { null }
@@ -186,17 +106,19 @@ class ProfileViewModel @Inject constructor(
                 // state:open keeps the board actionable; sort by updated desc so the
                 // freshest items surface first. GitHub /search/issues returns issues
                 // and PRs together — `pullRequest` on each item distinguishes them.
-                // The inline `sort:` qualifier inside q proved unreliable (the API
-                // ignores it) — sorting rides on the query parameters instead.
                 val q = "${tab.queryQualifier}:$login state:open"
                 val result = api.searchIssues(q, sort = "updated", order = "desc", perPage = 30)
+                if (requestId != workRequestId) return@launch
                 _workItems.value = result.items
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
+                if (requestId != workRequestId) return@launch
                 issueReporter.reportError("Profile", "loadWorkList", e)
                 _workError.value = e.userMessage("Failed to load work list")
                 _workItems.value = emptyList()
             } finally {
-                _isLoadingWork.update { false }
+                if (requestId == workRequestId) _isLoadingWork.update { false }
             }
         }
     }
@@ -205,20 +127,4 @@ class ProfileViewModel @Inject constructor(
 
     fun refresh() = loadProfile(force = true)
 
-    fun switchAccount(id: Long) {
-        viewModelScope.launch {
-            accounts.switchAccount(id)
-            // Refresh the in-memory token too — the interceptor keeps serving
-            // the previous account's credentials otherwise.
-            authInterceptor.token = accounts.getActiveToken()
-            loadProfile()
-        }
-    }
-
-    fun removeAccount(id: Long) {
-        viewModelScope.launch {
-            accounts.removeAccount(id)
-            loadProfile()
-        }
-    }
 }

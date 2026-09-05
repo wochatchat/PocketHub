@@ -251,8 +251,6 @@
     <!-- Profile -->
     <string name="title_profile">Me</string>
     <string name="profile_loading">Loading…</string>
-    <string name="load_more_repos">Load more</string>
-    <string name="profile_no_repos_yet">Nothing yet — repositories will appear here once they\'re loaded.</string>
     <string name="accounts">Accounts</string>
     <string name="active">Active</string>
     <string name="followers">Followers</string>
@@ -481,7 +479,6 @@
     <string name="clear_cache_summary">Currently %1$s</string>
     <string name="section_data">Data</string>
     <string name="offline_repos">Offline repositories</string>
-    <string name="offline_repos_summary">Browse downloaded repo zips — works fully offline</string>
     <string name="offline_repos_empty">No offline repositories yet\nDownload a repo zip first</string>
     <string name="offline_extract_failed">Failed to extract the zip archive</string>
     <string name="accounts_summary">%1$d account(s) stored</string>
@@ -626,7 +623,6 @@
     <string name="work_tab_created">Created</string>
     <string name="work_tab_involved">Involved</string>
     <string name="work_list_empty">Nothing to handle — you\'re all caught up.</string>
-    <string name="work_list_more">+ %1$d more</string>
     <!-- Markdown GFM alert labels -->
     <string name="md_alert_note">Note</string>
     <string name="md_alert_tip">Tip</string>
