@@ -36,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -60,6 +61,7 @@ import com.pockethub.R
 import com.pockethub.ui.explore.ExploreScreen
 import com.pockethub.ui.notifications.NotificationsViewModel
 import com.pockethub.ui.repos.ReposScreen
+import com.pockethub.ui.repos.ReposTab
 
 /** Bottom nav item definition. */
 private data class BottomNavItem(
@@ -80,8 +82,11 @@ fun HomeScreen(
     onNavigateToPR: (String, String, Int) -> Unit,
     onNavigateToCommit: (String, String, String) -> Unit = { _, _, _ -> },
     onNavigateToUser: (String) -> Unit = {},
+    onNavigateToUserTab: (String, Int) -> Unit = { _, _ -> },
     onNavigateToHistory: () -> Unit,
     onNavigateToDownloads: () -> Unit,
+    requestedReposTab: ReposTab? = null,
+    onReposTabRequestConsumed: () -> Unit = {},
     onNavigateToOfflineRepos: () -> Unit,
     onNavigateToNotifications: () -> Unit,
 ) {
@@ -93,6 +98,14 @@ fun HomeScreen(
         BottomNavItem("profile", R.string.tab_profile, Icons.Outlined.Person, Icons.Outlined.Person),
     )
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    var reposTabIndex by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(requestedReposTab) {
+        requestedReposTab?.let { tab ->
+            reposTabIndex = if (tab == ReposTab.STARRED) 1 else 0
+            selectedTab = 1
+            onReposTabRequestConsumed()
+        }
+    }
     // Double-tap the selected Explore tab to force-fetch its active section.
     // See [DeepNavTabGesture.pickRound].
     var lastTabClickAtMillis by rememberSaveable { mutableStateOf(0L) }
@@ -220,15 +233,22 @@ fun HomeScreen(
                 modifier = Modifier.padding(innerPadding),
                 onNavigateToRepo = onNavigateToRepo,
                 onNavigateToUser = onNavigateToUser,
+                initialTab = if (reposTabIndex == 1) ReposTab.STARRED else ReposTab.MINE,
+                onTabChanged = { reposTabIndex = if (it == ReposTab.STARRED) 1 else 0 },
             )
             else -> com.pockethub.ui.profile.ProfileScreen(
                 modifier = Modifier.padding(innerPadding),
                 onNavigateToSettings = onNavigateToSettings,
                 onNavigateToUserDetail = onNavigateToUser,
+                onNavigateToUser = onNavigateToUserTab,
                 onNavigateToRepo = onNavigateToRepo,
                 onNavigateToIssue = onNavigateToIssue,
                 onNavigateToPR = onNavigateToPR,
                 onNavigateToCommit = onNavigateToCommit,
+                onNavigateToReposTab = { tab ->
+                    reposTabIndex = if (tab == ReposTab.STARRED) 1 else 0
+                    selectedTab = 1
+                },
                 onNavigateToDownloads = onNavigateToDownloads,
                 onNavigateToHistory = onNavigateToHistory,
                 onNavigateToOfflineRepos = onNavigateToOfflineRepos,

@@ -64,6 +64,8 @@ fun ReposScreen(
     modifier: Modifier = Modifier,
     onNavigateToRepo: (String, String) -> Unit,
     onNavigateToUser: (String) -> Unit = {},
+    initialTab: ReposTab = ReposTab.MINE,
+    onTabChanged: (ReposTab) -> Unit = {},
     vm: ReposViewModel = hiltViewModel(),
 ) {
     val repos by vm.repos.collectAsState()
@@ -74,17 +76,13 @@ fun ReposScreen(
     val filter by vm.currentFilter.collectAsState()
     val listState = com.pockethub.ui.components.rememberRestorableGridState(contentReady = repos.isNotEmpty())
 
-    // ReposScreen is disposed when the user leaves the Repos tab and recomposed
-    // on return (HomeScreen uses `when(selectedTab)` to switch content).  A fresh
-    // composition is the signal that the user came back — reload so any mutation
-    // (delete / visibility toggle) done on RepoDetail is reflected immediately.
-    // The cache was already invalidated by the mutation, so this is a cheap
-    // cache-miss → single network fetch; no mutation means a fast cache hit.
-    // Plain load() instead of refresh(): refresh() would force a second network
-    // round-trip on every tab return AND flash both spinners alongside init{}'s
-    // own first load — the double-spinner bug. Cache-first load() already
-    // reflects mutations because mutations invalidate their cache keys.
-    LaunchedEffect(Unit) { vm.load() }
+    // Re-entry reload plus one-shot tab request from the profile stats. Unit is
+    // deliberate: manual sub-tab clicks update the parent's saved tab without
+    // retriggering this effect and issuing a duplicate request.
+    LaunchedEffect(Unit) {
+        if (vm.currentTab.value == initialTab) vm.load()
+        else vm.switchTab(initialTab)
+    }
 
     // Infinite scroll
     val shouldLoadMore by remember {
@@ -106,10 +104,14 @@ fun ReposScreen(
     Column(Modifier.fillMaxSize()) {
         // Tab selector
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-            SegmentedButton(selected = tab == ReposTab.MINE, onClick = { vm.switchTab(ReposTab.MINE) },
-                shape = SegmentedButtonDefaults.itemShape(0, 2), label = { Text(stringResource(R.string.tab_my_repos)) })
-            SegmentedButton(selected = tab == ReposTab.STARRED, onClick = { vm.switchTab(ReposTab.STARRED) },
-                shape = SegmentedButtonDefaults.itemShape(1, 2), label = { Text(stringResource(R.string.tab_starred)) })
+            SegmentedButton(selected = tab == ReposTab.MINE, onClick = {
+                vm.switchTab(ReposTab.MINE)
+                onTabChanged(ReposTab.MINE)
+            }, shape = SegmentedButtonDefaults.itemShape(0, 2), label = { Text(stringResource(R.string.tab_my_repos)) })
+            SegmentedButton(selected = tab == ReposTab.STARRED, onClick = {
+                vm.switchTab(ReposTab.STARRED)
+                onTabChanged(ReposTab.STARRED)
+            }, shape = SegmentedButtonDefaults.itemShape(1, 2), label = { Text(stringResource(R.string.tab_starred)) })
         }
 
         // Filter chips — only meaningful for "My Repos" (the starred endpoint doesn't

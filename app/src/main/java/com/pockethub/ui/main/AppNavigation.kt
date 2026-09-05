@@ -31,11 +31,14 @@ import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.pockethub.ui.auth.LoginScreen
 import com.pockethub.ui.repo.RepoDetailScreen
+import com.pockethub.ui.repos.ReposTab
 import com.pockethub.ui.settings.SettingsScreen
 import com.pockethub.ui.theme.AppStyle
 import com.pockethub.ui.theme.PocketHubTheme
 import com.pockethub.ui.theme.ThemeMode
 import javax.inject.Inject
+
+private const val HOME_REPOS_TAB_REQUEST = "home_repos_tab_request"
 
 /** All top-level and detail routes used by the navigation graph. */
 object Routes {
@@ -254,8 +257,18 @@ fun PocketHubApp(
                     LoginScreen(onLoginSuccess = { /* auth flow rebuilds the gate — no navigation needed */ })
                 }
 
-                composable(Routes.HOME) {
+                composable(Routes.HOME) { backStackEntry ->
+                    val requestedReposTabName by backStackEntry.savedStateHandle
+                        .getStateFlow(HOME_REPOS_TAB_REQUEST, "")
+                        .collectAsState()
+                    val requestedReposTab = ReposTab.entries.firstOrNull { it.name == requestedReposTabName }
                     HomeScreen(
+                        requestedReposTab = requestedReposTab,
+                        onReposTabRequestConsumed = {
+                            // Reset instead of removing: StateFlow must emit again
+                            // when the same sub-tab is requested later.
+                            backStackEntry.savedStateHandle[HOME_REPOS_TAB_REQUEST] = ""
+                        },
                         onNavigateToSearch = { q -> navController.navigate(Routes.search(q)) },
                         onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                         onNavigateToFeedSources = { navController.navigate(Routes.FEED_SOURCES) },
@@ -264,6 +277,7 @@ fun PocketHubApp(
                         onNavigateToPR = { owner, repo, number -> navController.navigate(Routes.prDetail(owner, repo, number)) },
                         onNavigateToCommit = { o, r, sha -> navController.navigate(Routes.commitDetail(o, r, sha)) },
                         onNavigateToUser = { login -> navController.navigate(Routes.userDetail(login)) },
+                        onNavigateToUserTab = { login, followTab -> navController.navigate(Routes.userDetail(login, followTab)) },
                         onNavigateToHistory = { navController.navigate(Routes.HISTORY) },
                         onNavigateToDownloads = { navController.navigate(Routes.downloads("done")) },
                         onNavigateToOfflineRepos = { navController.navigate(Routes.OFFLINE_REPOS) },
@@ -284,6 +298,11 @@ fun PocketHubApp(
                         onNavigateToDownloads = { navController.navigate(Routes.downloads("done")) },
                         onNavigateToHistory = { navController.navigate(Routes.HISTORY) },
                         onNavigateToOfflineRepos = { navController.navigate(Routes.OFFLINE_REPOS) },
+                        onNavigateToReposTab = { tab ->
+                            navController.getBackStackEntry(Routes.HOME)
+                                .savedStateHandle[HOME_REPOS_TAB_REQUEST] = tab.name
+                            navController.popBackStack(Routes.HOME, inclusive = false)
+                        },
                         onNavigateToNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                         onBack = { navController.popBackStack() },
                     )

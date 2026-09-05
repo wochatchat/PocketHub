@@ -66,6 +66,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.pockethub.data.local.AccountEntity
 import com.pockethub.data.model.User
 import com.pockethub.ui.components.PhAsyncImage
+import com.pockethub.ui.repos.ReposTab
 import com.pockethub.ui.search.issueOwnerRepo
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -82,6 +83,7 @@ fun ProfileScreen(
     onNavigateToDownloads: () -> Unit = {},
     onNavigateToHistory: () -> Unit = {},
     onNavigateToOfflineRepos: () -> Unit = {},
+    onNavigateToReposTab: (ReposTab) -> Unit = {},
     onNavigateToNotifications: () -> Unit = {},
     onBack: () -> Unit,
     showTopBar: Boolean = true,
@@ -155,6 +157,8 @@ fun ProfileScreen(
                     starredTotal,
                     onFollowersClick = { user?.login?.let { onNavigateToUser(it, 0) } },
                     onFollowingClick = { user?.login?.let { onNavigateToUser(it, 1) } },
+                    onReposClick = { onNavigateToReposTab(ReposTab.MINE) },
+                    onStarredClick = { onNavigateToReposTab(ReposTab.STARRED) },
                 )
                 WorkListCard(
                     tab = workTab,
@@ -293,6 +297,8 @@ private fun StatsRow(
     starredTotal: Int,
     onFollowersClick: (() -> Unit)? = null,
     onFollowingClick: (() -> Unit)? = null,
+    onReposClick: (() -> Unit)? = null,
+    onStarredClick: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -300,8 +306,12 @@ private fun StatsRow(
     ) {
         StatPill(stringResource(R.string.followers), user?.followers ?: 0, onClick = onFollowersClick)
         StatPill(stringResource(R.string.following), user?.following ?: 0, onClick = onFollowingClick)
-        StatPill(stringResource(R.string.repos), (user?.publicRepos ?: 0) + (user?.totalPrivateRepos ?: 0))
-        StatPill(stringResource(R.string.starred), starredTotal)
+        StatPill(
+            stringResource(R.string.repos),
+            (user?.publicRepos ?: 0) + (user?.totalPrivateRepos ?: 0),
+            onClick = onReposClick,
+        )
+        StatPill(stringResource(R.string.starred), starredTotal, onClick = onStarredClick)
     }
 }
 
