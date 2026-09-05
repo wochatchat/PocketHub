@@ -169,14 +169,15 @@ fun MarkdownText(
             }
         }
     }
-    Column(modifier = modifier) {
+    // Long-press to select & copy any rendered markdown text (README,
+    // issue/PR bodies, comments). NOTE: SelectionContainer is itself a Box
+    // layout — it must wrap the Column as its SINGLE child. Wrapping the
+    // multi-block forEach directly stacked every paragraph at the same
+    // origin (the "ghosted text" regression).
+    androidx.compose.foundation.text.selection.SelectionContainer(modifier = modifier) {
+    Column {
         parsed.error?.let { MarkdownErrorBox(it) }
-        // Long-press to select & copy any rendered markdown text (README,
-        // issue/PR bodies, comments). Selection state lives per document;
-        // child Texts opt in implicitly — links stay tappable (Compose gives
-        // link annotations priority over selection handles).
-        androidx.compose.foundation.text.selection.SelectionContainer {
-            parsed.blocks.forEach { (block, parts) ->
+        parsed.blocks.forEach { (block, parts) ->
             when (block) {
                 is MdBlock.Heading -> {
                     val style = when (block.level) {
@@ -275,8 +276,8 @@ fun MarkdownText(
                 }
             }
         }
-        } // SelectionContainer
     }
+    } // SelectionContainer
 }
 
 /** Minimal GFM alert card ([!NOTE] etc.) — accent-colored left rule + label. */
