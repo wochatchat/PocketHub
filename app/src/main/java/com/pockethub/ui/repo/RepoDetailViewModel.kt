@@ -187,6 +187,9 @@ class RepoDetailViewModel @Inject constructor(
 
     internal val _dispatchMessage = MutableStateFlow<String?>(null)
     val dispatchMessage: StateFlow<String?> = _dispatchMessage.asStateFlow()
+    /** Incremented once per SUCCESSFUL workflow_dispatch; UI closes the dialog and refreshes the run list off this instead of string-matching the message. */
+    internal val _dispatchSuccessTick = MutableStateFlow(0)
+    val dispatchSuccessTick: StateFlow<Int> = _dispatchSuccessTick.asStateFlow()
 
     /** Branches for the repo; used by the dispatch dialog's branch picker. */
     internal val _branches = MutableStateFlow<List<GitHubApi.Branch>>(emptyList())
