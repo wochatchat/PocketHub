@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
@@ -91,6 +92,7 @@ fun ProfileScreen(
 ) {
     val user by vm.user.collectAsState()
     val isRefreshing by vm.isLoading.collectAsState()
+    val listState = com.pockethub.ui.components.rememberRestorableListState(contentReady = user != null)
     val activeAccount by vm.activeAccount.collectAsState()
     val starredTotal by vm.starredTotal.collectAsState()
     val workTab by vm.workTab.collectAsState()
@@ -145,39 +147,46 @@ fun ProfileScreen(
             onRefresh = { vm.refresh() },
             modifier = modifier.padding(padding),
         ) {
-            // This page is a dashboard rather than a document feed: its sections
-            // are fixed, so keep one stable layout instead of a nested LazyColumn.
-            Column(
+            // The workbench can grow to its own bounded scroll area; the page
+            // itself also scrolls so quick access remains reachable below it.
+            LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                ProfileHeader(user, activeAccount)
-                StatsRow(
-                    user,
-                    starredTotal,
-                    onFollowersClick = { user?.login?.let { onNavigateToUser(it, 0) } },
-                    onFollowingClick = { user?.login?.let { onNavigateToUser(it, 1) } },
-                    onReposClick = { onNavigateToReposTab(ReposTab.MINE) },
-                    onStarredClick = { onNavigateToReposTab(ReposTab.STARRED) },
-                )
-                WorkListCard(
-                    tab = workTab,
-                    onSwitchTab = vm::switchWorkTab,
-                    items = workItems,
-                    isLoading = isLoadingWork,
-                    error = workError,
-                    onRetry = vm::refreshWorkList,
-                    onOpenIssue = onNavigateToIssue,
-                    onOpenPR = onNavigateToPR,
-                )
-                QuickAccessCard(
-                    onDownloads = onNavigateToDownloads,
-                    onOfflineRepos = onNavigateToOfflineRepos,
-                    onHistory = onNavigateToHistory,
-                    onSettings = onNavigateToSettings,
-                )
-                AdditionalInfo(user)
-                Spacer(Modifier.height(24.dp))
+                item { ProfileHeader(user, activeAccount) }
+                item {
+                    StatsRow(
+                        user,
+                        starredTotal,
+                        onFollowersClick = { user?.login?.let { onNavigateToUser(it, 0) } },
+                        onFollowingClick = { user?.login?.let { onNavigateToUser(it, 1) } },
+                        onReposClick = { onNavigateToReposTab(ReposTab.MINE) },
+                        onStarredClick = { onNavigateToReposTab(ReposTab.STARRED) },
+                    )
+                }
+                item {
+                    WorkListCard(
+                        tab = workTab,
+                        onSwitchTab = vm::switchWorkTab,
+                        items = workItems,
+                        isLoading = isLoadingWork,
+                        error = workError,
+                        onRetry = vm::refreshWorkList,
+                        onOpenIssue = onNavigateToIssue,
+                        onOpenPR = onNavigateToPR,
+                    )
+                }
+                item {
+                    QuickAccessCard(
+                        onDownloads = onNavigateToDownloads,
+                        onOfflineRepos = onNavigateToOfflineRepos,
+                        onHistory = onNavigateToHistory,
+                        onSettings = onNavigateToSettings,
+                    )
+                }
+                item { AdditionalInfo(user) }
+                item { Spacer(Modifier.height(24.dp)) }
             }
         }
     }
