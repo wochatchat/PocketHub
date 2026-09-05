@@ -118,7 +118,7 @@ class NotificationsViewModel @Inject constructor(
         val before = _notifications.value
         _notifications.update { list ->
             list.map { if (it.id == threadId) it.copy(unread = false) else it }
-                .filter { currentTab.value == NotifTab.ALL || it.unread }
+                .filter { currentTab.value != NotifTab.UNREAD || it.unread }
         }
         viewModelScope.launch {
             try {
