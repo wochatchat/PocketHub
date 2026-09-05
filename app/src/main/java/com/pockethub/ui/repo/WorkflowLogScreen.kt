@@ -498,10 +498,8 @@ private fun LogLine(text: String, query: String?, isCurrentMatch: Boolean) {
         }
     }
     // Long-press to copy the line — logs are the most-copied content in the app.
-    // Selection clears when the host pager page stops being current.
-    androidx.compose.foundation.text.selection.SelectionContainer(
-        enabled = com.pockethub.ui.markdown.LocalPagerPageActive.current,
-    ) {
+    // Selection clears when the host pager page is swiped away.
+    com.pockethub.ui.markdown.PagerAwareSelectionContainer {
         Text(
             annotated,
             style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp),

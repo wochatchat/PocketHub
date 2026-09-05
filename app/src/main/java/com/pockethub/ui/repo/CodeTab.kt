@@ -600,11 +600,8 @@ internal fun SyntaxHighlightedCode(
     )
 
     // Long-press to select & copy code (gutter excluded — it's not source).
-    // Disabled when the host pager page is no longer current so swiping away
-    // clears the selection and the floating copy toolbar.
-    androidx.compose.foundation.text.selection.SelectionContainer(
-        enabled = com.pockethub.ui.markdown.LocalPagerPageActive.current,
-    ) {
+    // Selection clears when the host pager page is swiped away.
+    com.pockethub.ui.markdown.PagerAwareSelectionContainer {
     Row(modifier.verticalScroll(vScroll)) {
         // Line-number gutter — one Text so line heights always match the code body.
         Text(

@@ -176,14 +176,10 @@ fun MarkdownText(
     // origin (the "ghosted text" regression).
     //
     // When the host screen lives in a pager, LocalPagerPageActive flips
-    // false as the user swipes away: the container is disabled, which clears
-    // the selection and dismisses the floating copy toolbar (the old page
-    // stays composed under beyondViewportPageCount>0).
-    val pageActive = LocalPagerPageActive.current
-    androidx.compose.foundation.text.selection.SelectionContainer(
-        modifier = modifier,
-        enabled = pageActive,
-    ) {
+    // false as the user swipes away: the selection (and floating copy
+    // toolbar) is cleared — the old page stays composed under
+    // beyondViewportPageCount>0.
+    PagerAwareSelectionContainer(modifier = modifier) {
     Column {
         parsed.error?.let { MarkdownErrorBox(it) }
         parsed.blocks.forEach { (block, parts) ->
@@ -298,6 +294,33 @@ fun MarkdownText(
  * would otherwise keep the toolbar on screen.
  */
 val LocalPagerPageActive = androidx.compose.runtime.compositionLocalOf { true }
+
+/**
+ * SelectionContainer that drops its selection when [LocalPagerPageActive]
+ * turns false (the host pager page was swiped away).
+ *
+ * Uses the selection/onSelectionChange hoisting overload — this Compose
+ * version's SelectionContainer has no `enabled` parameter, so there is no
+ * direct "clear" API; feeding a null selection dismisses the handles and the
+ * floating copy toolbar. Outside a pager (local default = true) this behaves
+ * exactly like a plain SelectionContainer.
+ */
+@Composable
+fun PagerAwareSelectionContainer(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val active = LocalPagerPageActive.current
+    val selection = androidx.compose.runtime.remember {
+        androidx.compose.runtime.mutableStateOf<androidx.compose.foundation.text.selection.Selection?>(null)
+    }
+    androidx.compose.runtime.LaunchedEffect(active) { if (!active) selection.value = null }
+    androidx.compose.foundation.text.selection.SelectionContainer(
+        modifier = modifier,
+        selection = if (active) selection.value else null,
+        onSelectionChange = { if (active) selection.value = it },
+    ) { content() }
+}
 
 /** Minimal GFM alert card ([!NOTE] etc.) — accent-colored left rule + label. */
 @Composable
