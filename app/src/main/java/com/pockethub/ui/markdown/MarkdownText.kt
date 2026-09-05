@@ -304,7 +304,7 @@ val LocalPagerPageActive = androidx.compose.runtime.compositionLocalOf { true }
  * selection. Instead the container LEAVES COMPOSITION while the page is not
  * current (a plain Box keeps rendering the content), which discards the
  * selection state and the floating copy toolbar. Content state survives the
- * switch via [moveableContentOf] (e.g. the markdown document's produceState
+ * switch via [movableContentOf] (e.g. the markdown document's produceState
  * would otherwise re-parse on every activation).
  */
 @Composable
@@ -315,7 +315,7 @@ fun PagerAwareSelectionContainer(
     val active = LocalPagerPageActive.current
     val currentContent by androidx.compose.runtime.rememberUpdatedState(content)
     val movable = androidx.compose.runtime.remember {
-        androidx.compose.runtime.moveableContentOf { currentContent() }
+        androidx.compose.runtime.movableContentOf { currentContent() }
     }
     if (active) {
         androidx.compose.foundation.text.selection.SelectionContainer(modifier = modifier) {
