@@ -6,6 +6,12 @@ import com.pockethub.R
 import androidx.compose.ui.res.stringResource
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.background
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.util.lerp
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -398,13 +404,55 @@ fun RepoDetailScreen(
             }
 
             val tabs = RepoTab.entries
+            // ViewPager-style horizontal swipe between tabs. Hoisted here so
+            // the tab indicator can read the pager's live offset.
+            val pagerState = androidx.compose.foundation.pager.rememberPagerState(
+                initialPage = tabs.indexOf(tab),
+                pageCount = { tabs.size },
+            )
+            // Tab-row taps / deep links / markdown tab jumps → animate the pager.
+            androidx.compose.runtime.LaunchedEffect(tab) {
+                val target = tabs.indexOf(tab)
+                if (pagerState.currentPage != target) pagerState.animateScrollToPage(target)
+            }
+            // Swipe settle → hoisted tab state (drives per-tab loaders + FAB).
+            androidx.compose.runtime.LaunchedEffect(pagerState) {
+                androidx.compose.runtime.snapshotFlow { pagerState.settledPage }.collect { page ->
+                    val newTab = tabs[page]
+                    if (vm.currentTab.value != newTab) vm.currentTab.value = newTab
+                }
+            }
             // Double-tap detection: two taps on the same tab within 400ms open
             // that tab's GitHub web page. The first tap of the pair still
             // performs the normal tab switch, so a double-tap on an inactive
             // tab lands on the tab AND opens the web view.
             var lastTapTab by remember { mutableStateOf<RepoTab?>(null) }
             var lastTapAt by remember { mutableStateOf(0L) }
-            ScrollableTabRow(selectedTabIndex = tabs.indexOf(tab), edgePadding = 0.dp) {
+            ScrollableTabRow(
+                selectedTabIndex = tabs.indexOf(tab),
+                edgePadding = 0.dp,
+                // Indicator tracks the swipe continuously (ViewPager-style):
+                // interpolate between neighboring tab positions by the pager's
+                // live offset instead of animating only after the page settles.
+                indicator = { tabPositions ->
+                    val idx = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
+                        .coerceIn(0f, tabs.lastIndex.toFloat())
+                    val i = idx.toInt().coerceAtMost(tabPositions.lastIndex)
+                    val next = (i + 1).coerceAtMost(tabPositions.lastIndex)
+                    val frac = (idx - i).coerceIn(0f, 1f)
+                    val left = androidx.compose.ui.util.lerp(tabPositions[i].left, tabPositions[next].left, frac)
+                    val width = androidx.compose.ui.util.lerp(tabPositions[i].width, tabPositions[next].width, frac)
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .wrapContentSize(Alignment.BottomStart)
+                            .offset(x = left)
+                            .width(width)
+                            .height(3.dp)
+                            .background(MaterialTheme.colorScheme.primary),
+                    )
+                },
+            ) {
                 tabs.forEach { current ->
                     val label = when (current) {
                         RepoTab.OVERVIEW -> stringResource(R.string.tab_overview)
@@ -462,22 +510,6 @@ fun RepoDetailScreen(
             // horizontal drags, and horizontally-scrollable children (code
             // view, filter chip rows) win while they can still scroll in that
             // direction — same priority rules as Android ViewPager.
-            val pagerState = androidx.compose.foundation.pager.rememberPagerState(
-                initialPage = tabs.indexOf(tab),
-                pageCount = { tabs.size },
-            )
-            // Tab-row taps / deep links / markdown tab jumps → animate the pager.
-            androidx.compose.runtime.LaunchedEffect(tab) {
-                val target = tabs.indexOf(tab)
-                if (pagerState.currentPage != target) pagerState.animateScrollToPage(target)
-            }
-            // Swipe settle → hoisted tab state (drives per-tab loaders + FAB).
-            androidx.compose.runtime.LaunchedEffect(pagerState) {
-                androidx.compose.runtime.snapshotFlow { pagerState.settledPage }.collect { page ->
-                    val newTab = tabs[page]
-                    if (vm.currentTab.value != newTab) vm.currentTab.value = newTab
-                }
-            }
             androidx.compose.foundation.pager.HorizontalPager(
                 state = pagerState,
                 // Adjacent pages stay composed so swipes render instantly; far
@@ -486,6 +518,12 @@ fun RepoDetailScreen(
                 beyondViewportPageCount = 1,
                 modifier = Modifier.fillMaxSize(),
             ) { page ->
+            // Pages stay composed while swiping (beyondViewportPageCount=1) —
+            // tell each page whether it is CURRENT so SelectionContainers on
+            // stale pages drop their selection (and the floating copy toolbar).
+            androidx.compose.runtime.CompositionLocalProvider(
+                com.pockethub.ui.markdown.LocalPagerPageActive provides (pagerState.currentPage == page),
+            ) {
             when (tabs[page]) {
                 RepoTab.OVERVIEW -> OverviewTab(
                     owner,
@@ -591,6 +629,7 @@ fun RepoDetailScreen(
                 )
             }
             }
+            } // LocalPagerPageActive
             }
         }
     }
