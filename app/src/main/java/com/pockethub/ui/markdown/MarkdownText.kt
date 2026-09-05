@@ -299,11 +299,13 @@ val LocalPagerPageActive = androidx.compose.runtime.compositionLocalOf { true }
  * SelectionContainer that drops its selection when [LocalPagerPageActive]
  * turns false (the host pager page was swiped away).
  *
- * Uses the selection/onSelectionChange hoisting overload — this Compose
- * version's SelectionContainer has no `enabled` parameter, so there is no
- * direct "clear" API; feeding a null selection dismisses the handles and the
- * floating copy toolbar. Outside a pager (local default = true) this behaves
- * exactly like a plain SelectionContainer.
+ * This Compose version exposes only `SelectionContainer(modifier)` — the
+ * selection-hoisting overload is internal, so there is no API to clear a
+ * selection. Instead the container LEAVES COMPOSITION while the page is not
+ * current (a plain Box keeps rendering the content), which discards the
+ * selection state and the floating copy toolbar. Content state survives the
+ * switch via [moveableContentOf] (e.g. the markdown document's produceState
+ * would otherwise re-parse on every activation).
  */
 @Composable
 fun PagerAwareSelectionContainer(
@@ -311,15 +313,18 @@ fun PagerAwareSelectionContainer(
     content: @Composable () -> Unit,
 ) {
     val active = LocalPagerPageActive.current
-    val selection = androidx.compose.runtime.remember {
-        androidx.compose.runtime.mutableStateOf<androidx.compose.foundation.text.selection.Selection?>(null)
+    val currentContent by androidx.compose.runtime.rememberUpdatedState(content)
+    val movable = androidx.compose.runtime.remember {
+        androidx.compose.runtime.moveableContentOf { currentContent() }
     }
-    androidx.compose.runtime.LaunchedEffect(active) { if (!active) selection.value = null }
-    androidx.compose.foundation.text.selection.SelectionContainer(
-        modifier = modifier,
-        selection = if (active) selection.value else null,
-        onSelectionChange = { if (active) selection.value = it },
-    ) { content() }
+    if (active) {
+        androidx.compose.foundation.text.selection.SelectionContainer(modifier = modifier) {
+            movable()
+        }
+    } else {
+        // Page swiped away: no container → selection + toolbar discarded.
+        androidx.compose.foundation.layout.Box(modifier) { movable() }
+    }
 }
 
 /** Minimal GFM alert card ([!NOTE] etc.) — accent-colored left rule + label. */
