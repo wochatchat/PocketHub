@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.background
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.util.lerp
+import androidx.compose.ui.unit.lerp
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -440,8 +440,8 @@ fun RepoDetailScreen(
                     val i = idx.toInt().coerceAtMost(tabPositions.lastIndex)
                     val next = (i + 1).coerceAtMost(tabPositions.lastIndex)
                     val frac = (idx - i).coerceIn(0f, 1f)
-                    val left = androidx.compose.ui.util.lerp(tabPositions[i].left, tabPositions[next].left, frac)
-                    val width = androidx.compose.ui.util.lerp(tabPositions[i].width, tabPositions[next].width, frac)
+                    val left = lerp(tabPositions[i].left, tabPositions[next].left, frac)
+                    val width = lerp(tabPositions[i].width, tabPositions[next].width, frac)
                     Box(
                         Modifier
                             .fillMaxWidth()
