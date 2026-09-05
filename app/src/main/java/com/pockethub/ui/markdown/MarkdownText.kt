@@ -174,7 +174,16 @@ fun MarkdownText(
     // layout — it must wrap the Column as its SINGLE child. Wrapping the
     // multi-block forEach directly stacked every paragraph at the same
     // origin (the "ghosted text" regression).
-    androidx.compose.foundation.text.selection.SelectionContainer(modifier = modifier) {
+    //
+    // When the host screen lives in a pager, LocalPagerPageActive flips
+    // false as the user swipes away: the container is disabled, which clears
+    // the selection and dismisses the floating copy toolbar (the old page
+    // stays composed under beyondViewportPageCount>0).
+    val pageActive = LocalPagerPageActive.current
+    androidx.compose.foundation.text.selection.SelectionContainer(
+        modifier = modifier,
+        enabled = pageActive,
+    ) {
     Column {
         parsed.error?.let { MarkdownErrorBox(it) }
         parsed.blocks.forEach { (block, parts) ->
@@ -279,6 +288,16 @@ fun MarkdownText(
     }
     } // SelectionContainer
 }
+
+/**
+ * True when the composable's pager page is the CURRENT page. Provided by
+ * pager-based screens (repo detail tabs); defaults to true for standalone
+ * usage outside a pager. SelectionContainer reads it to clear the active
+ * selection (and dismiss the floating copy toolbar) when the user swipes
+ * away — with beyondViewportPageCount>0 the old page stays composed and
+ * would otherwise keep the toolbar on screen.
+ */
+val LocalPagerPageActive = androidx.compose.runtime.compositionLocalOf { true }
 
 /** Minimal GFM alert card ([!NOTE] etc.) — accent-colored left rule + label. */
 @Composable
