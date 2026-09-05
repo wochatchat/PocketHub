@@ -171,7 +171,12 @@ fun MarkdownText(
     }
     Column(modifier = modifier) {
         parsed.error?.let { MarkdownErrorBox(it) }
-        parsed.blocks.forEach { (block, parts) ->
+        // Long-press to select & copy any rendered markdown text (README,
+        // issue/PR bodies, comments). Selection state lives per document;
+        // child Texts opt in implicitly — links stay tappable (Compose gives
+        // link annotations priority over selection handles).
+        androidx.compose.foundation.text.selection.SelectionContainer {
+            parsed.blocks.forEach { (block, parts) ->
             when (block) {
                 is MdBlock.Heading -> {
                     val style = when (block.level) {
@@ -270,6 +275,7 @@ fun MarkdownText(
                 }
             }
         }
+        } // SelectionContainer
     }
 }
 
