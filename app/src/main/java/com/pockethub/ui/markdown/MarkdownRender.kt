@@ -223,8 +223,12 @@ private fun rememberImageMeta(src: String): ImageMeta? {
     ) {
         val request = coil.request.ImageRequest.Builder(context)
             .data(src)
-            // NOTE: keep the default hardware setting — the render pass below
-            // issues the identical request and must hit the memory cache.
+            // Size.ORIGINAL is REQUIRED: the default resolves to display size
+            // and SVG (vector) happily rasterizes at that — a 122x20 status
+            // badge decoded to 1080x176, so "1px==1dp" bucketing read 176dp
+            // tall and rendered it as a big box. Bitmaps don't upscale so
+            // they were unaffected; every SVG was.
+            .size(coil.size.Size.ORIGINAL)
             .build()
         val result = loader.execute(request)
         val drawable = (result as? coil.request.SuccessResult)?.drawable

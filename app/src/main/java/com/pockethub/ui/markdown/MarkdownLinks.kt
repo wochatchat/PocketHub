@@ -192,6 +192,10 @@ internal fun isBadgeUrl(url: String): Boolean {
     if (u.contains("circleci.com") || u.contains("badgen.net")) return true
     if (u.contains("gitter.im")) return true
     if (u.contains("/badge/")) return true
+    // Corpus-observed badge hosts/shapes: codetriage, generic *badge.svg
+    // endpoints, weblate engage badges.
+    if (u.contains("codetriage.com") || u.contains("/badges/") || u.contains("/badge.")) return true
+    if (u.endsWith("badge.svg") || u.contains("svg-badge")) return true
     if (u.contains("/buildstatus") || u.contains("/status-badge")) return true
     if (u.contains("actions/workflows") && u.contains("badge")) return true
     if ((u.contains("opencollective.com") || u.contains("snyk.io") || u.contains("app.codacy.com") || u.contains("deepscan.io")) && u.contains("badge")) return true
