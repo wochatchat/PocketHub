@@ -212,12 +212,13 @@ private val MEDIUM_IMAGE_MAX_DP = 160.dp
  */
 private data class ImageMeta(val loaded: Boolean, val size: androidx.compose.ui.unit.IntSize?)
 
+/** Null while the probe is in flight — callers render a compact placeholder. */
 @Composable
-private fun rememberImageMeta(src: String): ImageMeta {
+private fun rememberImageMeta(src: String): ImageMeta? {
     val loader = LocalAppImageLoader.current
     val context = androidx.compose.ui.platform.LocalContext.current
-    return androidx.compose.runtime.produceState<ImageMeta>(
-        initialValue = ImageMeta(false, null),
+    return androidx.compose.runtime.produceState<ImageMeta?>(
+        initialValue = null,
         key1 = src,
     ) {
         val request = coil.request.ImageRequest.Builder(context)
@@ -263,7 +264,7 @@ private fun AdaptiveImage(img: InlineToken.Image, onTap: (String, LinkKind) -> U
     val themeSrc = if (isSystemInDarkTheme()) pic.darkSrc ?: img.src else pic.lightSrc ?: img.src
     val effectiveImg = if (themeSrc != img.src) img.copy(src = themeSrc, alt = pic.base) else img
     val meta = rememberImageMeta(effectiveImg.src)
-    val intrinsic = meta.size
+    val intrinsic = meta?.size
     // One-sided hints survive: "300x0" width-only / "0x40" height-only.
     val hintW = img.hintW?.takeIf { it > 0 } ?: pic.w?.takeIf { it > 0 }
     val hintH = img.hintH?.takeIf { it > 0 } ?: pic.h?.takeIf { it > 0 }
@@ -288,9 +289,31 @@ private fun AdaptiveImage(img: InlineToken.Image, onTap: (String, LinkKind) -> U
         hintW != null || hintH != null -> {
             RenderOneSizedImage(effectiveImg, hintW, hintH, intrinsic, clickTarget, kind, onTap)
         }
-        // Load FAILED (or no size yet): RenderContentImage re-issues the same
-        // request — failure shows its broken-image row instead of spinning.
-        meta.loaded == false -> RenderContentImage(effectiveImg, clickTarget, kind, onTap)
+        // meta==null (still probing): tiny images can't be told apart from
+        // failed loads yet — wait in a compact strip, NOT a full-width box
+        // (a full-width placeholder blew standard 20dp badges up to screen
+        // width for a frame, and stuck there whenever the probe failed).
+        meta == null -> RenderStripImage(effectiveImg, 96.dp, 20.dp, clickTarget, kind, onTap)
+        // Load FAILED: RenderContentImage re-issues the same request and its
+        // error slot shows a broken-image ROW — but at natural badge height,
+        // not a full-width banner.
+        meta.loaded == false -> {
+            Box(Modifier.fillMaxWidth().height(28.dp), contentAlignment = Alignment.CenterStart) {
+                Icon(
+                    Icons.Outlined.BrokenImage, null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(14.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    (effectiveImg.alt.ifBlank { "image" }).take(60),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
         // Decoded fine but has no intrinsic size (SVG with viewBox only):
         // SvgDrawable rasterizes at draw size, so full-width stays sharp.
         intrinsic == null -> RenderContentImage(effectiveImg, clickTarget, kind, onTap)

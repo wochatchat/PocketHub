@@ -6,6 +6,7 @@ package com.pockethub.ui.markdown
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import kotlin.math.roundToInt
 
 internal fun cleanMarkdown(markdown: String): String {
     // Normalize CRLF first so line-based parsing (headings, lists, tables)
@@ -61,8 +62,15 @@ private fun cleanSegment(markdown: String): String {
                 // so harvest them here into the alt-hint suffix.
                 val firstImg = Regex("<img\\b[^>]*>", RegexOption.IGNORE_CASE).find(inner)?.value
                 val dim = firstImg?.let {
-                    val w = Regex("width\\s*=\\s*[\"']?(\\d+)(?:px)?[\"']?(?!%)", RegexOption.IGNORE_CASE).find(it)?.groupValues?.getOrNull(1)
-                    val h = Regex("height\\s*=\\s*[\"']?(\\d+)(?:px)?[\"']?(?!%)", RegexOption.IGNORE_CASE).find(it)?.groupValues?.getOrNull(1)
+                    fun sizeOf(attr: String): String? {
+                        val v = Regex("$attr\\s*=\\s*[\"']([^\"']*)[\"']|$attr\\s*=\\s*([^\\s>]+)", RegexOption.IGNORE_CASE)
+                            .find(it)?.groupValues?.let { g -> g.groupValues[1].ifEmpty { g.groupValues[2] } }
+                            ?.trim() ?: return null
+                        if (v.endsWith("%")) return null
+                        return v.removeSuffix("px").toFloatOrNull()?.roundToInt()?.coerceIn(1, 4000)?.toString()
+                    }
+                    val w = sizeOf("width")
+                    val h = sizeOf("height")
                     if (w != null && h != null) "\u0001${w}x${h}" else ""
                 }.orEmpty()
                 val src = dark ?: light ?: fallback
@@ -85,15 +93,25 @@ private fun cleanSegment(markdown: String): String {
                 val src = m.groupValues[1]
                 val alt = m.groupValues[2]
                 val tag = m.value
-                // Plain numeric (or px) sizes become display hints; percent
-                // widths ("width=100%" screenshot grids) are dropped — the
-                // intrinsic-size bucket renders them full-width like the web.
+                // Size hint extraction with VALUE-LEVEL parsing: pull the full
+                // attribute value first ("100%", "300", "40px", "122.4") and
+                // then classify. NOTE a bare regex with a (?!%) guard silently
+                // BACKTRACKS on "100%" ((\d+) shrinks to "10", next char '0'
+                // isn't '%' → matches) — which turned a full-width banner into
+                // a 10dp speck. Percent values mean "fill the column": no
+                // hint, the intrinsic bucket lays them out like the web.
                 // ONE dimension alone also applies (width-only is MORE common
-                // than w+h: 580 vs 192 in the corpus) — dropping it let logos
-                // with huge intrinsic sizes (e.g. 1252×1252 SVG) blow up to
-                // full width. Missing side encodes as 0.
-                val w = Regex("width\\s*=\\s*[\"']?(\\d+)(?:px)?[\"']?(?!%)", RegexOption.IGNORE_CASE).find(tag)?.groupValues?.getOrNull(1)
-                val h = Regex("height\\s*=\\s*[\"']?(\\d+)(?:px)?[\"']?(?!%)", RegexOption.IGNORE_CASE).find(tag)?.groupValues?.getOrNull(1)
+                // than w+h: 580 vs 192 in the corpus). Missing side → 0.
+                fun sizeOf(attr: String): String? {
+                    val v = Regex("$attr\\s*=\\s*[\"']([^\"']*)[\"']|$attr\\s*=\\s*([^\\s>]+)", RegexOption.IGNORE_CASE)
+                        .find(tag)?.groupValues?.let { it.groupValues[1].ifEmpty { it.groupValues[2] } }
+                        ?.trim() ?: return null
+                    if (v.endsWith("%")) return null
+                    val num = v.removeSuffix("px").toFloatOrNull() ?: return null
+                    return num.roundToInt().coerceIn(1, 4000).toString()
+                }
+                val w = sizeOf("width")
+                val h = sizeOf("height")
                 val altOut = when {
                     w != null && h != null -> "$alt\u0001${w}x${h}"
                     w != null -> "$alt\u0001${w}x0"
