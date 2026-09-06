@@ -634,19 +634,21 @@ internal fun renderRichInline(
         if (wrappedMatch != null) {
             flushImageGap()
             val (alt, hw, hh) = splitAltHint(wrappedMatch.groupValues[1])
-            val src = imageResolver(wrappedMatch.groupValues[2].trim())
-            val href = wrappedMatch.groupValues[3].trim()
+            val src = imageResolver(stripLinkTitle(wrappedMatch.groupValues[2].trim()))
+            val href = stripLinkTitle(wrappedMatch.groupValues[3].trim())
             val resolvedHref = resolver(href) ?: href
             out.add(InlineToken.Image(src = src, alt = resolvePictureAlt(alt), wrapUrl = resolvedHref, hintW = hw, hintH = hh))
             i += wrappedMatch.value.length
             continue
         }
-        // Try standalone image ![alt](src)
+        // Try standalone image ![alt](src "title") — GFM title suffix is a
+        // tooltip, not part of the URL; stripping it used to be skipped so
+        // Coil received `src "tooltip"` and the image 404'd.
         val imgMatch = STANDALONE_IMG_PATTERN.find(rest)
         if (imgMatch != null) {
             flushImageGap()
             val (alt, hw, hh) = splitAltHint(imgMatch.groupValues[1])
-            val src = imageResolver(imgMatch.groupValues[2].trim())
+            val src = imageResolver(stripLinkTitle(imgMatch.groupValues[2].trim()))
             out.add(InlineToken.Image(src = src, alt = resolvePictureAlt(alt), wrapUrl = null, hintW = hw, hintH = hh))
             i += imgMatch.value.length
             continue
@@ -745,17 +747,20 @@ private fun AnnotatedString.Builder.emitInline(
                 }
             }
         }
-        // Markdown link [text](url)
+        // Markdown link [text](url). The destination supports balanced
+        // parens (CommonMark). Link TEXT may contain balanced bracket pairs
+        // ("A [B] C](url)"-style — 5.6% of corpus); when the first "]" cut
+        // leaves unbalanced brackets, extend the scan to the next "]( " so
+        // the full text becomes the link instead of leaking raw text.
         if (src[i] == '[') {
-            val closeBracket = src.indexOf(']', i + 1)
-            if (closeBracket != -1 && closeBracket + 1 < src.length && src[closeBracket + 1] == '(') {
-                // URL may contain balanced parentheses (CommonMark allows them;
-                // GitHub PR titles end up in links all the time). A naive
-                // indexOf(')') closed the destination early and the leftover
-                // "...)(tail)" leaked into the visible text — swallowing chars.
-                var closeParen = -1
+            var attempt = i + 1
+            var closeBracket = -1
+            var closeParen = -1
+            while (true) {
+                val cb = src.indexOf(']', attempt)
+                if (cb == -1 || cb + 1 >= src.length || src[cb + 1] != '(') break
+                var k = cb + 2
                 var depth = 0
-                var k = closeBracket + 2
                 while (k < src.length) {
                     when (src[k]) {
                         '\\' -> k++          // skip escaped char
@@ -764,18 +769,24 @@ private fun AnnotatedString.Builder.emitInline(
                     }
                     k++
                 }
-                closeParen = if (k < src.length) k else -1
-                if (closeParen != -1) {
-                    val linkText = src.substring(i + 1, closeBracket)
-                    val linkUrl = src.substring(closeBracket + 2, closeParen).trim()
-                    val url = resolver(linkUrl)
-                    if (url != null) {
-                        appendLink(linkText, url, classifyLink(url), linkColor, downloadColor, imageLinkColor, externalColor)
-                    } else {
-                        append(linkText)
-                    }
-                    i = closeParen + 1; continue
+                if (k >= src.length) break // unterminated destination
+                val linkText = src.substring(i + 1, cb)
+                if (linkText.count { it == '[' } == linkText.count { it == ']' }) {
+                    closeBracket = cb; closeParen = k
+                    break
                 }
+                attempt = cb + 1
+            }
+            if (closeBracket != -1) {
+                val linkText = src.substring(i + 1, closeBracket)
+                val linkUrl = stripLinkTitle(src.substring(closeBracket + 2, closeParen).trim())
+                val url = resolver(linkUrl)
+                if (url != null) {
+                    appendLink(linkText, url, classifyLink(url), linkColor, downloadColor, imageLinkColor, externalColor)
+                } else {
+                    append(linkText)
+                }
+                i = closeParen + 1; continue
             }
         }
         // Bare URL / www.* autolink

@@ -264,6 +264,60 @@ fun MarkdownText(
                     SimpleBlockquote(parts, mutedColor, onTap)
                 }
 
+                is MdBlock.QuoteBlocks -> {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                    ) {
+                        Box(
+                            Modifier
+                                .width(3.dp)
+                                .height(IntrinsicSize.Min)
+                                .fillMaxHeight()
+                                .background(mutedColor.copy(alpha = 0.6f), RoundedCornerShape(2.dp)),
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            block.blocks.forEach { sub ->
+                                when (sub) {
+                                    is MdBlock.Paragraph -> RichParagraph(
+                                        renderRichInline(sub.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor),
+                                        onTap,
+                                    )
+                                    is MdBlock.Heading -> RenderInlineParts(
+                                        renderRichInline(sub.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor),
+                                        MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                                        onTap,
+                                    )
+                                    is MdBlock.ListItem -> SimpleListItem(
+                                        if (sub.ordered) "${sub.index}. " else "• ",
+                                        renderRichInline(sub.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor),
+                                        (sub.level - 1) * 14,
+                                        onTap,
+                                    )
+                                    is MdBlock.CodeBlock -> Text(
+                                        sub.code,
+                                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                            .padding(8.dp),
+                                    )
+                                    is MdBlock.Blockquote -> RichParagraph(
+                                        renderRichInline(sub.text, linkResolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor),
+                                        onTap,
+                                    )
+                                    else -> {}
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                }
+
                 is MdBlock.ListItem -> {
                     val bullet = when {
                         block.ordered -> "${block.index}. "
@@ -501,6 +555,11 @@ internal sealed class MdBlock {
     data class Paragraph(val text: String) : MdBlock()
     data class CodeBlock(val code: String, val lang: String?) : MdBlock()
     data class Blockquote(val text: String) : MdBlock()
+    /**
+     * GFM blockquote whose body re-parses into real blocks (lists/headings/
+     * fences inside a quote). Simple quotes stay [Blockquote].
+     */
+    data class QuoteBlocks(val blocks: List<MdBlock>) : MdBlock()
     /** GFM alert (`> [!NOTE]` etc). kind: NOTE/TIP/IMPORTANT/WARNING/CAUTION. */
     data class Alert(val kind: String, val text: String) : MdBlock()
     /** `task`: null = not a task item; ' ' = unchecked; 'x' = checked. */

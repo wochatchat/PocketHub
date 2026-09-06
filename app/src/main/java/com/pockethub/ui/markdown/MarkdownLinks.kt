@@ -191,3 +191,8 @@ internal fun isBadgeUrl(url: String): Boolean {
 // [ \n ![alt](src) \n ](href) — produced by HTML <a><img></a> READMEs — matches.
 internal val WRAPPED_IMG_PATTERN = Regex("^\\[\\s*!\\[([^\\]]*)\\]\\(\\s*([^)]+?)\\s*\\)\\s*\\]\\(\\s*([^)]+?)\\s*\\)")
 internal val STANDALONE_IMG_PATTERN = Regex("^!\\[([^\\]]*)\\]\\(\\s*([^)]+?)\\s*\\)")
+
+/** Optional GFM destination title: `(src "tooltip")` / `(src 'tooltip')`. */
+private val LINK_TITLE_SUFFIX = Regex("\\s+[\"'][^\"']*[\"']\\s*$")
+
+internal fun stripLinkTitle(url: String): String = url.replace(LINK_TITLE_SUFFIX, "")
