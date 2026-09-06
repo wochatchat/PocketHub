@@ -1,29 +1,49 @@
 {
-  "version": "0.4.8",
+  "version": "0.4.10",
   "summary": {
-    "zh": "我与通知页面重构：底栏精简为发现、仓库、我，通知移至我的页面右上角；个人页工作台与快捷入口重新整理，并清理相关冗余代码。",
-    "en": "Refactor of the Profile and Notifications surfaces: the bottom bar is now Explore, Repositories, and Profile, notifications move to the Profile top bar, and related redundant code is removed."
+    "zh": "图片浏览器与关注功能大修：捏合缩放、全文档图片滑动浏览、组织账号识别、关注数据匿名回退与权限明确提示；构建产物下载后保持展开。",
+    "en": "Image viewer and follow overhaul: pinch zoom, swipe through every image in a document, organization badges, anonymous fallback for org-restricted follow data, explicit permission hints, and artifacts stay expanded after download."
   },
   "items": [
     {
       "type": "ui",
-      "zh": "界面：移除通知底部 tab，通知入口改为我的页面右上角铃铛，并保留独立通知页面的原有内容与深链。",
-      "en": "UI: removed the Notifications bottom tab and moved its entry to the Profile top-right bell while keeping the standalone page, content, and deep link."
+      "zh": "图片浏览器：任意时刻支持双指捏合缩放（无需先双击），放大后拖到边缘可翻到上/下一张，图片平移有边界；双击与单击行为不变。",
+      "en": "Image viewer: pinch zoom now works from 1x (no double-tap needed), dragging past an edge while zoomed flips to the previous/next image, and panning is clamped to the image bounds."
     },
     {
       "type": "ui",
-      "zh": "界面：我的页面移除仓库/动态分段区块，工作台下统一展示下载、离线仓库、浏览历史和设置；页面与工作台均支持合理滚动。",
-      "en": "UI: removed the Profile repos/activity segment and consolidated Downloads, Offline repositories, History, and Settings below the workbench with sensible page and workbench scrolling."
+      "zh": "图片浏览：issue、PR、评论、发布说明、文件查看里的所有图片自动组成图库，点开任意一张即可左右滑动浏览整篇文档的图片（此前仅 README 支持）。",
+      "en": "Image gallery: all images in issues, PRs, comments, release notes, and file views now form a swipeable gallery — previously only READMEs did."
+    },
+    {
+      "type": "feature",
+      "zh": "组织账号识别：个人主页显示组织徽章，组织页隐藏永远为空的关注中统计；关注者列表与关注操作对组织均有效。",
+      "en": "Organization accounts: a badge on the profile header, the permanently-empty following stat is hidden on org pages, and followers/follow work for orgs."
+    },
+    {
+      "type": "fix",
+      "zh": "关注数据修复：组织限制第三方应用时关注者/关注中列表改用匿名请求回退，不再误显示为空；关注状态检查同样回退。",
+      "en": "Follow data: when an organization restricts OAuth apps, the followers/following lists and the follow-state check now fall back to anonymous requests instead of reading as empty."
+    },
+    {
+      "type": "ui",
+      "zh": "权限提示：关注失败(404)区分凭证缺权限（提示重新登录）与组织限制（提示浏览器操作）；列表加载失败区分权限拒绝与网络问题并给出对应指引。",
+      "en": "Permission hints: follow 404s distinguish a token missing user:follow (re-login hint) from org restrictions (browser hint); list failures distinguish permission denial from network errors with matching guidance."
     },
     {
       "type": "navigation",
-      "zh": "导航：关注者和关注中沿用个人主页弹窗路径；仓库和已标星统计按钮直达首页仓库 tab 的对应子 tab。",
-      "en": "Navigation: Followers and Following reuse the profile popup flow; Repositories and Starred statistics jump to the matching Home repository sub-tab."
+      "zh": "我的页面：关注者/关注中统计按钮改为本页底部弹窗（与个人主页弹窗同款），不再跳转页面。",
+      "en": "Profile tab: the followers/following stat buttons open the same bottom sheet as the user-detail page in place, instead of navigating away."
     },
     {
-      "type": "cleanup",
-      "zh": "整理：删除个人页旧仓库分页/动态加载、设置页重复入口、重复首次加载、无效导航参数和通知页孤立代码；工作台请求增加时序保护。",
-      "en": "Cleanup: removed obsolete Profile repo/activity loading, duplicate Settings entry, duplicate initial loads, dead navigation parameters, and orphaned notification code; workbench requests now ignore stale responses."
+      "type": "fix",
+      "zh": "构建产物：下载并解压完成后产物卡片自动展开并保持展开，收起仍可手动操作。",
+      "en": "Artifacts: the artifact card auto-expands and stays expanded once its files are downloaded and extracted; collapsing remains manual."
+    },
+    {
+      "type": "fix",
+      "zh": "文本选择与页签指示器修复：分页滑动时清除选区、浮动复制工具栏跟随位置、选区在翻页间保持。",
+      "en": "Selection and tab indicator fixes: selection clears when swiping pages, the floating copy toolbar tracks its anchor, and pager tabs interpolate continuously."
     }
   ]
 }

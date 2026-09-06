@@ -33,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -130,7 +131,14 @@ private fun ArtifactCard(
     val art = ui.artifact
     val dl = ui.download
     val files = ui.extractedFiles
-    var expanded by remember(art.id) { mutableStateOf(files != null && files.isNotEmpty()) }
+    var expanded by remember(art.id) { mutableStateOf(false) }
+    // Auto-expand when the extracted files first land (download + extract
+    // finished) and KEEP it expanded afterwards — collapsing stays manual.
+    // remember(art.id) alone can't do this: its initializer runs while files
+    // is still null, so a completed download used to stay folded.
+    LaunchedEffect(files) {
+        if (!files.isNullOrEmpty()) expanded = true
+    }
     val context = LocalContext.current
     val expiredLabel = stringResource(R.string.workflow_artifacts_expired)
 
