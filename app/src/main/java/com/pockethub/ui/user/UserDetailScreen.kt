@@ -109,6 +109,7 @@ fun UserDetailScreen(
     val isOrganization by vm.isOrganization.collectAsState()
     val followActionMessage by vm.followMessage.collectAsState()
     val followListsFailed by vm.followListsFailed.collectAsState()
+    val followListsError by vm.followListsError.collectAsState()
     val followActionInProgress by vm.followActionInProgress.collectAsState()
     val followers by vm.followers.collectAsState()
     val followingList by vm.followingList.collectAsState()
@@ -315,6 +316,7 @@ fun UserDetailScreen(
                 following = followingList,
                 isLoading = isLoadingFollowLists,
                 failed = followListsFailed,
+                errorDetail = followListsError,
                 onRetry = { vm.loadFollowLists() },
                 onUserClick = { userLogin ->
                     followSheetTab = -1
@@ -331,15 +333,17 @@ fun UserDetailScreen(
 
 /**
  * Bottom-sheet content: a segmented followers/following switcher and the user list.
+ * Shared by UserDetailScreen and ProfileScreen (我页统计 → 本地弹窗，不跳转).
  */
 @Composable
-private fun FollowListSheet(
+internal fun FollowListSheet(
     selectedTab: Int,
     onTabChange: (Int) -> Unit,
     followers: List<com.pockethub.data.model.User>,
     following: List<com.pockethub.data.model.User>,
     isLoading: Boolean,
     failed: Boolean = false,
+    errorDetail: String? = null,
     onRetry: () -> Unit = {},
     onUserClick: (String) -> Unit,
 ) {
@@ -376,6 +380,17 @@ private fun FollowListSheet(
                         stringResource(R.string.follow_list_load_failed),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (!errorDetail.isNullOrBlank()) {
+                        Text(
+                            errorDetail,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(horizontal = 24.dp),
+                        )
+                    }
                     TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
                 }
             }

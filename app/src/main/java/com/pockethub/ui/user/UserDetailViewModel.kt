@@ -22,6 +22,7 @@ class UserDetailViewModel @Inject constructor(
     private val issueReporter: com.pockethub.data.reporting.IssueReporter,
     private val api: GitHubApi,
     private val cache: CachedRepository,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val appContext: android.content.Context,
 ) : ViewModel() {
 
     private val _user = MutableStateFlow<User?>(null)
@@ -74,6 +75,10 @@ class UserDetailViewModel @Inject constructor(
     /** True when the last follow-lists load failed — the sheet shows retry. */
     private val _followListsFailed = MutableStateFlow(false)
     val followListsFailed: StateFlow<Boolean> = _followListsFailed
+
+    /** Human-readable reason for the last follow-lists load failure. */
+    private val _followListsError = MutableStateFlow<String?>(null)
+    val followListsError: StateFlow<String?> = _followListsError
 
     fun consumeFollowMessage() {
         _followMessage.update { null }
@@ -161,9 +166,16 @@ class UserDetailViewModel @Inject constructor(
                         u?.copy(followers = (u.followers ?: 0) + if (currentlyFollowing) -1 else 1)
                     }
                 } else {
-                    // Surface the failure — a silent no-op reads as "follow is broken".
+                    // 404 here almost always means the token predates the
+                    // user:follow scope (GitHub answers scope-missing follow
+                    // calls with 404, not 403) — point at re-login instead of
+                    // a bare HTTP code.
                     _followMessage.update {
-                        "HTTP ${resp.code()}: ${resp.message()}"
+                        if (resp.code() == 404) {
+                            appContext.getString(com.pockethub.R.string.follow_needs_relogin)
+                        } else {
+                            "HTTP ${resp.code()}: ${resp.message()}"
+                        }
                     }
                 }
             } catch (e: IOException) {
@@ -205,6 +217,7 @@ class UserDetailViewModel @Inject constructor(
                     issueReporter.reportError("UserDetail", "loadFollowLists", e)
                 }
                 _followListsFailed.update { firstError != null }
+                _followListsError.update { firstError?.userMessage("Couldn't load follow lists") }
             } finally {
                 _isLoadingFollowLists.update { false }
             }
