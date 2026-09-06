@@ -317,14 +317,50 @@ fun PagerAwareSelectionContainer(
     val movable = androidx.compose.runtime.remember {
         androidx.compose.runtime.movableContentOf { currentContent() }
     }
+    // The platform floating text toolbar (FloatingActionMode) only takes a
+    // position when CREATED — Compose's SelectionManager re-shows it with
+    // actionMode.invalidate(), which refreshes the menu but NOT the position,
+    // so the toolbar stays wherever the PREVIOUS selection put it
+    // (probabilistic drift). Wrap the default toolbar: force a hide() before
+    // every showMenu so a fresh ActionMode — and position — is created each
+    // time.
+    val defaultToolbar = androidx.compose.ui.platform.LocalTextToolbar.current
+    val repositioningToolbar = androidx.compose.runtime.remember(defaultToolbar) {
+        RepositioningTextToolbar(defaultToolbar)
+    }
+    val provided = androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.ui.platform.LocalTextToolbar provides repositioningToolbar,
+    )
     if (active) {
         androidx.compose.foundation.text.selection.SelectionContainer(modifier = modifier) {
-            movable()
+            provided { movable() }
         }
     } else {
         // Page swiped away: no container → selection + toolbar discarded.
-        androidx.compose.foundation.layout.Box(modifier) { movable() }
+        androidx.compose.foundation.layout.Box(modifier) { provided { movable() } }
     }
+}
+
+/** [TextToolbar] wrapper that re-creates the platform menu on every show —
+ *  see the comment in [PagerAwareSelectionContainer]. */
+private class RepositioningTextToolbar(
+    private val inner: androidx.compose.ui.platform.TextToolbar,
+) : androidx.compose.ui.platform.TextToolbar {
+    override val status: androidx.compose.ui.platform.TextToolbarStatus
+        get() = inner.status
+
+    override fun showMenu(
+        rect: androidx.compose.ui.geometry.Rect,
+        onCopyRequested: (() -> Unit)?,
+        onPasteRequested: (() -> Unit)?,
+        onCutRequested: (() -> Unit)?,
+        onSelectAllRequested: (() -> Unit)?,
+    ) {
+        if (inner.status == androidx.compose.ui.platform.TextToolbarStatus.Shown) inner.hide()
+        inner.showMenu(rect, onCopyRequested, onPasteRequested, onCutRequested, onSelectAllRequested)
+    }
+
+    override fun hide() = inner.hide()
 }
 
 /** Minimal GFM alert card ([!NOTE] etc.) — accent-colored left rule + label. */
