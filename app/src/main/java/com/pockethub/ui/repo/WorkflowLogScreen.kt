@@ -497,12 +497,15 @@ private fun LogLine(text: String, query: String?, isCurrentMatch: Boolean) {
             }
         }
     }
-    Text(
-        annotated,
-        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp),
-        color = MaterialTheme.colorScheme.onSurface,
-        softWrap = true,
-        modifier = Modifier
+    // Long-press to copy the line — logs are the most-copied content in the app.
+    // Selection clears when the host pager page is swiped away.
+    com.pockethub.ui.markdown.PagerAwareSelectionContainer {
+        Text(
+            annotated,
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp),
+            color = MaterialTheme.colorScheme.onSurface,
+            softWrap = true,
+            modifier = Modifier
             .fillMaxWidth()
             .background(
                 when {
@@ -512,7 +515,8 @@ private fun LogLine(text: String, query: String?, isCurrentMatch: Boolean) {
                 }
             )
             .padding(horizontal = 10.dp),
-    )
+        )
+    }
 }
 
 @Composable

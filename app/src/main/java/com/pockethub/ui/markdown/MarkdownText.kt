@@ -169,7 +169,18 @@ fun MarkdownText(
             }
         }
     }
-    Column(modifier = modifier) {
+    // Long-press to select & copy any rendered markdown text (README,
+    // issue/PR bodies, comments). NOTE: SelectionContainer is itself a Box
+    // layout — it must wrap the Column as its SINGLE child. Wrapping the
+    // multi-block forEach directly stacked every paragraph at the same
+    // origin (the "ghosted text" regression).
+    //
+    // When the host screen lives in a pager, LocalPagerPageActive flips
+    // false as the user swipes away: the selection (and floating copy
+    // toolbar) is cleared — the old page stays composed under
+    // beyondViewportPageCount>0.
+    PagerAwareSelectionContainer(modifier = modifier) {
+    Column {
         parsed.error?.let { MarkdownErrorBox(it) }
         parsed.blocks.forEach { (block, parts) ->
             when (block) {
@@ -271,6 +282,88 @@ fun MarkdownText(
             }
         }
     }
+    } // SelectionContainer
+}
+
+/**
+ * True when the composable's pager page is the CURRENT page. Provided by
+ * pager-based screens (repo detail tabs); defaults to true for standalone
+ * usage outside a pager. SelectionContainer reads it to clear the active
+ * selection (and dismiss the floating copy toolbar) when the user swipes
+ * away — with beyondViewportPageCount>0 the old page stays composed and
+ * would otherwise keep the toolbar on screen.
+ */
+val LocalPagerPageActive = androidx.compose.runtime.compositionLocalOf { true }
+
+/**
+ * SelectionContainer that drops its selection when [LocalPagerPageActive]
+ * turns false (the host pager page was swiped away).
+ *
+ * This Compose version exposes only `SelectionContainer(modifier)` — the
+ * selection-hoisting overload is internal, so there is no API to clear a
+ * selection. Instead the container LEAVES COMPOSITION while the page is not
+ * current (a plain Box keeps rendering the content), which discards the
+ * selection state and the floating copy toolbar. Content state survives the
+ * switch via [movableContentOf] (e.g. the markdown document's produceState
+ * would otherwise re-parse on every activation).
+ */
+@Composable
+fun PagerAwareSelectionContainer(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val active = LocalPagerPageActive.current
+    val currentContent by androidx.compose.runtime.rememberUpdatedState(content)
+    val movable = androidx.compose.runtime.remember {
+        androidx.compose.runtime.movableContentOf { currentContent() }
+    }
+    // The platform floating text toolbar (FloatingActionMode) only takes a
+    // position when CREATED — Compose's SelectionManager re-shows it with
+    // actionMode.invalidate(), which refreshes the menu but NOT the position,
+    // so the toolbar stays wherever the PREVIOUS selection put it
+    // (probabilistic drift). Wrap the default toolbar: force a hide() before
+    // every showMenu so a fresh ActionMode — and position — is created each
+    // time.
+    val defaultToolbar = androidx.compose.ui.platform.LocalTextToolbar.current
+    val repositioningToolbar = androidx.compose.runtime.remember(defaultToolbar) {
+        RepositioningTextToolbar(defaultToolbar)
+    }
+    if (active) {
+        androidx.compose.foundation.text.selection.SelectionContainer(modifier = modifier) {
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.ui.platform.LocalTextToolbar provides repositioningToolbar,
+            ) { movable() }
+        }
+    } else {
+        // Page swiped away: no container → selection + toolbar discarded.
+        androidx.compose.foundation.layout.Box(modifier) {
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.ui.platform.LocalTextToolbar provides repositioningToolbar,
+            ) { movable() }
+        }
+    }
+}
+
+/** [TextToolbar] wrapper that re-creates the platform menu on every show —
+ *  see the comment in [PagerAwareSelectionContainer]. */
+private class RepositioningTextToolbar(
+    private val inner: androidx.compose.ui.platform.TextToolbar,
+) : androidx.compose.ui.platform.TextToolbar {
+    override val status: androidx.compose.ui.platform.TextToolbarStatus
+        get() = inner.status
+
+    override fun showMenu(
+        rect: androidx.compose.ui.geometry.Rect,
+        onCopyRequested: (() -> Unit)?,
+        onPasteRequested: (() -> Unit)?,
+        onCutRequested: (() -> Unit)?,
+        onSelectAllRequested: (() -> Unit)?,
+    ) {
+        if (inner.status == androidx.compose.ui.platform.TextToolbarStatus.Shown) inner.hide()
+        inner.showMenu(rect, onCopyRequested, onPasteRequested, onCutRequested, onSelectAllRequested)
+    }
+
+    override fun hide() = inner.hide()
 }
 
 /** Minimal GFM alert card ([!NOTE] etc.) — accent-colored left rule + label. */

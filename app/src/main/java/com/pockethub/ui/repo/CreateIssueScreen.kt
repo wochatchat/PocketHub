@@ -195,7 +195,7 @@ private fun TemplateChooser(
             )
         }
         // YAML issue forms first
-        items(forms) { f ->
+        items(forms, key = { it.name ?: it.description ?: "?" }) { f ->
             TemplateCard(
                 name = f.name ?: f.description ?: stringResource(R.string.issue_form_fallback_name),
                 about = f.description ?: "",

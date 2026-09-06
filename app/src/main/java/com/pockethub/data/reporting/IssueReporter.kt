@@ -64,6 +64,8 @@ class IssueReporter @Inject constructor(
 
     private fun breadcrumbsSnapshot(): String = breadcrumbs.joinToString("\n")
     private val watchDogRunning = AtomicBoolean(false)
+    /** Current main-thread heartbeat runnable; null once the watchdog stops. */
+    @Volatile private var anrTicker: Runnable? = null
     private val heartbeatMs = AtomicLong(System.currentTimeMillis())
     private val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US)
 
@@ -221,38 +223,50 @@ class IssueReporter @Inject constructor(
         // emit an ANR event.
         val mainThread = Looper.getMainLooper().thread
         reporterScope.launch {
-            // Heartbeat ticker on the main thread.
+            // Heartbeat ticker on the main thread. Re-posts itself ONLY while
+            // [anrTicker] still points at it — a cancelled watchdog coroutine
+            // stops the chain instead of leaving a runnable waking the main
+            // thread every 2s for the rest of the process (idle battery drain).
             val ticker = object : Runnable {
                 override fun run() {
                     heartbeatMs.set(System.currentTimeMillis())
-                    mainThreadHandler.postDelayed(this, HEARTBEAT_TICK_MS)
+                    anrTicker?.let { mainThreadHandler.postDelayed(it, HEARTBEAT_TICK_MS) }
                 }
             }
+            anrTicker = ticker
             mainThreadHandler.postDelayed(ticker, HEARTBEAT_TICK_MS)
-            while (true) {
-                kotlinx.coroutines.delay(HEARTBEAT_TICK_MS)
-                val last = heartbeatMs.get()
-                val lag = System.currentTimeMillis() - last
-                if (lag > ANR_THRESHOLD_MS) {
-                    // Build a synthetic stack trace of the main thread for diagnostics.
-                    val mainStack = mainThread.stackTrace
-                        .joinToString("\n")
-                        .take(MAX_STACK)
-                    report(
-                        kind = IssueKind.ANR,
-                        subject = "Main thread blocked for ${lag}ms (threshold ${ANR_THRESHOLD_MS}ms)",
-                        stackTrace = mainStack,
-                        threadName = mainThread.name,
-                        extra = mapOf(
-                            "threadState" to mainThread.state.name,
-                            "lagMs" to lag.toString(),
-                            BKEY_BREADCRUMBS to breadcrumbsSnapshot(),
-                        ),
-                    )
-                    // Back-off so we don't emit a flood of dupes for the same stall.
-                    kotlinx.coroutines.delay(ANR_COOLDOWN_MS)
-                    heartbeatMs.set(System.currentTimeMillis())
+            try {
+                while (true) {
+                    kotlinx.coroutines.delay(HEARTBEAT_TICK_MS)
+                    val last = heartbeatMs.get()
+                    val lag = System.currentTimeMillis() - last
+                    if (lag > ANR_THRESHOLD_MS) {
+                        // Build a synthetic stack trace of the main thread for diagnostics.
+                        val mainStack = mainThread.stackTrace
+                            .joinToString("\n")
+                            .take(MAX_STACK)
+                        report(
+                            kind = IssueKind.ANR,
+                            subject = "Main thread blocked for ${lag}ms (threshold ${ANR_THRESHOLD_MS}ms)",
+                            stackTrace = mainStack,
+                            threadName = mainThread.name,
+                            extra = mapOf(
+                                "threadState" to mainThread.state.name,
+                                "lagMs" to lag.toString(),
+                                BKEY_BREADCRUMBS to breadcrumbsSnapshot(),
+                            ),
+                        )
+                        // Back-off so we don't emit a flood of dupes for the same stall.
+                        kotlinx.coroutines.delay(ANR_COOLDOWN_MS)
+                        heartbeatMs.set(System.currentTimeMillis())
+                    }
                 }
+            } finally {
+                // Watchdog shut down (scope cancelled): stop the main-thread
+                // heartbeat chain and allow a future reinstall.
+                anrTicker = null
+                mainThreadHandler.removeCallbacks(ticker)
+                watchDogRunning.set(false)
             }
         }
     }
@@ -261,22 +275,34 @@ class IssueReporter @Inject constructor(
         android.os.Handler(Looper.getMainLooper())
     }
 
-    /** Drop pre-policy `error` entries so the digest is crash/ANR-only. */
+    /**
+     * Drop pre-policy `error` entries so the digest is crash/ANR-only.
+     *
+     * Runs ONCE per install (flag in SharedPreferences): without the gate,
+     * every process start wiped ALL `error` entries — including severe ones
+     * written by the previous session via [reportError] — so a severe error
+     * never survived a restart (issue #13 regression window).
+     */
     private fun pruneLegacyErrors() {
+        val prefs = context.getSharedPreferences("issue_reporter", Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_LEGACY_ERRORS_PRUNED, false)) return
         reporterScope.launch {
             runCatching {
                 mutex.withLock {
-                    if (!logFile.exists()) return@withLock
-                    val lines = logFile.readLines()
-                    val kept = lines.filter { line ->
-                        line.isBlank() || runCatching {
-                            JSONObject(line).optString("kind") != IssueKind.ERROR.id
-                        }.getOrDefault(true)
+                    if (logFile.exists()) {
+                        val lines = logFile.readLines()
+                        val kept = lines.filter { line ->
+                            line.isBlank() || runCatching {
+                                JSONObject(line).optString("kind") != IssueKind.ERROR.id
+                            }.getOrDefault(true)
+                        }
+                        when {
+                            kept.isEmpty() -> logFile.delete()
+                            kept.size != lines.size -> logFile.writeText(kept.joinToString("\n") + "\n")
+                        }
                     }
-                    when {
-                        kept.isEmpty() -> logFile.delete()
-                        kept.size != lines.size -> logFile.writeText(kept.joinToString("\n") + "\n")
-                    }
+                    // Set only after a successful pass — a crashed prune retries next start.
+                    prefs.edit().putBoolean(KEY_LEGACY_ERRORS_PRUNED, true).apply()
                 }
             }
         }
@@ -329,6 +355,7 @@ class IssueReporter @Inject constructor(
         private const val HEARTBEAT_TICK_MS = 2_000L
         private const val ANR_THRESHOLD_MS = 5_000L
         private const val ANR_COOLDOWN_MS = 15_000L
+        private const val KEY_LEGACY_ERRORS_PRUNED = "legacy_errors_pruned"
     }
 }
 

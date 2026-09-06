@@ -599,6 +599,9 @@ internal fun SyntaxHighlightedCode(
         lineHeight = 18.sp,
     )
 
+    // Long-press to select & copy code (gutter excluded — it's not source).
+    // Selection clears when the host pager page is swiped away.
+    com.pockethub.ui.markdown.PagerAwareSelectionContainer {
     Row(modifier.verticalScroll(vScroll)) {
         // Line-number gutter — one Text so line heights always match the code body.
         Text(
@@ -621,6 +624,7 @@ internal fun SyntaxHighlightedCode(
                 .horizontalScroll(hScroll),
             softWrap = false,
         )
+    }
     }
 }
 

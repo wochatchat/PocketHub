@@ -117,7 +117,7 @@ fun ReposScreen(
         // support type/visibility filters).
         if (tab == ReposTab.MINE) {
             LazyRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(FILTERS.size) { idx ->
+                items(FILTERS.size, key = { FILTERS[it] }) { idx ->
                     FilterChip(
                         selected = filter == FILTERS[idx],
                         onClick = { vm.setFilter(FILTERS[idx]) },

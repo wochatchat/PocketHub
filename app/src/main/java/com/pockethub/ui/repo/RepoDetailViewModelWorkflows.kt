@@ -87,6 +87,7 @@ internal fun RepoDetailViewModel.dispatchWorkflow(owner: String, repo: String, w
         try {
             val resp = api.dispatchWorkflow(owner, repo, workflowId, GitHubApi.WorkflowDispatchRequest(ref = ref))
             if (resp.isSuccessful) {
+                _dispatchSuccessTick.update { it + 1 }
                 _dispatchMessage.update { "Triggered: a new run will appear shortly" }
             } else {
                 val err = resp.errorBody()?.string()

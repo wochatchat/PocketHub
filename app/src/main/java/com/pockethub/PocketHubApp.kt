@@ -27,6 +27,7 @@ class PocketHubApp : Application(), Configuration.Provider {
     @Inject lateinit var workerFactory: HiltWorkerFactory
     @Inject lateinit var issueReporter: IssueReporter
     @Inject lateinit var issueReportScheduler: IssueReportScheduler
+    @Inject lateinit var cacheDao: com.pockethub.data.local.CacheDao
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -42,5 +43,12 @@ class PocketHubApp : Application(), Configuration.Provider {
         issueReporter.install()
         // Reschedule issue report work from persisted settings.
         appScope.launch { issueReportScheduler.rescheduleFromSettings() }
+        // Startup housekeeping: the API-response cache had no eviction path and
+        // grew unbounded — drop entries older than 7 days on each launch.
+        appScope.launch {
+            runCatching {
+                cacheDao.evictOlderThan(System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000)
+            }
+        }
     }
 }

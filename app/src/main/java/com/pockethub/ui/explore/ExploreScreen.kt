@@ -266,7 +266,7 @@ fun ExploreScreen(
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                items(KOMI_DISCOVER_PLATFORMS) { platform ->
+                                items(KOMI_DISCOVER_PLATFORMS, key = { it }) { platform ->
                                     FilterChip(
                                         selected = komiPlatform == platform,
                                         onClick = { vm.setKomiFilters(komiCategory, platform) },
@@ -287,7 +287,7 @@ fun ExploreScreen(
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                items(KOMI_CATEGORIES) { category ->
+                                items(KOMI_CATEGORIES, key = { it }) { category ->
                                     FilterChip(
                                         selected = komiCategory == category,
                                         onClick = { vm.setKomiFilters(category, komiPlatform) },
@@ -306,7 +306,7 @@ fun ExploreScreen(
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                items(KOMI_PLATFORMS) { platform ->
+                                items(KOMI_PLATFORMS, key = { it }) { platform ->
                                     FilterChip(
                                         selected = komiPlatform == platform,
                                         onClick = { vm.setKomiFilters(komiCategory, platform) },
@@ -327,7 +327,7 @@ fun ExploreScreen(
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                items(LANGUAGES) { lang ->
+                                items(LANGUAGES, key = { it }) { lang ->
                                     FilterChip(
                                         selected = selectedLang == lang,
                                         onClick = { vm.setTrendingFilters(lang, selectedRange) },
@@ -346,7 +346,7 @@ fun ExploreScreen(
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                items(TIME_RANGES) { range ->
+                                items(TIME_RANGES, key = { it }) { range ->
                                     FilterChip(
                                         selected = selectedRange == range,
                                         onClick = { vm.setTrendingFilters(selectedLang, range) },
