@@ -50,13 +50,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -97,6 +103,15 @@ fun ProfileScreen(
     val workItems by vm.workItems.collectAsState()
     val isLoadingWork by vm.isLoadingWork.collectAsState()
     val workError by vm.workError.collectAsState()
+
+    // Followers / following bottom sheet — the stats row opens it in place
+    // (same style as the user-detail sheet) instead of navigating away.
+    // 0 = followers, 1 = following, -1 = hidden.
+    var followSheetTab by rememberSaveable { mutableIntStateOf(-1) }
+    val followers by vm.followers.collectAsState()
+    val followingList by vm.followingList.collectAsState()
+    val isLoadingFollowLists by vm.isLoadingFollowLists.collectAsState()
+    val followListsFailed by vm.followListsFailed.collectAsState()
 
     // Unread badge for the top-right bell. When embedded in the home shell this
     // resolves to the same NotificationsViewModel the shell holds (same nav
@@ -157,8 +172,8 @@ fun ProfileScreen(
                     StatsRow(
                         user,
                         starredTotal,
-                        onFollowersClick = { user?.login?.let { onNavigateToUser(it, 0) } },
-                        onFollowingClick = { user?.login?.let { onNavigateToUser(it, 1) } },
+                        onFollowersClick = { followSheetTab = 0 },
+                        onFollowingClick = { followSheetTab = 1 },
                         onReposClick = { onNavigateToReposTab(ReposTab.MINE) },
                         onStarredClick = { onNavigateToReposTab(ReposTab.STARRED) },
                     )
@@ -186,6 +201,33 @@ fun ProfileScreen(
                 item { AdditionalInfo(user) }
                 item { Spacer(Modifier.height(24.dp)) }
             }
+        }
+    }
+
+    // Load the lists lazily when the sheet opens.
+    LaunchedEffect(followSheetTab) {
+        if (followSheetTab >= 0) vm.loadFollowLists()
+    }
+
+    // Followers / following sheet — identical content to the user-detail one.
+    if (followSheetTab >= 0) {
+        ModalBottomSheet(
+            onDismissRequest = { followSheetTab = -1 },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
+            com.pockethub.ui.user.FollowListSheet(
+                selectedTab = followSheetTab,
+                onTabChange = { followSheetTab = it },
+                followers = followers,
+                following = followingList,
+                isLoading = isLoadingFollowLists,
+                failed = followListsFailed,
+                onRetry = { vm.loadFollowLists() },
+                onUserClick = { userLogin ->
+                    followSheetTab = -1
+                    onNavigateToUserDetail(userLogin)
+                },
+            )
         }
     }
 }

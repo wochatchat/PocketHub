@@ -145,7 +145,11 @@ class LoginViewModel @Inject constructor(
                 val state = newOAuthState()
                 oauthState = state
                 settings.setPendingOAuthState(state)
-                val scope = "repo read:user user:email read:org read:notifications"
+                // user:follow is REQUIRED for GET/PUT/DELETE user/following/* —
+                // GitHub answers those with 404 (not 403) when the token lacks
+                // it, which read as "follow is broken". NOTE: existing tokens
+                // keep their old scopes; users must sign in again to gain it.
+                val scope = "repo read:user user:email read:org read:notifications user:follow"
                 val encodedScope = java.net.URLEncoder.encode(scope, "UTF-8")
                 val encodedState = java.net.URLEncoder.encode(state, "UTF-8")
                 val customId = settings.customClientId.first()

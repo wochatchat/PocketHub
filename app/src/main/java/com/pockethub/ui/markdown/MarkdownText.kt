@@ -93,30 +93,6 @@ fun MarkdownText(
     val uriHandler = LocalUriHandler.current
     val imagePreviewer = com.pockethub.ui.components.LocalImagePreviewer.current
 
-    val onTap: (String, LinkKind) -> Unit = { url, kind ->
-        when {
-            // Image links: prefer the in-app zoomable preview if the host screen has
-            // registered one. Markdown README / issue / PR bodies carry screenshots /
-            // diagrams which the web UI opens inline; routing them to the browser is
-            // a worse experience, so we hijack the tap here. We only hijack when the
-            // image pointer is the link target (wrapUrl set to the image itself, or the
-            // inline image src with no wrapping link) — keeping wrapped-link cases
-            // (an image wrapped around a click to another URL) routed through onLinkClick.
-            (kind == LinkKind.IMAGE_URL || kind == LinkKind.IMAGE) && imagePreviewer != null -> {
-                // Open the preview positioned at the tapped image, with the rest
-                // of the document's images swipeable (single-image fallback).
-                val idx = imageGallery.indexOf(url)
-                if (idx >= 0) {
-                    imagePreviewer(imageGallery, idx)
-                } else {
-                    imagePreviewer(listOf(url), 0)
-                }
-            }
-            onLinkClick != null -> onLinkClick(url, kind)
-            else -> uriHandler.openUri(url)
-        }
-    }
-
     // Parse OFF the main thread: large documents (600KB+ awesome-lists) take
     // seconds-to-minutes synchronously and would ANR the Overview tab. Also
     // cap the input so pathological docs stay renderable.
@@ -169,6 +145,44 @@ fun MarkdownText(
             }
         }
     }
+    // Gallery of EVERY image in the parsed document, in render order. The srcs
+    // come from the same inline pass that renders them (already resolved to
+    // absolute URLs), so the tapped URL always matches an entry — and every
+    // host screen (README, issues, PRs, comments, releases, file viewer) gets
+    // ViewPager-style swiping between a document's images without having to
+    // pass a gallery explicitly. A caller-supplied [imageGallery] still wins.
+    val effectiveGallery: List<String> = if (imageGallery.isNotEmpty()) imageGallery else {
+        val seen = LinkedHashSet<String>()
+        for ((_, parts) in parsed.blocks) {
+            for (part in parts) if (part is InlineToken.Image) seen.add(part.src)
+        }
+        seen.toList()
+    }
+
+    val onTap: (String, LinkKind) -> Unit = { url, kind ->
+        when {
+            // Image links: prefer the in-app zoomable preview if the host screen has
+            // registered one. Markdown README / issue / PR bodies carry screenshots /
+            // diagrams which the web UI opens inline; routing them to the browser is
+            // a worse experience, so we hijack the tap here. We only hijack when the
+            // image pointer is the link target (wrapUrl set to the image itself, or the
+            // inline image src with no wrapping link) — keeping wrapped-link cases
+            // (an image wrapped around a click to another URL) routed through onLinkClick.
+            (kind == LinkKind.IMAGE_URL || kind == LinkKind.IMAGE) && imagePreviewer != null -> {
+                // Open the preview positioned at the tapped image, with the rest
+                // of the document's images swipeable (single-image fallback).
+                val idx = effectiveGallery.indexOf(url)
+                if (idx >= 0) {
+                    imagePreviewer(effectiveGallery, idx)
+                } else {
+                    imagePreviewer(listOf(url), 0)
+                }
+            }
+            onLinkClick != null -> onLinkClick(url, kind)
+            else -> uriHandler.openUri(url)
+        }
+    }
+
     // Long-press to select & copy any rendered markdown text (README,
     // issue/PR bodies, comments). NOTE: SelectionContainer is itself a Box
     // layout — it must wrap the Column as its SINGLE child. Wrapping the
