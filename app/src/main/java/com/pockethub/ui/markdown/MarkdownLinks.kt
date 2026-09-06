@@ -182,8 +182,18 @@ internal fun isAvatarUrl(url: String): Boolean {
         u.contains("github.com/ghost.png")
 }
 
-/** Heuristic: does this URL look like a tiny status badge (shields.io, CI, etc.)? */
-internal fun isBadgeUrl(url: String): Boolean {
+/**
+ * Contributor-wall services render a grid of MANY avatars as ONE image
+ * (contrib.rocks serves an 812×608 SVG for ~150 contributors). GitHub shows
+ * them at full column width; the generic "square-ish large logo ≤200dp" cap
+ * made them a small centered island with huge margins.
+ */
+internal fun isContributorWallUrl(url: String): Boolean {
+    val u = url.lowercase()
+    return u.contains("contrib.rocks") || u.contains("contributors-img") || u.contains("contrib.nnz.fun")
+}
+
+/** Heuristic: does this URL look like a tiny status badge (shields.io, CI, etc.)? */internal fun isBadgeUrl(url: String): Boolean {
     val u = url.lowercase()
     if (u.contains("img.shields.io") || u.contains("shields.io")) return true
     if (u.contains("badge.fury.io")) return true
