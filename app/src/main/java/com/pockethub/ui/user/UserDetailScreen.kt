@@ -106,6 +106,10 @@ fun UserDetailScreen(
     val error by vm.error.collectAsState()
     val isFollowing by vm.isFollowing.collectAsState()
     val isSelf by vm.isSelf.collectAsState()
+    val isOrganization by vm.isOrganization.collectAsState()
+    val followActionMessage by vm.followMessage.collectAsState()
+    val followListsFailed by vm.followListsFailed.collectAsState()
+    val followListsError by vm.followListsError.collectAsState()
     val followActionInProgress by vm.followActionInProgress.collectAsState()
     val followers by vm.followers.collectAsState()
     val followingList by vm.followingList.collectAsState()
@@ -116,6 +120,15 @@ fun UserDetailScreen(
     var followSheetTab by remember { mutableIntStateOf(initialFollowTab) }
 
     LaunchedEffect(login) { vm.loadUser(login) }
+
+    // Follow / follow-list failures were previously swallowed silently, which
+    // read as "the follow button is broken" on flaky networks. Show a toast.
+    LaunchedEffect(followActionMessage) {
+        followActionMessage?.let {
+            android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show()
+            vm.consumeFollowMessage()
+        }
+    }
 
     // Load follow lists lazily when the sheet opens.
     LaunchedEffect(followSheetTab) {
@@ -176,6 +189,7 @@ fun UserDetailScreen(
                 UserHeader(
                     user = user,
                     isSelf = isSelf,
+                    isOrganization = isOrganization,
                     isFollowing = isFollowing,
                     followInProgress = followActionInProgress,
                     onToggleFollow = { vm.toggleFollow() },
@@ -186,6 +200,7 @@ fun UserDetailScreen(
             item {
                 UserStatsRow(
                     user = user,
+                    isOrganization = isOrganization,
                     onFollowersClick = { followSheetTab = 0 },
                     onFollowingClick = { followSheetTab = 1 },
                 )
@@ -300,6 +315,9 @@ fun UserDetailScreen(
                 followers = followers,
                 following = followingList,
                 isLoading = isLoadingFollowLists,
+                failed = followListsFailed,
+                errorDetail = followListsError,
+                onRetry = { vm.loadFollowLists() },
                 onUserClick = { userLogin ->
                     followSheetTab = -1
                     if (userLogin.equals(login, ignoreCase = true)) {
@@ -315,14 +333,18 @@ fun UserDetailScreen(
 
 /**
  * Bottom-sheet content: a segmented followers/following switcher and the user list.
+ * Shared by UserDetailScreen and ProfileScreen (我页统计 → 本地弹窗，不跳转).
  */
 @Composable
-private fun FollowListSheet(
+internal fun FollowListSheet(
     selectedTab: Int,
     onTabChange: (Int) -> Unit,
     followers: List<com.pockethub.data.model.User>,
     following: List<com.pockethub.data.model.User>,
     isLoading: Boolean,
+    failed: Boolean = false,
+    errorDetail: String? = null,
+    onRetry: () -> Unit = {},
     onUserClick: (String) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
@@ -346,6 +368,31 @@ private fun FollowListSheet(
         when {
             isLoading -> Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
+            }
+            // Distinguish "network failed" from "genuinely empty" — previously a
+            // failed load showed the same 还没有粉丝 copy as an empty list.
+            failed && list.isEmpty() -> Box(
+                Modifier.fillMaxWidth().height(200.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        stringResource(R.string.follow_list_load_failed),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (!errorDetail.isNullOrBlank()) {
+                        Text(
+                            errorDetail,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(horizontal = 24.dp),
+                        )
+                    }
+                    TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
+                }
             }
             list.isEmpty() -> Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
                 Text(
@@ -377,6 +424,7 @@ private fun FollowListSheet(
 private fun UserHeader(
     user: User?,
     isSelf: Boolean = true,
+    isOrganization: Boolean = false,
     isFollowing: Boolean = false,
     followInProgress: Boolean = false,
     onToggleFollow: () -> Unit = {},
@@ -419,6 +467,31 @@ private fun UserHeader(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            // Account type badge: organizations look like users otherwise, and
+            // org pages have no follow button — make the distinction explicit.
+            if (isOrganization) {
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Outlined.Apartment,
+                        contentDescription = null,
+                        modifier = Modifier.size(13.dp),
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                    Spacer(Modifier.width(5.dp))
+                    Text(
+                        stringResource(R.string.user_type_organization),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                }
+            }
             if (!user?.bio.isNullOrBlank()) {
                 Spacer(Modifier.height(10.dp))
                 Text(
@@ -430,7 +503,9 @@ private fun UserHeader(
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
             }
-            // Follow / unfollow button — hidden on your own profile.
+            // Follow / unfollow button — hidden on your own profile. Orgs keep
+            // it too: GitHub supports following organizations (PUT + check both
+            // verified working), the button just used to fail silently offline.
             if (!isSelf && user != null) {
                 Spacer(Modifier.height(14.dp))
                 Button(
@@ -459,6 +534,7 @@ private fun UserHeader(
 @Composable
 private fun UserStatsRow(
     user: User?,
+    isOrganization: Boolean = false,
     onFollowersClick: () -> Unit = {},
     onFollowingClick: () -> Unit = {},
 ) {
@@ -467,7 +543,11 @@ private fun UserStatsRow(
         horizontalArrangement = Arrangement.spacedBy(28.dp, Alignment.CenterHorizontally),
     ) {
         StatPill(stringResource(R.string.followers), user?.followers ?: 0, onClick = onFollowersClick)
-        StatPill(stringResource(R.string.following), user?.following ?: 0, onClick = onFollowingClick)
+        // Orgs can't follow anyone — the "following" list would be permanently
+        // empty, so don't advertise it on organization profiles.
+        if (!isOrganization) {
+            StatPill(stringResource(R.string.following), user?.following ?: 0, onClick = onFollowingClick)
+        }
         StatPill(stringResource(R.string.repos), (user?.publicRepos ?: 0) + (user?.totalPrivateRepos ?: 0))
     }
 }

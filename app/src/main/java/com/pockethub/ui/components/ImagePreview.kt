@@ -3,8 +3,13 @@ package com.pockethub.ui.components
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,9 +40,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -50,6 +58,7 @@ import com.pockethub.data.download.DownloadManager
 import com.pockethub.ui.LocalAppImageLoader
 import com.pockethub.ui.download.DownloadViewModel
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 /**
  * Composition-local providing a function that opens a full-screen zoomable
@@ -84,6 +93,7 @@ fun ImagePreviewScreen(
         initialPage = initialIndex.coerceIn(0, urls.lastIndex),
         pageCount = { urls.size },
     )
+    val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
     fun enqueueCurrent() {
@@ -146,17 +156,33 @@ fun ImagePreviewScreen(
             ZoomableImage(
                 url = urls[page],
                 onExit = onBack,
+                onSwipePage = { delta ->
+                    val target = (pagerState.currentPage + delta).coerceIn(0, urls.lastIndex)
+                    if (target != pagerState.currentPage) {
+                        scope.launch { pagerState.animateScrollToPage(target) }
+                    }
+                },
             )
         }
     }
 }
 
 /**
- * One pager page: a fit-to-screen zoomable image. Zoom/pan gestures are only
- * attached while zoomed in, so at 1x the parent pager owns horizontal swipes.
+ * One pager page: a fit-to-screen zoomable image.
+ *
+ * Gestures:
+ * - Pinch works from 1x — zooms around the pinch midpoint (no need to double-tap first).
+ * - At 1x a horizontal drag is handed to the pager (swipe between images); once
+ *   zoomed, dragging pans the image, and flinging past an edge flips to the
+ *   previous/next page ([onSwipePage]) — the classic gallery feel.
+ * - Double tap toggles 1x/2x; single tap exits when fitted, resets zoom otherwise.
  */
 @Composable
-private fun ZoomableImage(url: String, onExit: () -> Unit) {
+private fun ZoomableImage(
+    url: String,
+    onExit: () -> Unit,
+    onSwipePage: (Int) -> Unit = {},
+) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val scale = remember(url) { Animatable(1f) }
@@ -210,22 +236,93 @@ private fun ZoomableImage(url: String, onExit: () -> Unit) {
                     translationX = offsetX.value
                     translationY = offsetY.value
                 }
+                .pointerInput(url) {
+                    awaitEachGesture {
+                        // Observe every gesture from 1x so pinch-in-place works
+                        // without double-tapping first.
+                        awaitFirstDown(requireUnconsumed = false)
+                        var isMultitouch = false
+                        var pastEdgeDrag = 0f
+                        var edgeFlipDone = false
+                        val slop = viewConfiguration.touchSlop
+                        do {
+                            val event = awaitPointerEvent()
+                            val pointers = event.changes.filter { it.isConsumed.not() }
+                            if (pointers.size < 2) {
+                                // Single finger: only meaningful when zoomed (pan)
+                                // or when a drag started as a pinch (edge flip).
+                                if (isMultitouch && zoomed && pointers.size == 1) {
+                                    val change = pointers[0]
+                                    if (change.positionChanged()) {
+                                        scope.launch {
+                                            offsetX.snapTo(offsetX.value + change.positionChange().x)
+                                            offsetY.snapTo(offsetY.value + change.positionChange().y)
+                                        }
+                                        change.consume()
+                                    }
+                                } else if (isMultitouch && !zoomed && pointers.size == 1) {
+                                    // Pinch collapsed back to one finger at 1x —
+                                    // the remaining drag flips pages past the edges.
+                                    val drag = pointers[0].positionChange().x
+                                    if (drag != 0f) {
+                                        pastEdgeDrag += drag
+                                        if (!edgeFlipDone && abs(pastEdgeDrag) > slop * 4) {
+                                            edgeFlipDone = true
+                                            onSwipePage(if (pastEdgeDrag < 0) 1 else -1)
+                                        }
+                                        pointers[0].consume()
+                                    }
+                                }
+                            } else {
+                                isMultitouch = true
+                                val zoomChange = event.calculateZoom()
+                                val panChange = event.calculatePan()
+                                if (zoomChange != 1f || panChange != Offset.Zero) {
+                                    val centroid = event.calculateCentroid(useCurrent = false)
+                                    val prev = scale.value
+                                    val next = (prev * zoomChange).coerceIn(1f, 6f)
+                                    zoomed = next > 1.02f
+                                    scope.launch {
+                                        scale.snapTo(next)
+                                        if (next > 1f) {
+                                            // Zoom around the pinch centroid, clamped
+                                            // so the image can't be dragged far off screen.
+                                            val maxX = size.width / 2f * (next - 1f)
+                                            val maxY = size.height / 2f * (next - 1f)
+                                            val focusX = centroid.x - size.width / 2f
+                                            val focusY = centroid.y - size.height / 2f
+                                            val applied = next / prev
+                                            offsetX.snapTo(((offsetX.value - focusX) * applied + focusX).coerceIn(-maxX, maxX))
+                                            offsetY.snapTo(((offsetY.value - focusY) * applied + focusY).coerceIn(-maxY, maxY))
+                                        } else {
+                                            offsetX.snapTo(0f)
+                                            offsetY.snapTo(0f)
+                                        }
+                                    }
+                                    // While two fingers are down the pager must not
+                                    // steal the gesture, even below zoom threshold.
+                                    event.changes.forEach { if (it.positionChanged()) it.consume() }
+                                }
+                            }
+                        } while (event.changes.any { it.pressed })
+                        // Pinch released while zoomed: snap back if under threshold.
+                        if (zoomed && scale.value <= 1.02f) {
+                            zoomed = false
+                            animateTo(1f)
+                        }
+                    }
+                }
                 .then(
                     if (zoomed) {
                         Modifier.pointerInput(url) {
-                            detectTransformGestures { _, pan, zoom, _ ->
+                            detectDragGestures { change, dragAmount ->
                                 scope.launch {
-                                    val next = (scale.value * zoom).coerceIn(1f, 6f)
-                                    scale.snapTo(next)
-                                    if (next > 1f) {
-                                        launch { offsetX.snapTo(offsetX.value + pan.x) }
-                                        launch { offsetY.snapTo(offsetY.value + pan.y) }
-                                    } else {
-                                        zoomed = false
-                                        launch { offsetX.snapTo(0f) }
-                                        launch { offsetY.snapTo(0f) }
-                                    }
+                                    val maxX = size.width / 2f * (scale.value - 1f)
+                                    val maxY = size.height / 2f * (scale.value - 1f)
+                                    offsetX.snapTo((offsetX.value + dragAmount.x).coerceIn(-maxX, maxX))
+                                    offsetY.snapTo((offsetY.value + dragAmount.y).coerceIn(-maxY, maxY))
                                 }
+                                change.consume()
                             }
                         }
                     } else Modifier

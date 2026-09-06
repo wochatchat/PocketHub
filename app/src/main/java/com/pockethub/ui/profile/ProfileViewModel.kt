@@ -64,6 +64,54 @@ class ProfileViewModel @Inject constructor(
     private var loadedWorkTab: WorkTab? = null
     private var workRequestId = 0
 
+    // ── Followers / following bottom sheet (same data source as UserDetail) ──
+    private val _followers = MutableStateFlow<List<com.pockethub.data.model.User>>(emptyList())
+    val followers: StateFlow<List<com.pockethub.data.model.User>> = _followers
+
+    private val _followingList = MutableStateFlow<List<com.pockethub.data.model.User>>(emptyList())
+    val followingList: StateFlow<List<com.pockethub.data.model.User>> = _followingList
+
+    private val _isLoadingFollowLists = MutableStateFlow(false)
+    val isLoadingFollowLists: StateFlow<Boolean> = _isLoadingFollowLists
+
+    private val _followListsFailed = MutableStateFlow(false)
+    val followListsFailed: StateFlow<Boolean> = _followListsFailed
+
+    /** Load the signed-in user's followers + following (sheet data). */
+    fun loadFollowLists() {
+        val login = _user.value?.login ?: return
+        if (_isLoadingFollowLists.value) return
+        viewModelScope.launch {
+            _isLoadingFollowLists.update { true }
+            try {
+                // Independent loads — one failing must not mask the other.
+                var firstError: Exception? = null
+                val f1 = try {
+                    api.getFollowers(login)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    firstError = firstError ?: e
+                    emptyList()
+                }
+                val f2 = try {
+                    api.getFollowing(login)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    firstError = firstError ?: e
+                    emptyList()
+                }
+                _followers.update { f1 }
+                _followingList.update { f2 }
+                firstError?.let { issueReporter.reportError("Profile", "loadFollowLists", it) }
+                _followListsFailed.update { firstError != null }
+            } finally {
+                _isLoadingFollowLists.update { false }
+            }
+        }
+    }
+
     init { loadProfile() }
 
     fun loadProfile(force: Boolean = false) {
@@ -125,6 +173,9 @@ class ProfileViewModel @Inject constructor(
 
     fun refreshWorkList() = loadWorkList(_workTab.value, force = true)
 
-    fun refresh() = loadProfile(force = true)
+    fun refresh() {
+        _followListsFailed.update { false }
+        loadProfile(force = true)
+    }
 
 }
