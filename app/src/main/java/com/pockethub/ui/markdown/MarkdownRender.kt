@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
@@ -193,13 +194,24 @@ private val MEDIUM_IMAGE_MAX_DP = 160.dp
 /**
  * Resolve a URL's intrinsic pixel size through the app image loader. The
  * decode hits the memory cache, so the follow-up render is free.
+ *
+ * Three outcomes (was: null for BOTH error and success-without-size, which
+ * spun the placeholder forever on SVGs lacking width/height attributes —
+ * androidsvg can't derive an intrinsic size from viewBox-only files — and
+ * on any load failure):
+ *  - loaded=true,  size=w/h    → normal bucketing
+ *  - loaded=true,  size=null   → SVG/unknown-size success → full-width render
+ *  - loaded=false             → failed → hand to RenderContentImage, whose
+ *                                error slot shows the broken-image row
  */
+private data class ImageMeta(val loaded: Boolean, val size: androidx.compose.ui.unit.IntSize?)
+
 @Composable
-private fun rememberIntrinsicImageSize(src: String): androidx.compose.ui.unit.IntSize? {
+private fun rememberImageMeta(src: String): ImageMeta {
     val loader = LocalAppImageLoader.current
     val context = androidx.compose.ui.platform.LocalContext.current
-    return androidx.compose.runtime.produceState<androidx.compose.ui.unit.IntSize?>(
-        initialValue = null,
+    return androidx.compose.runtime.produceState<ImageMeta>(
+        initialValue = ImageMeta(false, null),
         key1 = src,
     ) {
         val request = coil.request.ImageRequest.Builder(context)
@@ -207,12 +219,21 @@ private fun rememberIntrinsicImageSize(src: String): androidx.compose.ui.unit.In
             // NOTE: keep the default hardware setting — the render pass below
             // issues the identical request and must hit the memory cache.
             .build()
-        val drawable = (loader.execute(request) as? coil.request.SuccessResult)?.drawable
+        val result = loader.execute(request)
+        val drawable = (result as? coil.request.SuccessResult)?.drawable
         val w = drawable?.intrinsicWidth ?: 0
         val h = drawable?.intrinsicHeight ?: 0
-        if (w > 0 && h > 0) value = androidx.compose.ui.unit.IntSize(w, h)
+        value = if (drawable != null) {
+            ImageMeta(true, if (w > 0 && h > 0) androidx.compose.ui.unit.IntSize(w, h) else null)
+        } else {
+            ImageMeta(false, null)
+        }
     }.value
 }
+
+@Composable
+private fun rememberIntrinsicImageSize(src: String): androidx.compose.ui.unit.IntSize? =
+    rememberImageMeta(src).size
 
 /**
  * Display policy for README images, tuned against a 3.4k-image corpus of real
@@ -235,7 +256,8 @@ private fun AdaptiveImage(img: InlineToken.Image, onTap: (String, LinkKind) -> U
     val pic = splitPictureAlt(img.alt)
     val themeSrc = if (isSystemInDarkTheme()) pic.darkSrc ?: img.src else pic.lightSrc ?: img.src
     val effectiveImg = if (themeSrc != img.src) img.copy(src = themeSrc, alt = pic.base) else img
-    val intrinsic = rememberIntrinsicImageSize(effectiveImg.src)
+    val meta = rememberImageMeta(effectiveImg.src)
+    val intrinsic = meta.size
 
     when {
         isBadgeUrl(effectiveImg.src) -> {
@@ -250,12 +272,12 @@ private fun AdaptiveImage(img: InlineToken.Image, onTap: (String, LinkKind) -> U
             val hDp = (img.hintH ?: pic.h ?: 0).dp.coerceAtMost(360.dp)
             RenderSizedImage(effectiveImg, wDp, hDp, clickTarget, kind, onTap)
         }
-        intrinsic == null -> Box(
-            Modifier.fillMaxWidth().height(24.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 1.5.dp)
-        }
+        // Load FAILED (or no size yet): RenderContentImage re-issues the same
+        // request — failure shows its broken-image row instead of spinning.
+        meta.loaded == false -> RenderContentImage(effectiveImg, clickTarget, kind, onTap)
+        // Decoded fine but has no intrinsic size (SVG with viewBox only):
+        // SvgDrawable rasterizes at draw size, so full-width stays sharp.
+        intrinsic == null -> RenderContentImage(effectiveImg, clickTarget, kind, onTap)
         else -> {
             // 1 image px == 1 dp, mirroring how a phone browser lays these out.
             val hDp = intrinsic.height.dp
