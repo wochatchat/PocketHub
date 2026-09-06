@@ -200,15 +200,18 @@ fun MarkdownText(
         parsed.blocks.forEach { (block, parts) ->
             when (block) {
                 is MdBlock.Heading -> {
+                    // Phone-tuned scale: M3 headline sizes (28/24sp) eat
+                    // ~1/3 of a 6.4" screen per H1/H2 and starve context;
+                    // each step pulled down ~2sp with tightened line height.
                     val style = when (block.level) {
-                        1 -> MaterialTheme.typography.headlineMedium
-                        2 -> MaterialTheme.typography.headlineSmall
-                        3 -> MaterialTheme.typography.titleLarge
+                        1 -> MaterialTheme.typography.headlineMedium.copy(fontSize = 26.sp, lineHeight = 32.sp)
+                        2 -> MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp, lineHeight = 28.sp)
+                        3 -> MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 26.sp)
                         4 -> MaterialTheme.typography.titleMedium
                         5 -> MaterialTheme.typography.titleSmall
                         else -> MaterialTheme.typography.labelLarge
                     }
-                    if (block.level <= 2) Spacer(Modifier.height(if (block.level == 1) 10.dp else 6.dp))
+                    if (block.level <= 2) Spacer(Modifier.height(if (block.level == 1) 6.dp else 4.dp))
                     // Render inline markdown (links, code, bold) inside headings so `## Getting `code``
                     // shows a code chip instead of literal backticks.
                     androidx.compose.foundation.layout.Column(
@@ -218,14 +221,9 @@ fun MarkdownText(
                         RenderInlineParts(parts, style.copy(
                             fontWeight = FontWeight.SemiBold,
                             textAlign = if (block.centered) TextAlign.Center else TextAlign.Start,
-                            lineHeight = when (block.level) {
-                                1 -> 32.sp
-                                2 -> 28.sp
-                                else -> 24.sp
-                            },
                         ), onTap)
                     }
-                    if (block.level <= 2) Spacer(Modifier.height(2.dp))
+                    if (block.level <= 2) Spacer(Modifier.height(0.dp))
                 }
 
                 is MdBlock.Paragraph -> {
@@ -332,7 +330,7 @@ fun MarkdownText(
                         block.task == ' ' -> "☐ "
                         else -> "• "
                     }
-                    SimpleListItem(bullet, parts, (block.level - 1) * 14, onTap)
+                    SimpleListItem(bullet, parts, (block.level - 1) * 16, onTap)
                 }
 
                 is MdBlock.Table -> {
