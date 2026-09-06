@@ -328,16 +328,19 @@ fun PagerAwareSelectionContainer(
     val repositioningToolbar = androidx.compose.runtime.remember(defaultToolbar) {
         RepositioningTextToolbar(defaultToolbar)
     }
-    val provided = androidx.compose.runtime.CompositionLocalProvider(
-        androidx.compose.ui.platform.LocalTextToolbar provides repositioningToolbar,
-    )
     if (active) {
         androidx.compose.foundation.text.selection.SelectionContainer(modifier = modifier) {
-            provided { movable() }
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.ui.platform.LocalTextToolbar provides repositioningToolbar,
+            ) { movable() }
         }
     } else {
         // Page swiped away: no container → selection + toolbar discarded.
-        androidx.compose.foundation.layout.Box(modifier) { provided { movable() } }
+        androidx.compose.foundation.layout.Box(modifier) {
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.ui.platform.LocalTextToolbar provides repositioningToolbar,
+            ) { movable() }
+        }
     }
 }
 
