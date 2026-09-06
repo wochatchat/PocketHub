@@ -240,7 +240,7 @@ private fun rememberImageMeta(src: String): ImageMeta? {
 
 @Composable
 private fun rememberIntrinsicImageSize(src: String): androidx.compose.ui.unit.IntSize? =
-    rememberImageMeta(src).size
+    rememberImageMeta(src)?.size
 
 /**
  * Display policy for README images, tuned against a 3.4k-image corpus of real
