@@ -436,7 +436,10 @@ internal fun truncateOversized(markdown: String): String {
     return markdown.substring(0, cut) + "\n\n<!-- truncated -->\n\n*[Content too large — showing the first part]*"
 }
 
-internal fun parseMarkdown(src: String): List<MdBlock> {
+internal fun parseMarkdown(src: String): List<MdBlock> = parseMarkdownInner(src, 0)
+
+/** [depth] bounds blockquote re-parsing recursion ("> > > ..." pathological docs). */
+private fun parseMarkdownInner(src: String, depth: Int): List<MdBlock> {
     val blocks = mutableListOf<MdBlock>()
     val lines = resolveReferenceLinks(src).lines()
     var i = 0
@@ -518,6 +521,30 @@ internal fun parseMarkdown(src: String): List<MdBlock> {
             continue
         }
 
+        // Indented code block (GFM): 4+ space lines outside any list context
+        // (license headers, console transcripts, ASCII tables). A previous
+        // ListItem block means we're in "wrapped list item" territory — the
+        // list loop already absorbed its continuations, don't steal these.
+        val prevBlock = blocks.lastOrNull()
+        if (line.length > 4 && line[0] == ' ' && line[3] == ' ' && line.getOrNull(4) != ' ' &&
+            prevBlock !is MdBlock.ListItem
+        ) {
+            val codeLines = mutableListOf<String>()
+            while (i < lines.size) {
+                val l = lines[i]
+                when {
+                    l.startsWith("    ") && l.trim().isNotEmpty() -> { codeLines.add(l.substring(4)); i++ }
+                    // Blank line inside: only continue if the next non-blank is still indented.
+                    l.isBlank() && lines.getOrNull(i + 1)?.startsWith("    ") == true -> { codeLines.add(""); i++ }
+                    else -> break
+                }
+            }
+            if (codeLines.isNotEmpty()) {
+                blocks.add(MdBlock.CodeBlock(codeLines.joinToString("\n"), null))
+                continue
+            }
+        }
+
         if (line.trimStart().startsWith(">")) {
             val quoteLines = mutableListOf<String>()
             while (i < lines.size && lines[i].trimStart().startsWith(">")) {
@@ -534,7 +561,18 @@ internal fun parseMarkdown(src: String): List<MdBlock> {
                 blocks.add(MdBlock.Alert(alert.groupValues[1].uppercase(), body))
                 continue
             }
-            blocks.add(MdBlock.Blockquote(quoteLines.joinToString("\n")))
+            // GFM: blockquote content is re-parsed as blocks — sub-lists,
+            // headings, fences inside a quote keep their structure instead of
+            // collapsing into one run-on line. Bound the recursion.
+            val inner = quoteLines.joinToString("\n")
+            blocks.add(if (depth < 2 && inner.contains('\n') &&
+                Regex("^(?:\\s*(?:[-*+]|\\d+\\.)\\s|#{1,6}\\s|`{3,})", RegexOption.MULTILINE).containsMatchIn(inner)
+            ) {
+                val sub = parseMarkdownInner(inner, depth + 1)
+                MdBlock.QuoteBlocks(sub)
+            } else {
+                MdBlock.Blockquote(inner)
+            })
             continue
         }
 
