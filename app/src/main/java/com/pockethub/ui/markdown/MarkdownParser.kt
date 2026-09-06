@@ -61,8 +61,8 @@ private fun cleanSegment(markdown: String): String {
                 // so harvest them here into the alt-hint suffix.
                 val firstImg = Regex("<img\\b[^>]*>", RegexOption.IGNORE_CASE).find(inner)?.value
                 val dim = firstImg?.let {
-                    val w = Regex("width\\s*=\\s*[\"']?(\\d+)").find(it)?.groupValues?.getOrNull(1)
-                    val h = Regex("height\\s*=\\s*[\"']?(\\d+)").find(it)?.groupValues?.getOrNull(1)
+                    val w = Regex("width\\s*=\\s*[\"']?(\\d+)(?:px)?[\"']?(?!%)", RegexOption.IGNORE_CASE).find(it)?.groupValues?.getOrNull(1)
+                    val h = Regex("height\\s*=\\s*[\"']?(\\d+)(?:px)?[\"']?(?!%)", RegexOption.IGNORE_CASE).find(it)?.groupValues?.getOrNull(1)
                     if (w != null && h != null) "\u0001${w}x${h}" else ""
                 }.orEmpty()
                 val src = dark ?: light ?: fallback
@@ -85,8 +85,11 @@ private fun cleanSegment(markdown: String): String {
                 val src = m.groupValues[1]
                 val alt = m.groupValues[2]
                 val tag = m.value
-                val w = Regex("width\\s*=\\s*[\"']?(\\d+)").find(tag)?.groupValues?.getOrNull(1)
-                val h = Regex("height\\s*=\\s*[\"']?(\\d+)").find(tag)?.groupValues?.getOrNull(1)
+                // Plain numeric (or px) sizes become display hints; percent
+                // widths ("width=100%" screenshot grids) are dropped — the
+                // intrinsic-size bucket renders them full-width like the web.
+                val w = Regex("width\\s*=\\s*[\"']?(\\d+)(?:px)?[\"']?(?!%)", RegexOption.IGNORE_CASE).find(tag)?.groupValues?.getOrNull(1)
+                val h = Regex("height\\s*=\\s*[\"']?(\\d+)(?:px)?[\"']?(?!%)", RegexOption.IGNORE_CASE).find(tag)?.groupValues?.getOrNull(1)
                 val altOut = if (w != null && h != null) "$alt\u0001${w}x${h}" else alt
                 "![${altOut}](${src})"
             }

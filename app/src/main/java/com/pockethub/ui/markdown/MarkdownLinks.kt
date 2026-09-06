@@ -165,6 +165,23 @@ internal fun rememberImageResolver(repoContext: String?, defaultBranch: String?)
     "https://raw.githubusercontent.com/$owner/$repo/$branch/$path"
 }
 
+/**
+ * GitHub avatar hosts: profile avatars / identicons render at the small wall
+ * size regardless of intrinsic pixels (the CDN serves up-to-460px originals;
+ * contributor walls expect ~40-100dp cells). Full-width rendering of these
+ * was the "贡献墙一张头像占一屏" bug.
+ */
+internal fun isAvatarUrl(url: String): Boolean {
+    val u = url.lowercase()
+    return u.contains("avatars.githubusercontent.com") ||
+        u.contains("avatars0.githubusercontent.com") ||
+        u.contains("avatars1.githubusercontent.com") ||
+        u.contains("avatars2.githubusercontent.com") ||
+        u.contains("avatars3.githubusercontent.com") ||
+        u.contains("github.com/identicons") ||
+        u.contains("github.com/ghost.png")
+}
+
 /** Heuristic: does this URL look like a tiny status badge (shields.io, CI, etc.)? */
 internal fun isBadgeUrl(url: String): Boolean {
     val u = url.lowercase()
