@@ -79,6 +79,26 @@ private fun cleanSegment(markdown: String): String {
                 }
                 if (src != null) "![picture$dim\u0003${altSrc.orEmpty()}](${src})" else ""
             }
+            // ── GitHub <g-emoji> custom element — GitHub's web frontend wraps
+            // emoji in <g-emoji alias="bulb" fallback-src="…">💡</g-emoji>. No
+            // cleaner rule covered it, so the raw tag markup leaked into list
+            // items (logseq-style TOCs). Keep the inner emoji (it is already a
+            // literal char); for an empty element fall back to the alias via
+            // the shortcode map. Must run before the <a> conversion so links
+            // like [<g-emoji>🚀</g-emoji> Title](#anchor) arrive with clean
+            // link text.
+            .replace(
+                Regex("<g-emoji\\b[^>]*>([\\s\\S]*?)</\\s*g-emoji\\s*>", RegexOption.IGNORE_CASE),
+            ) { m ->
+                val inner = m.groupValues[1].trim()
+                if (inner.isNotEmpty()) {
+                    inner
+                } else {
+                    Regex("alias\\s*=\\s*[\"']([^\"']+)[\"']", RegexOption.IGNORE_CASE)
+                        .find(m.value)?.groupValues?.getOrNull(1)
+                        ?.let { EMOJI_SHORTCODES[it] } ?: ""
+                }
+            }
             // <img src> → markdown, PRESERVING the HTML width/height hints as an
             // alt-suffix ("alt|WxH") — the renderer uses them to size the image
             // like the web page did (banners at ~250dp, badges at ~20dp) instead
@@ -130,6 +150,25 @@ private fun cleanSegment(markdown: String): String {
                 // <a href="…">\n  <img …>\n</a> become a single-line markdown
                 // link the inline tokenizer can match.
                 "[${m.groupValues[2].replace(Regex("\\s+"), " ").trim()}](${m.groupValues[1]})"
+            }
+            // ── Decorator-wrapped image links: [**![flag](src) Label**](href)
+            // (hiddify-style language switchers). Emphasis markers around the
+            // image inside the link text defeat BOTH the wrapped-image
+            // tokenizer (WRAPPED_IMG_PATTERN is adjacency-strict, so the
+            // standalone-image pre-pass tears the image out of the link and
+            // the surrounding "[**"/"](**" leak as raw text) and the link
+            // branch (which would dump "![…]" raw inside link text).
+            // Normalize to the flat wrapped form plus a separately linked
+            // label: [![flag](src)](href) **[Label](href)** — visually the
+            // same as GitHub (image + bold label, both clickable).
+            .replace(
+                Regex("\\[[ \\t]*([*_~]{1,2})[ \\t]*(!\\[[^\\]\n]*\\]\\([^)\n]*\\))[ \\t]*([^\\]\n]*?)[ \\t]*\\1[ \\t]*\\]\\(([^)\n]*)\\)")
+            ) { m ->
+                val dec = m.groupValues[1]
+                val img = m.groupValues[2]
+                val label = m.groupValues[3].trim()
+                val href = m.groupValues[4]
+                if (label.isEmpty()) "[$img]($href)" else "[$img]($href) ${dec}[$label]($href)$dec"
             }
             // ── New block-level handlers for tags the original cleaner did not
             // cover. Converting them to markdown keeps README prose scannable
@@ -225,8 +264,10 @@ private fun cleanSegment(markdown: String): String {
             // Inline tags with no markdown equivalent — drop the tag, keep inner text.
             .replace(Regex("<\\s*/?(?:u|mark|small|big|font|sub|sup)\\b[^>]*>", RegexOption.IGNORE_CASE), "")
             // Block-level line breaks / rules → markdown forms (before the void-tag strip below).
-            .replace(Regex("<\\s*br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
-            .replace(Regex("<\\s*hr\\s*/?>", RegexOption.IGNORE_CASE), "\n\n---\n\n")
+            // br/hp open AND stray close forms (</br> appears in the wild —
+            // logseq README): both are just a line break.
+            .replace(Regex("<\\s*/?\\s*br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
+            .replace(Regex("<\\s*/?\\s*hr\\s*/?>", RegexOption.IGNORE_CASE), "\n\n---\n\n")
             .replace(
                 Regex("<\\s*(/?)\\s*(div|span|p|details|summary|center|section|article|figure|figcaption|picture|source|video|audio|table|thead|tbody|tr|td|th|pre|ol|ul|dl|dt|dd|caption|address)(\\s[^>]*)?>", RegexOption.IGNORE_CASE),
                 "",

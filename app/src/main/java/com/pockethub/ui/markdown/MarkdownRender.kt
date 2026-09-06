@@ -281,6 +281,18 @@ private fun AdaptiveImage(img: InlineToken.Image, onTap: (String, LinkKind) -> U
             val wDp = hintW?.dp?.coerceIn(24.dp, 100.dp) ?: hDp
             RenderStripImage(effectiveImg, wDp, hDp, clickTarget, kind, onTap)
         }
+        // Contributor-wall services (contrib.rocks…): one image containing a
+        // grid of avatars — GitHub lays it out at full column width, so cap
+        // only the height and let it fill the row (NOT the 200dp square-logo
+        // path, which shrank a 812×608 SVG into a small centered island).
+        isContributorWallUrl(effectiveImg.src) -> {
+            val aspect = intrinsic?.let { it.width.toFloat() / it.height.coerceAtLeast(1) } ?: (4f / 3f)
+            val w = 360.dp
+            val h = (w / aspect).coerceAtMost(420.dp)
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                RenderSizedImage(effectiveImg, w, h, clickTarget, kind, onTap)
+            }
+        }
         isBadgeUrl(effectiveImg.src) -> {
             val aspect = intrinsic?.let { it.width.toFloat() / it.height.coerceAtLeast(1) } ?: 0f
             val h = 20.dp
@@ -829,6 +841,11 @@ internal fun renderRichInline(
     while (i < len) {
         val rest = text.substring(i)
         // Try wrapped image link [![alt](src)](href) — only if it begins at i.
+        // (Decorator-wrapped forms "[**![alt](src) Label**](href)" are split
+        // upstream by cleanSegment into "[![alt](src)](href) **[Label](href)**"
+        // so this adjacency-strict pattern and the text pass below see each
+        // half — tearing the image out of an unsplit link leaked "[**" and
+        // "](url)" as raw text.)
         val wrappedMatch = WRAPPED_IMG_PATTERN.find(rest)
         if (wrappedMatch != null) {
             flushImageGap()
@@ -951,6 +968,9 @@ private fun AnnotatedString.Builder.emitInline(
         // ("A [B] C](url)"-style — 5.6% of corpus); when the first "]" cut
         // leaves unbalanced brackets, extend the scan to the next "]( " so
         // the full text becomes the link instead of leaking raw text.
+        // NOTE the raw link text is appended via emitInline (recursive) —
+        // never append(): "**label**"/"`code`" inside link text must render
+        // styled (hiddify-style language rows), matching GitHub.
         if (src[i] == '[') {
             var attempt = i + 1
             var closeBracket = -1
@@ -981,7 +1001,11 @@ private fun AnnotatedString.Builder.emitInline(
                 val linkUrl = stripLinkTitle(src.substring(closeBracket + 2, closeParen).trim())
                 val url = resolver(linkUrl)
                 if (url != null) {
-                    appendLink(linkText, url, classifyLink(url), linkColor, downloadColor, imageLinkColor, externalColor)
+                    // Rich link: annotate the whole span, then recurse on the
+                    // raw text so nested emphasis/code renders inside the link.
+                    appendRichLink(url, classifyLink(url), linkColor, downloadColor, imageLinkColor, externalColor) {
+                        emitInline(linkText, resolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
+                    }
                 } else {
                     append(linkText)
                 }
@@ -1112,21 +1136,44 @@ internal fun AnnotatedString.Builder.appendLink(
         else -> ""
     }
     if (prefix.isNotEmpty()) append(prefix)
-    // Now mark the actual link span with annotations + styles.
-    val start = length
-    addStringAnnotation(LINK_TAG, url, start, start + displayText.length)
-    addStringAnnotation(LINK_KIND_TAG, kind.name, start, start + displayText.length)
-    val style = when (kind) {
-        LinkKind.DOWNLOADABLE -> SpanStyle(color = downloadColor, textDecoration = TextDecoration.Underline, fontWeight = FontWeight.Medium)
-        LinkKind.IMAGE_URL -> SpanStyle(color = imageLinkColor, textDecoration = TextDecoration.Underline)
-        LinkKind.GITHUB_REPO, LinkKind.GITHUB_USER, LinkKind.GITHUB_ISSUE, LinkKind.GITHUB_COMMIT,
-        LinkKind.IMAGE -> SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline)
-        // Off-github links get a different hue so users can tell in-app
-        // navigation from "this opens in a browser" before tapping.
-        LinkKind.EXTERNAL -> SpanStyle(color = externalColor, textDecoration = TextDecoration.Underline)
+    appendRichLink(url, kind, linkColor, downloadColor, imageLinkColor, externalColor) {
+        append(displayText)
     }
-    addStyle(style, start, start + displayText.length)
-    append(displayText)
+}
+
+/**
+ * Mark [start, end) as a link (URL + kind annotations + underline style) and
+ * fill it with content produced by [content] — plain [append] for simple
+ * links, or a recursive [emitInline] call when the link text carries its own
+ * markdown ("**label**", "`code`"). Recursion keeps nested emphasis styled
+ * while the whole span stays tappable.
+ */
+private inline fun AnnotatedString.Builder.appendRichLink(
+    url: String,
+    kind: LinkKind,
+    linkColor: Color,
+    downloadColor: Color,
+    imageLinkColor: Color,
+    externalColor: Color,
+    content: () -> Unit,
+) {
+    val start = length
+    content()
+    val end = length
+    if (end > start) {
+        val style = when (kind) {
+            LinkKind.DOWNLOADABLE -> SpanStyle(color = downloadColor, textDecoration = TextDecoration.Underline, fontWeight = FontWeight.Medium)
+            LinkKind.IMAGE_URL -> SpanStyle(color = imageLinkColor, textDecoration = TextDecoration.Underline)
+            LinkKind.GITHUB_REPO, LinkKind.GITHUB_USER, LinkKind.GITHUB_ISSUE, LinkKind.GITHUB_COMMIT,
+            LinkKind.IMAGE -> SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline)
+            // Off-github links get a different hue so users can tell in-app
+            // navigation from "this opens in a browser" before tapping.
+            LinkKind.EXTERNAL -> SpanStyle(color = externalColor, textDecoration = TextDecoration.Underline)
+        }
+        addStringAnnotation(LINK_TAG, url, start, end)
+        addStringAnnotation(LINK_KIND_TAG, kind.name, start, end)
+        addStyle(style, start, end)
+    }
 }
 
 internal fun findUrlEnd(text: String, start: Int): Int {
