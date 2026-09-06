@@ -614,6 +614,7 @@
     <string name="action_unfollow">Unfollow</string>
     <string name="no_followers">No followers yet</string>
     <string name="follow_list_load_failed">Couldn\'t load the list — check your connection</string>
+    <string name="follow_list_permission">Permission denied by GitHub — the list is hidden for your account (org restrictions or a missing user:follow permission). Re-login or open the profile in a browser.</string>
     <string name="user_type_organization">Organization</string>
     <string name="follow_needs_relogin">Follow failed (404): your token lacks the user:follow permission. Sign out and sign in again to grant it.</string>
     <string name="follow_org_restricted">This organization restricts API access for unauthorized OAuth apps, so following it from PocketHub is blocked. Open the org page in a browser to follow, or ask the org to approve this app.</string>

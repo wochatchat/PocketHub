@@ -112,6 +112,7 @@ fun ProfileScreen(
     val followingList by vm.followingList.collectAsState()
     val isLoadingFollowLists by vm.isLoadingFollowLists.collectAsState()
     val followListsFailed by vm.followListsFailed.collectAsState()
+    val followListsPermission by vm.followListsPermission.collectAsState()
 
     // Unread badge for the top-right bell. When embedded in the home shell this
     // resolves to the same NotificationsViewModel the shell holds (same nav
@@ -222,6 +223,7 @@ fun ProfileScreen(
                 following = followingList,
                 isLoading = isLoadingFollowLists,
                 failed = followListsFailed,
+                permissionDenied = followListsPermission,
                 onRetry = { vm.loadFollowLists() },
                 onUserClick = { userLogin ->
                     followSheetTab = -1

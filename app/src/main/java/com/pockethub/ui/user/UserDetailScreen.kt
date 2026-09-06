@@ -110,6 +110,7 @@ fun UserDetailScreen(
     val followActionMessage by vm.followMessage.collectAsState()
     val followListsFailed by vm.followListsFailed.collectAsState()
     val followListsError by vm.followListsError.collectAsState()
+    val followListsPermission by vm.followListsPermission.collectAsState()
     val followActionInProgress by vm.followActionInProgress.collectAsState()
     val followers by vm.followers.collectAsState()
     val followingList by vm.followingList.collectAsState()
@@ -317,6 +318,7 @@ fun UserDetailScreen(
                 isLoading = isLoadingFollowLists,
                 failed = followListsFailed,
                 errorDetail = followListsError,
+                permissionDenied = followListsPermission,
                 onRetry = { vm.loadFollowLists() },
                 onUserClick = { userLogin ->
                     followSheetTab = -1
@@ -344,6 +346,7 @@ internal fun FollowListSheet(
     isLoading: Boolean,
     failed: Boolean = false,
     errorDetail: String? = null,
+    permissionDenied: Boolean = false,
     onRetry: () -> Unit = {},
     onUserClick: (String) -> Unit,
 ) {
@@ -376,9 +379,16 @@ internal fun FollowListSheet(
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // Permission failures (403/404) are NOT a network problem —
+                    // say so explicitly instead of the generic network copy.
                     Text(
-                        stringResource(R.string.follow_list_load_failed),
+                        stringResource(
+                            if (permissionDenied) R.string.follow_list_permission
+                            else R.string.follow_list_load_failed
+                        ),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 24.dp),
                     )
                     if (!errorDetail.isNullOrBlank()) {
                         Text(

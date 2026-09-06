@@ -549,6 +549,7 @@
     <string name="action_unfollow">取消关注</string>
     <string name="no_followers">还没有粉丝</string>
     <string name="follow_list_load_failed">列表加载失败 — 请检查网络后重试</string>
+    <string name="follow_list_permission">GitHub 拒绝了该请求 — 当前账号无法读取此列表（组织限制或缺少 user:follow 权限）。可尝试重新登录，或在浏览器打开该主页查看。</string>
     <string name="user_type_organization">组织</string>
     <string name="follow_needs_relogin">关注失败（404）：当前登录凭证缺少 user:follow 权限，请退出登录后重新登录授权。</string>
     <string name="follow_org_restricted">该组织限制了未经审批的第三方应用访问 API，PocketHub 无法关注它。可在浏览器打开组织主页点击关注，或联系组织管理员审批本应用。</string>

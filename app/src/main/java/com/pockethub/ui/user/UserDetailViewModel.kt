@@ -80,6 +80,10 @@ class UserDetailViewModel @Inject constructor(
     private val _followListsError = MutableStateFlow<String?>(null)
     val followListsError: StateFlow<String?> = _followListsError
 
+    /** True when that failure was a permission/authorization class (403/404). */
+    private val _followListsPermission = MutableStateFlow(false)
+    val followListsPermission: StateFlow<Boolean> = _followListsPermission
+
     fun consumeFollowMessage() {
         _followMessage.update { null }
     }
@@ -166,25 +170,29 @@ class UserDetailViewModel @Inject constructor(
                         u?.copy(followers = (u.followers ?: 0) + if (currentlyFollowing) -1 else 1)
                     }
                 } else if (resp.code() == 404) {
-                    // Two distinct 404 causes with different remedies:
-                    // 1. Pre-user:follow token → GitHub denies ALL user/following
-                    //    routes, even the check. Re-login grants the scope.
-                    // 2. Org OAuth-app restriction → GitHub 404s org-related
-                    //    routes for member tokens; the check succeeds (204/404)
-                    //    but the PUT is denied. Diagnose via an UNAUTHENTICATED
-                    //    org check: reachable → token can't follow here (org
-                    //    restriction); 404 → the resource itself is hidden from
-                    //    us → scope problem.
-                    val orgReachable = runCatching {
-                        publicApi.getFollowers(login, page = 1, perPage = 1)
-                    }.isSuccess
-                    _followMessage.update {
-                        if (orgReachable) {
-                            appContext.getString(com.pockethub.R.string.follow_org_restricted)
-                        } else {
-                            appContext.getString(com.pockethub.R.string.follow_needs_relogin)
+                    // Two distinct 404 causes with different remedies. The
+                    // response's X-OAuth-Scopes header tells them apart:
+                    // scope absent → token predates user:follow (re-login);
+                    // scope present → org OAuth-app restriction (browser).
+                    val hasFollowScope = resp.headers()["x-oauth-scopes"]
+                        ?.split(',')?.map { it.trim() }
+                        ?.any { it == "user" || it == "user:follow" }
+                    val msg = when (hasFollowScope) {
+                        false -> appContext.getString(com.pockethub.R.string.follow_needs_relogin)
+                        true -> appContext.getString(com.pockethub.R.string.follow_org_restricted)
+                        // Header absent (uncommon) — fall back to probing whether
+                        // the org's public data is reachable anonymously.
+                        null -> {
+                            val orgReachable = runCatching {
+                                publicApi.getFollowers(login, page = 1, perPage = 1)
+                            }.isSuccess
+                            appContext.getString(
+                                if (orgReachable) com.pockethub.R.string.follow_org_restricted
+                                else com.pockethub.R.string.follow_needs_relogin
+                            )
                         }
                     }
+                    _followMessage.update { msg }
                 } else {
                     "HTTP ${resp.code()}: ${resp.message()}".let { m ->
                         _followMessage.update { m }
@@ -223,6 +231,13 @@ class UserDetailViewModel @Inject constructor(
                 firstError?.let { issueReporter.reportError("UserDetail", "loadFollowLists", it) }
                 _followListsFailed.update { firstError != null }
                 _followListsError.update { firstError?.userMessage("Couldn't load follow lists") }
+                // Distinguish "check your network" from a permission problem:
+                // GitHub signals OAuth-scope / org-restriction denials with
+                // 403/404, network failures arrive as IOException.
+                _followListsPermission.update {
+                    firstError is retrofit2.HttpException &&
+                        (firstError as retrofit2.HttpException).code() in intArrayOf(403, 404)
+                }
             } finally {
                 _isLoadingFollowLists.update { false }
             }

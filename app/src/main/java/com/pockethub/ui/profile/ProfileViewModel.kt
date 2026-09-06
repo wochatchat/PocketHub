@@ -78,6 +78,10 @@ class ProfileViewModel @Inject constructor(
     private val _followListsFailed = MutableStateFlow(false)
     val followListsFailed: StateFlow<Boolean> = _followListsFailed
 
+    /** True when that failure was a permission/authorization class (403/404). */
+    private val _followListsPermission = MutableStateFlow(false)
+    val followListsPermission: StateFlow<Boolean> = _followListsPermission
+
     /** Load the signed-in user's followers + following (sheet data). */
     fun loadFollowLists() {
         val login = _user.value?.login ?: return
@@ -100,6 +104,10 @@ class ProfileViewModel @Inject constructor(
                 val firstError = e1 ?: e2
                 firstError?.let { issueReporter.reportError("Profile", "loadFollowLists", it) }
                 _followListsFailed.update { firstError != null }
+                _followListsPermission.update {
+                    firstError is retrofit2.HttpException &&
+                        (firstError as retrofit2.HttpException).code() in intArrayOf(403, 404)
+                }
             } finally {
                 _isLoadingFollowLists.update { false }
             }
