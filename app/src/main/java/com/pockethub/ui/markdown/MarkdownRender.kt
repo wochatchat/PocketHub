@@ -97,12 +97,15 @@ internal fun RenderInlineParts(parts: List<InlineToken>, style: androidx.compose
 }
 
 @Composable
-internal fun RichParagraph(parts: List<InlineToken>, onTap: (String, LinkKind) -> Unit, paragraphSpacing: androidx.compose.ui.unit.Dp = 3.dp) {
+internal fun RichParagraph(parts: List<InlineToken>, onTap: (String, LinkKind) -> Unit, paragraphSpacing: androidx.compose.ui.unit.Dp = 3.dp, centered: Boolean = false) {
     // Inline-aligned images: collect adjacent images into a run, then split the run into
     // badge walls (compact, inline) and content images (full-width). Text tokens get rendered
     // as standalone ClickableText below.
     var i = 0
-    Column(Modifier.padding(top = paragraphSpacing, bottom = paragraphSpacing)) {
+    Column(
+        Modifier.padding(top = paragraphSpacing, bottom = paragraphSpacing).fillMaxWidth(),
+        horizontalAlignment = if (centered) androidx.compose.ui.Alignment.CenterHorizontally else androidx.compose.ui.Alignment.Start,
+    ) {
         while (i < parts.size) {
             val run = mutableListOf<InlineToken.Image>()
             while (i < parts.size && parts[i] is InlineToken.Image) {
@@ -110,13 +113,16 @@ internal fun RichParagraph(parts: List<InlineToken>, onTap: (String, LinkKind) -
                 i++
             }
             if (run.isNotEmpty()) {
-                RenderImageRun(run, onTap)
+                RenderImageRun(run, onTap, centered)
                 continue
             }
             val txt = parts[i] as InlineToken.Text
             ClickableText(
                 text = txt.span,
-                style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = if (centered) TextAlign.Center else TextAlign.Start,
+                ),
                 modifier = Modifier.padding(vertical = 2.dp),
                 onClick = { offset ->
                     txt.span.getStringAnnotations(LINK_TAG, offset, offset).firstOrNull()?.let { annotation ->
@@ -139,9 +145,9 @@ internal fun RichParagraph(parts: List<InlineToken>, onTap: (String, LinkKind) -
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun RenderImageRun(images: List<InlineToken.Image>, onTap: (String, LinkKind) -> Unit) {
+internal fun RenderImageRun(images: List<InlineToken.Image>, onTap: (String, LinkKind) -> Unit, centered: Boolean = false) {
     FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = if (centered) Arrangement.Center else Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {

@@ -256,6 +256,20 @@ private fun cleanSegment(markdown: String): String {
             .replace("&rdquo;", "\u201D")
             .replace("&lsquo;", "\u2018")
             .replace("&rsquo;", "\u2019")
+            // ── GitHub emoji shortcodes (":tada:" → 🎉). 27% of popular
+            // READMEs use them; GitHub renders the emoji. Only the known-name
+            // whitelist converts — unknown ":foo:" stays literal.
+            .replace(EMOJI_SHORTCODE_REGEX) { m -> EMOJI_SHORTCODES[m.groupValues[1]] ?: m.value }
+            // ── Centered containers (<div align="center"> / <p align="center">)
+            // — the standard hero/badge-wall wrapper (55% of corpus uses
+            // align=). Content between the \u0006 markers renders centered;
+            // images inside have already been converted to markdown above.
+            .replace(
+                Regex(
+                    "<(?:div|p)\\b[^>]*align\\s*=\\s*[\"']center[\"'][^>]*>([\\s\\S]*?)</\\s*(?:div|p)\\s*>",
+                    setOf(RegexOption.IGNORE_CASE),
+                ),
+            ) { m -> "\n\u0006${m.groupValues[1].trim()}\u0006\n" }
             // ── New numeric / hex entity decode (&#8230; / &#x2026;) — single
             // pass; out-of-range codepoints fall back to the original text.
             .replace(Regex("&#(\\d+);")) { m ->
@@ -290,6 +304,9 @@ private val RX_TAG_STRIP = Regex("<[^>]+>")
 private val RX_CELL_HEADING = Regex("(?m)^\\s*#{1,6}\\s+")
 private val RX_CELL_BULLET = Regex("(?m)^\\s*[-*+]\\s+")
 private val RX_WS = Regex("\\s+")
+
+/** `:shortcode:` — whitelist-checked against [EMOJI_SHORTCODES]. */
+private val EMOJI_SHORTCODE_REGEX = Regex(":([a-z0-9_+-]+):")
 
 /**
  * Convert a raw `<table>…</table>` HTML block into a GitHub pipe table.
@@ -469,12 +486,12 @@ private fun parseMarkdownInner(src: String, depth: Int): List<MdBlock> {
             blocks.add(MdBlock.HorizontalRule); i++; continue
         }
 
-        val headingMatch = RX_HEADING.matchEntire(line)
+        val headingMatch = RX_HEADING.matchEntire(line.replace("\u0006", ""))
         if (headingMatch != null) {
             val level = headingMatch.groupValues[1].length
             // Closed ATX heading: strip a trailing " ###" sequence (GFM).
             val text = headingMatch.groupValues[2].trim().replace(Regex("\\s+#+\\s*$"), "")
-            blocks.add(MdBlock.Heading(level, text))
+            blocks.add(MdBlock.Heading(level, text, line.contains("\u0006")))
             i++; continue
         }
 
@@ -558,7 +575,7 @@ private fun parseMarkdownInner(src: String, depth: Int): List<MdBlock> {
             val alert = ALERT_KIND_REGEX.matchEntire(quoteLines.firstOrNull()?.trim() ?: "")
             if (alert != null) {
                 val body = quoteLines.drop(1).joinToString("\n").trim()
-                blocks.add(MdBlock.Alert(alert.groupValues[1].uppercase(), body))
+                blocks.add(MdBlock.Alert(alert.groupValues[1].uppercase(), stripCenterMark(body)))
                 continue
             }
             // GFM: blockquote content is re-parsed as blocks — sub-lists,
@@ -571,7 +588,7 @@ private fun parseMarkdownInner(src: String, depth: Int): List<MdBlock> {
                 val sub = parseMarkdownInner(inner, depth + 1)
                 MdBlock.QuoteBlocks(sub)
             } else {
-                MdBlock.Blockquote(inner)
+                MdBlock.Blockquote(stripCenterMark(inner))
             })
             continue
         }
@@ -589,7 +606,7 @@ private fun parseMarkdownInner(src: String, depth: Int): List<MdBlock> {
                 val num = m.groupValues[1].toIntOrNull() ?: expected
                 val display = if (index == 1 || num == expected) num else expected
                 expected = display + 1
-                val text = m.groupValues[2].trim()
+                val text = stripCenterMark(m.groupValues[2].trim())
                 blocks.add(MdBlock.ListItem(text, ordered = true, index = display, level = listLevel(lines[i])))
                 i++
             }
@@ -608,7 +625,7 @@ private fun parseMarkdownInner(src: String, depth: Int): List<MdBlock> {
                 } else {
                     raw to null
                 }
-                blocks.add(MdBlock.ListItem(text, ordered = false, index = 0, level = listLevel(lines[i]), task = task))
+                blocks.add(MdBlock.ListItem(stripCenterMark(text), ordered = false, index = 0, level = listLevel(lines[i]), task = task))
                 i++
             }
             i = absorbContinuation(blocks, lines, i)
@@ -633,14 +650,16 @@ private fun parseMarkdownInner(src: String, depth: Int): List<MdBlock> {
             continue
         }
 
-        // Paragraph
+        // Paragraph: the \u0006 (centered-container) marker survives into the
+        // block so the renderer can center it.
         val paraLines = mutableListOf<String>()
         while (i < lines.size && !isBlockStart(lines[i]) && !isTableHeaderAt(i)) {
             paraLines.add(lines[i])
             i++
         }
         if (paraLines.isNotEmpty()) {
-            blocks.add(MdBlock.Paragraph(joinParagraphLines(paraLines)))
+            val joined = joinParagraphLines(paraLines)
+            blocks.add(MdBlock.Paragraph(joined, centered = joined.contains("\u0006")))
         }
     }
     return blocks
@@ -691,6 +710,11 @@ private val ALERT_KIND_REGEX =
  * the block parser strips it and sets hasHeader=false.
  */
 internal const val HEADERLESS_MARK = "\u0005"
+
+/** Centered-container wrap marker written by cleanSegment (see cleanSegment). */
+internal const val CENTER_MARK = "\u0006"
+
+internal fun stripCenterMark(s: String): String = s.replace(CENTER_MARK, "")
 
 internal fun stripHeaderlessMark(sep: String): String = sep.replace(HEADERLESS_MARK, "")
 
