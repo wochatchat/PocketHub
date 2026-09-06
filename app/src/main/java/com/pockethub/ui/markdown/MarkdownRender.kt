@@ -264,13 +264,16 @@ private fun AdaptiveImage(img: InlineToken.Image, onTap: (String, LinkKind) -> U
     val effectiveImg = if (themeSrc != img.src) img.copy(src = themeSrc, alt = pic.base) else img
     val meta = rememberImageMeta(effectiveImg.src)
     val intrinsic = meta.size
+    // One-sided hints survive: "300x0" width-only / "0x40" height-only.
+    val hintW = img.hintW?.takeIf { it > 0 } ?: pic.w?.takeIf { it > 0 }
+    val hintH = img.hintH?.takeIf { it > 0 } ?: pic.h?.takeIf { it > 0 }
 
     when {
         // GitHub contributor-wall avatars: small square cells no matter what
         // the CDN serves (intrinsic can be 460px → full-width blowups).
         isAvatarUrl(effectiveImg.src) -> {
-            val hDp = img.hintH?.dp?.coerceIn(24.dp, 100.dp) ?: 44.dp
-            val wDp = img.hintW?.dp?.coerceIn(24.dp, 100.dp) ?: hDp
+            val hDp = hintH?.dp?.coerceIn(24.dp, 100.dp) ?: 44.dp
+            val wDp = hintW?.dp?.coerceIn(24.dp, 100.dp) ?: hDp
             RenderStripImage(effectiveImg, wDp, hDp, clickTarget, kind, onTap)
         }
         isBadgeUrl(effectiveImg.src) -> {
@@ -279,11 +282,11 @@ private fun AdaptiveImage(img: InlineToken.Image, onTap: (String, LinkKind) -> U
             val w = if (aspect > 0f) (h * aspect).coerceIn(24.dp, 300.dp) else 96.dp
             RenderStripImage(effectiveImg, w, h, clickTarget, kind, onTap)
         }
-        (img.hintW != null && img.hintH != null && img.hintW > 0 && img.hintH > 0) ||
-            (pic.w != null && pic.h != null && pic.w > 0 && pic.h > 0) -> {
-            val wDp = (img.hintW ?: pic.w ?: 0).dp.coerceAtMost(320.dp)
-            val hDp = (img.hintH ?: pic.h ?: 0).dp.coerceAtMost(360.dp)
-            RenderSizedImage(effectiveImg, wDp, hDp, clickTarget, kind, onTap)
+        hintW != null && hintH != null -> {
+            RenderSizedImage(effectiveImg, hintW.dp.coerceAtMost(320.dp), hintH.dp.coerceAtMost(360.dp), clickTarget, kind, onTap)
+        }
+        hintW != null || hintH != null -> {
+            RenderOneSizedImage(effectiveImg, hintW, hintH, intrinsic, clickTarget, kind, onTap)
         }
         // Load FAILED (or no size yet): RenderContentImage re-issues the same
         // request — failure shows its broken-image row instead of spinning.
@@ -310,6 +313,84 @@ private fun AdaptiveImage(img: InlineToken.Image, onTap: (String, LinkKind) -> U
                 )
                 else -> RenderContentImage(effectiveImg, clickTarget, kind, onTap)
             }
+        }
+    }
+}
+
+/**
+ * Width-only / height-only HTML hint. The missing side follows the decoded
+ * intrinsic aspect ratio (300-wide SVG logo, 40-tall deploy buttons); with
+ * no intrinsic size (viewBox-only SVG) the given side constrains the box and
+ * the SVG rasterizes at draw size.
+ */
+@Composable
+private fun RenderOneSizedImage(
+    img: InlineToken.Image,
+    hintW: Int?,
+    hintH: Int?,
+    intrinsic: androidx.compose.ui.unit.IntSize?,
+    clickTarget: String,
+    kind: LinkKind,
+    onTap: (String, LinkKind) -> Unit,
+) {
+    when {
+        hintW != null && intrinsic != null && intrinsic.width > 0 -> {
+            val h = (intrinsic.height * hintW.toFloat() / intrinsic.width).dp
+                .coerceIn(12.dp, 360.dp)
+            RenderSizedImage(img, hintW.dp.coerceAtMost(320.dp), h, clickTarget, kind, onTap)
+        }
+        hintH != null && intrinsic != null && intrinsic.height > 0 -> {
+            val w = (intrinsic.width * hintH.toFloat() / intrinsic.height).dp
+                .coerceIn(12.dp, 320.dp)
+            RenderSizedImage(img, w, hintH.dp.coerceAtMost(360.dp), clickTarget, kind, onTap)
+        }
+        hintW != null -> {
+            SubcomposeAsyncImage(
+                model = img.src,
+                imageLoader = LocalAppImageLoader.current,
+                contentDescription = img.alt.takeIf { it.isNotBlank() },
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .width(hintW.dp.coerceAtMost(320.dp))
+                    .clip(RoundedCornerShape(4.dp))
+                    .clickable { onTap(clickTarget, kind) },
+                loading = {
+                    Box(Modifier.width(hintW.dp.coerceAtMost(320.dp)).height(40.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 1.5.dp)
+                    }
+                },
+                error = {
+                    Box(Modifier.width(hintW.dp.coerceAtMost(320.dp)).height(40.dp), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.BrokenImage, null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(14.dp))
+                    }
+                },
+            )
+        }
+        else -> {
+            SubcomposeAsyncImage(
+                model = img.src,
+                imageLoader = LocalAppImageLoader.current,
+                contentDescription = img.alt.takeIf { it.isNotBlank() },
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .height(hintH?.dp?.coerceAtMost(360.dp) ?: 160.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .clickable { onTap(clickTarget, kind) },
+                loading = {
+                    Box(Modifier.height(hintH?.dp?.coerceAtMost(360.dp) ?: 160.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 1.5.dp)
+                    }
+                },
+                error = {
+                    Box(Modifier.height(hintH?.dp?.coerceAtMost(360.dp) ?: 160.dp), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.BrokenImage, null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(14.dp))
+                    }
+                },
+            )
         }
     }
 }
