@@ -88,9 +88,18 @@ private fun cleanSegment(markdown: String): String {
                 // Plain numeric (or px) sizes become display hints; percent
                 // widths ("width=100%" screenshot grids) are dropped — the
                 // intrinsic-size bucket renders them full-width like the web.
+                // ONE dimension alone also applies (width-only is MORE common
+                // than w+h: 580 vs 192 in the corpus) — dropping it let logos
+                // with huge intrinsic sizes (e.g. 1252×1252 SVG) blow up to
+                // full width. Missing side encodes as 0.
                 val w = Regex("width\\s*=\\s*[\"']?(\\d+)(?:px)?[\"']?(?!%)", RegexOption.IGNORE_CASE).find(tag)?.groupValues?.getOrNull(1)
                 val h = Regex("height\\s*=\\s*[\"']?(\\d+)(?:px)?[\"']?(?!%)", RegexOption.IGNORE_CASE).find(tag)?.groupValues?.getOrNull(1)
-                val altOut = if (w != null && h != null) "$alt\u0001${w}x${h}" else alt
+                val altOut = when {
+                    w != null && h != null -> "$alt\u0001${w}x${h}"
+                    w != null -> "$alt\u0001${w}x0"
+                    h != null -> "$alt\u00010x${h}"
+                    else -> alt
+                }
                 "![${altOut}](${src})"
             }
             // Strip common HTML block/inline tags (leave text between pairs) — but keep <a href>
