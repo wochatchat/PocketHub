@@ -217,7 +217,7 @@ fun MarkdownText(
                     ) {
                         RenderInlineParts(parts, style.copy(
                             fontWeight = FontWeight.SemiBold,
-                            textAlign = if (block.centered) TextAlign.Center else null,
+                            textAlign = if (block.centered) TextAlign.Center else TextAlign.Start,
                             lineHeight = when (block.level) {
                                 1 -> 32.sp
                                 2 -> 28.sp
