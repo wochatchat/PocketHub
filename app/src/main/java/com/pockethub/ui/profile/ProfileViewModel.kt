@@ -25,6 +25,7 @@ class ProfileViewModel @Inject constructor(
     private val cache: CachedRepository,
     private val accounts: AccountRepository,
     private val authInterceptor: AuthInterceptor,
+    private val publicApi: com.pockethub.data.remote.PublicEndpoints,
 ) : ViewModel() {
 
     /** Work-list scope — what to surface on the user's "to handle" board. */
@@ -84,26 +85,19 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoadingFollowLists.update { true }
             try {
-                // Independent loads — one failing must not mask the other.
-                var firstError: Exception? = null
-                val f1 = try {
-                    api.getFollowers(login)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    firstError = firstError ?: e
-                    emptyList()
-                }
-                val f2 = try {
-                    api.getFollowing(login)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    firstError = firstError ?: e
-                    emptyList()
-                }
-                _followers.update { f1 }
-                _followingList.update { f2 }
+                // Authed first, anonymous retry on failure — org policies can
+                // 404 the OAuth-app token on org-related public data.
+                val (f1, e1) = com.pockethub.data.remote.withPublicFallback(
+                    { api.getFollowers(login) },
+                    { publicApi.getFollowers(login) },
+                )
+                val (f2, e2) = com.pockethub.data.remote.withPublicFallback(
+                    { api.getFollowing(login) },
+                    { publicApi.getFollowing(login) },
+                )
+                _followers.update { f1 ?: emptyList() }
+                _followingList.update { f2 ?: emptyList() }
+                val firstError = e1 ?: e2
                 firstError?.let { issueReporter.reportError("Profile", "loadFollowLists", it) }
                 _followListsFailed.update { firstError != null }
             } finally {

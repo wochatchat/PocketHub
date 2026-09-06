@@ -128,6 +128,41 @@ object NetworkModule {
         return retrofit.create(GitHubApi::class.java)
     }
 
+    // No-auth client/Retrofit for PUBLIC read endpoints — mirrors the main
+    // client minus the auth interceptor/authenticator. Used as the anonymous
+    // retry when org policies 404 an OAuth-app token on org-related data
+    // (see PublicEndpoints for the full rationale).
+    @Provides
+    @Singleton
+    @javax.inject.Named("publicOkHttp")
+    fun providePublicOkHttpClient(dns: okhttp3.Dns): OkHttpClient =
+        OkHttpClient.Builder()
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(20, TimeUnit.SECONDS)
+            .writeTimeout(15, TimeUnit.SECONDS)
+            .dns(dns)
+            .build()
+
+    @Provides
+    @Singleton
+    @javax.inject.Named("publicRetrofit")
+    fun providePublicRetrofit(
+        @javax.inject.Named("publicOkHttp") client: OkHttpClient,
+        json: Json,
+    ): Retrofit = Retrofit.Builder()
+        .baseUrl(BuildConfig.GITHUB_API_BASE_URL)
+        .client(client)
+        .addConverterFactory(json.asConverterFactory("application/json; charset=utf-8".toMediaType()))
+        .build()
+
+    @Provides
+    @Singleton
+    fun providePublicEndpoints(
+        @javax.inject.Named("publicRetrofit") retrofit: Retrofit,
+    ): com.pockethub.data.remote.PublicEndpoints = retrofit.create(com.pockethub.data.remote.PublicEndpoints::class.java)
+
     // Coil ImageLoader with SVG support so README badges / logos / charts (.svg) decode.
     // Explicit 3-tier caching: memory cache (hot images) → disk cache (survives
     // process death) → network. Crossfade smooths cache-miss loads.

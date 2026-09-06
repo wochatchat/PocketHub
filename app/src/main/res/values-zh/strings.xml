@@ -551,6 +551,7 @@
     <string name="follow_list_load_failed">列表加载失败 — 请检查网络后重试</string>
     <string name="user_type_organization">组织</string>
     <string name="follow_needs_relogin">关注失败（404）：当前登录凭证缺少 user:follow 权限，请退出登录后重新登录授权。</string>
+    <string name="follow_org_restricted">该组织限制了未经审批的第三方应用访问 API，PocketHub 无法关注它。可在浏览器打开组织主页点击关注，或联系组织管理员审批本应用。</string>
     <string name="not_following_anyone">还没有关注任何人</string>
 
     <!-- 个人首页工作台 -->

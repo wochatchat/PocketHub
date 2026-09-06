@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.io.IOException
 import javax.inject.Inject
 
 @HiltViewModel
@@ -22,6 +21,7 @@ class UserDetailViewModel @Inject constructor(
     private val issueReporter: com.pockethub.data.reporting.IssueReporter,
     private val api: GitHubApi,
     private val cache: CachedRepository,
+    private val publicApi: com.pockethub.data.remote.PublicEndpoints,
     @dagger.hilt.android.qualifiers.ApplicationContext private val appContext: android.content.Context,
 ) : ViewModel() {
 
@@ -165,23 +165,34 @@ class UserDetailViewModel @Inject constructor(
                     _user.update { u ->
                         u?.copy(followers = (u.followers ?: 0) + if (currentlyFollowing) -1 else 1)
                     }
-                } else {
-                    // 404 here almost always means the token predates the
-                    // user:follow scope (GitHub answers scope-missing follow
-                    // calls with 404, not 403) — point at re-login instead of
-                    // a bare HTTP code.
+                } else if (resp.code() == 404) {
+                    // Two distinct 404 causes with different remedies:
+                    // 1. Pre-user:follow token → GitHub denies ALL user/following
+                    //    routes, even the check. Re-login grants the scope.
+                    // 2. Org OAuth-app restriction → GitHub 404s org-related
+                    //    routes for member tokens; the check succeeds (204/404)
+                    //    but the PUT is denied. Diagnose via an UNAUTHENTICATED
+                    //    org check: reachable → token can't follow here (org
+                    //    restriction); 404 → the resource itself is hidden from
+                    //    us → scope problem.
+                    val orgReachable = runCatching {
+                        publicApi.getFollowers(login, page = 1, perPage = 1)
+                    }.isSuccess
                     _followMessage.update {
-                        if (resp.code() == 404) {
-                            appContext.getString(com.pockethub.R.string.follow_needs_relogin)
+                        if (orgReachable) {
+                            appContext.getString(com.pockethub.R.string.follow_org_restricted)
                         } else {
-                            "HTTP ${resp.code()}: ${resp.message()}"
+                            appContext.getString(com.pockethub.R.string.follow_needs_relogin)
                         }
                     }
+                } else {
+                    "HTTP ${resp.code()}: ${resp.message()}".let { m ->
+                        _followMessage.update { m }
+                    }
                 }
-            } catch (e: IOException) {
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 _followMessage.update { e.userMessage("Network error") }
-            } catch (_: Exception) {
-                _followMessage.update { "Unexpected error" }
             } finally {
                 _followActionInProgress.update { false }
             }
@@ -195,27 +206,21 @@ class UserDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoadingFollowLists.update { true }
             try {
-                // Each list loads independently; a failure surfaces a retryable
-                // message instead of silently reading as "no followers" (an
-                // unreachable GitHub is not the same thing as an empty list).
-                var firstError: Exception? = null
-                val f1 = try {
-                    api.getFollowers(login)
-                } catch (e: Exception) {
-                    if (e !is kotlinx.coroutines.CancellationException) firstError = firstError ?: e
-                    emptyList()
-                }
-                val f2 = try {
-                    api.getFollowing(login)
-                } catch (e: Exception) {
-                    if (e !is kotlinx.coroutines.CancellationException) firstError = firstError ?: e
-                    emptyList()
-                }
-                _followers.update { f1 }
-                _followingList.update { f2 }
-                firstError?.let { e ->
-                    issueReporter.reportError("UserDetail", "loadFollowLists", e)
-                }
+                // Authed call first; on failure retry anonymously — org policies
+                // (OAuth-app access restrictions) 404 member tokens on org-related
+                // endpoints even for public data (see PublicEndpoints).
+                val (f1, e1) = com.pockethub.data.remote.withPublicFallback(
+                    { api.getFollowers(login) },
+                    { publicApi.getFollowers(login) },
+                )
+                val (f2, e2) = com.pockethub.data.remote.withPublicFallback(
+                    { api.getFollowing(login) },
+                    { publicApi.getFollowing(login) },
+                )
+                _followers.update { f1 ?: emptyList() }
+                _followingList.update { f2 ?: emptyList() }
+                val firstError = e1 ?: e2
+                firstError?.let { issueReporter.reportError("UserDetail", "loadFollowLists", it) }
                 _followListsFailed.update { firstError != null }
                 _followListsError.update { firstError?.userMessage("Couldn't load follow lists") }
             } finally {
