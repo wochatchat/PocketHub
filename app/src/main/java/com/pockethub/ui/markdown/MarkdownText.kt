@@ -506,7 +506,7 @@ internal sealed class MdBlock {
     /** `task`: null = not a task item; ' ' = unchecked; 'x' = checked. */
     data class ListItem(val text: String, val ordered: Boolean, val index: Int, val level: Int, val task: Char? = null) : MdBlock()
     /** alignments per column: 0 left, 1 center, 2 right (from the `:---:` separator row). */
-    data class Table(val headers: List<String>, val rows: List<List<String>>, val alignments: List<Int> = emptyList()) : MdBlock()
+    data class Table(val headers: List<String>, val rows: List<List<String>>, val alignments: List<Int> = emptyList(), val hasHeader: Boolean = true) : MdBlock()
     object HorizontalRule : MdBlock()
 }
 
