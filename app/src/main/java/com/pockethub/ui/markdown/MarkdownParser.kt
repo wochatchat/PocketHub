@@ -33,6 +33,45 @@ private fun cleanSegment(markdown: String): String {
             // Strip HTML comments (<!-- … -->) — README sections use them to
             // organize badge blocks; they must never surface as literal text.
             .replace(Regex("<!--[\\s\\S]*?-->"), "")
+            // ── HTML <picture> — resolved BEFORE <img> handling so the dark/
+            // light variant picker picks the right source per theme. GitHub
+            // swaps these by prefers-color-scheme; we mark the theme side with
+            // an alt suffix ("#dark"/"#light") that the renderer resolves.
+            // Structure: <picture><source media="(prefers-color-scheme: dark)"
+            // srcset="…"/><source …light…/><img src="fallback"></picture>
+            .replace(
+                Regex(
+                    "<picture\\b[^>]*>(.*?)</\\s*picture\\s*>",
+                    setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+                ),
+            ) { m ->
+                val inner = m.groupValues[1]
+                val dark = Regex("<source\\b[^>]*media\\s*=\\s*[\"'][^\"']*dark[^\"']*[\"'][^>]*srcset\\s*=\\s*[\"']([^\"']+)[\"']", RegexOption.IGNORE_CASE)
+                    .find(inner)?.groupValues?.getOrNull(1)
+                    ?: Regex("<source\\b[^>]*srcset\\s*=\\s*[\"']([^\"']+)[\"'][^>]*media\\s*=\\s*[\"'][^\"']*dark[^\"']*[\"']", RegexOption.IGNORE_CASE)
+                        .find(inner)?.groupValues?.getOrNull(1)
+                val light = Regex("<source\\b[^>]*media\\s*=\\s*[\"'][^\"']*light[^\"']*[\"'][^>]*srcset\\s*=\\s*[\"']([^\"']+)[\"']", RegexOption.IGNORE_CASE)
+                    .find(inner)?.groupValues?.getOrNull(1)
+                    ?: Regex("<source\\b[^>]*srcset\\s*=\\s*[\"']([^\"']+)[\"'][^>]*media\\s*=\\s*[\"'][^\"']*light[^\"']*[\"']", RegexOption.IGNORE_CASE)
+                        .find(inner)?.groupValues?.getOrNull(1)
+                val fallback = Regex("<img\\b[^>]*src\\s*=\\s*[\"']([^\"']+)[\"']", RegexOption.IGNORE_CASE)
+                    .find(inner)?.groupValues?.getOrNull(1)
+                // First <img> inside the picture may carry width/height hints —
+                // the generic <img> conversion below no longer sees this block,
+                // so harvest them here into the alt-hint suffix.
+                val firstImg = Regex("<img\\b[^>]*>", RegexOption.IGNORE_CASE).find(inner)?.value
+                val dim = firstImg?.let {
+                    val w = Regex("width\\s*=\\s*[\"']?(\\d+)").find(it)?.groupValues?.getOrNull(1)
+                    val h = Regex("height\\s*=\\s*[\"']?(\\d+)").find(it)?.groupValues?.getOrNull(1)
+                    if (w != null && h != null) "\u0001${w}x${h}" else ""
+                }.orEmpty()
+                val src = dark ?: light ?: fallback
+                val altSrc = when {
+                    dark != null && light != null -> "$dark\u0002$light"
+                    else -> null
+                }
+                if (src != null) "![picture$dim\u0003${altSrc.orEmpty()}](${src})" else ""
+            }
             // <img src> → markdown, PRESERVING the HTML width/height hints as an
             // alt-suffix ("alt|WxH") — the renderer uses them to size the image
             // like the web page did (banners at ~250dp, badges at ~20dp) instead
@@ -125,6 +164,30 @@ private fun cleanSegment(markdown: String): String {
             .replace(
                 Regex("<\\s*summary\\b[^>]*>(.*?)<\\s*/\\s*summary\\s*>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
             ) { "\n**${it.groupValues[1].trim()}**\n" }
+            // ── HTML tables → native pipe-table blocks. 13% of popular READMEs
+            // lay out sponsor walls / screenshot grids / comparison charts as
+            // real <table> markup — flattening them to bare text destroyed
+            // both the grid layout and the 4k+ images they embed. Runs AFTER
+            // the <img>/<a> conversions so cells arrive as ready markdown.
+            .replace(
+                Regex(
+                    "<table\\b[^>]*>([\\s\\S]*?)</\\s*table\\s*>",
+                    setOf(RegexOption.IGNORE_CASE),
+                ),
+            ) { m -> htmlTableToMarkdown(m.value) }
+            // <dl>/<dt>/<dd> → "**term**" + ": definition" lines (definition
+            // lists appear in specs' READMEs; previously the tags were stripped
+            // and the term/definition pairing collapsed into run-on text).
+            .replace(
+                Regex(
+                    "<dt\\b[^>]*>(.*?)</\\s*dt\\s*>\\s*<dd\\b[^>]*>(.*?)</\\s*dd\\s*>",
+                    setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+                ),
+            ) { m ->
+                val term = m.groupValues[1].replace(Regex("<[^>]+>"), "").trim()
+                val def = m.groupValues[2].replace(Regex("\\s+"), " ").trim()
+                "\n**$term**\n: $def"
+            }
             // Any leftover <a> tags (anchors like <a name="readme-top"></a>,
             // or href links the conversion above couldn't parse) — drop the
             // tag, keep inner text. Also <picture>/<source> wrappers (the
@@ -159,13 +222,21 @@ private fun cleanSegment(markdown: String): String {
                 ),
                 "",
             )
-            // Decode a few common HTML entities
-            .replace("&amp;", "&")
+            // ── Named-entity decoding — WHITELIST ONLY. The old approach
+            // (&amp;→& first, then &lt;/&gt;/&quot;) ran ampersand-decode
+            // before the bracket entities, corrupting every README link that
+            // legitimately contains "&" in its URL: ?a=1&amp;b=2 became
+            // ?a=1&b=2 → &b=2 → "&b=2" got re-consumed and deep links /
+            // UTM-tagged sponsor URLs lost their query params. Decode the
+            // bracket entities FIRST (no overlap with &amp;), then &amp; last,
+            // and only touch a known named set — unknown entities (&#x1F600;
+            // handled below, &xabc; etc.) stay literal, exactly like GitHub.
             .replace("&lt;", "<")
             .replace("&gt;", ">")
             .replace("&quot;", "\"")
+            .replace("&apos;", "'")
             .replace("&#39;", "'")
-            .replace("'", "'")
+            .replace("&amp;", "&")
             .replace("&rarr;", "→")
             .replace("&larr;", "←")
             .replace("&mdash;", "—")
@@ -209,12 +280,124 @@ private fun cleanSegment(markdown: String): String {
             .replace(Regex("\\n\\s*\\n\\s*\\n"), "\n\n")
 }
 
+// ── HTML table conversion ────────────────────────────────────────────
+
+private val RX_TR = Regex("<tr\\b[^>]*>([\\s\\S]*?)</\\s*tr\\s*>", setOf(RegexOption.IGNORE_CASE))
+private val RX_TD = Regex("<t([dh])\\b([^>]*)>([\\s\\S]*?)</\\s*t[hd]\\s*>", setOf(RegexOption.IGNORE_CASE))
+private val RX_ALIGN_ATTR = Regex("align\\s*=\\s*[\"']?(center|right|left)", RegexOption.IGNORE_CASE)
+private val RX_ALIGN_STYLE = Regex("text-align\\s*:\\s*(center|right|left)", RegexOption.IGNORE_CASE)
+private val RX_TAG_STRIP = Regex("<[^>]+>")
+private val RX_CELL_HEADING = Regex("(?m)^\\s*#{1,6}\\s+")
+private val RX_CELL_BULLET = Regex("(?m)^\\s*[-*+]\\s+")
+private val RX_WS = Regex("\\s+")
+
+/**
+ * Convert a raw `<table>…</table>` HTML block into a GitHub pipe table.
+ * Runs after the <img>/<a> conversions, so cells arrive as markdown text and
+ * survive as real inline content (images, links, code) instead of being
+ * flattened to garbage. Returns "" for tables with no parseable rows.
+ */
+internal fun htmlTableToMarkdown(tableHtml: String): String {
+    val rows = RX_TR.findAll(tableHtml).toList()
+    if (rows.isEmpty()) return ""
+    var header: List<String>? = null
+    val alignments = mutableListOf<Int>()
+    val body = mutableListOf<List<String>>()
+    for (tr in rows) {
+        val cells = RX_TD.findAll(tr.groupValues[1]).toList()
+        if (cells.isEmpty()) continue
+        val rowAlign = mutableListOf<Int>()
+        val texts = cells.map { c ->
+            val attrs = c.groupValues[2]
+            rowAlign.add(when {
+                RX_ALIGN_STYLE.find(attrs) != null -> when (RX_ALIGN_STYLE.find(attrs)!!.groupValues[1]) {
+                    "center" -> 1; "right" -> 2; else -> 0
+                }
+                RX_ALIGN_ATTR.find(attrs) != null -> when (RX_ALIGN_ATTR.find(attrs)!!.groupValues[1]) {
+                    "center" -> 1; "right" -> 2; else -> 0
+                }
+                else -> 0
+            })
+            // Strip leftover tags, collapse whitespace; markdown links/images
+            // produced upstream are preserved verbatim. NOTE: the cell text
+            // keeps newlines out via \s+ collapse; escaped pipe keeps cell-
+            // internal `|` from breaking the row split. HTML cells sometimes
+            // carry BLOCK-level markdown (### headings, - bullets) — strip the
+            // markers so they don't leak as literal "###" inside the cell.
+            c.groupValues[3].replace(RX_TAG_STRIP, " ")
+                .replace(RX_CELL_HEADING, "")
+                .replace(RX_CELL_BULLET, "")
+                .replace(RX_WS, " ")
+                .trim()
+                .replace("|", "\\|")
+        }
+        // Header = a row built from <th> cells ONLY. Screenshot/logo grids
+        // (<table><tr><td><img …) have no header at all — promoting their
+        // first image row to a bold header row was wrong; those render
+        // headerless.
+        val isHeader = header == null && cells.all { it.groupValues[1].lowercase() == "h" }
+        if (isHeader) {
+            header = texts
+            alignments.addAll(rowAlign)
+        } else {
+            if (header == null && alignments.isEmpty()) alignments.addAll(rowAlign)
+            body.add(texts)
+        }
+    }
+    // Headerless grid: keep all rows in body, no synthetic header.
+    val headers = header ?: emptyList()
+    if (headers.isEmpty() && body.isEmpty()) return ""
+    val colCount = (body.maxOfOrNull { it.size } ?: 0).coerceAtLeast(headers.size)
+    val sb = StringBuilder("\n")
+    if (headers.isNotEmpty()) {
+        sb.append("| ").append(headers.joinToString(" | ")).append(" |\n")
+        val al = MutableList(colCount) { alignments.getOrNull(it) ?: 0 }
+        sb.append("| ").append(al.joinToString(" | ") { a ->
+            when (a) {
+                1 -> ":---:"; 2 -> "---:"; else -> "---"
+            }
+        }).append(" |\n")
+    } else {
+        // Headerless marker row: every cell "\u0005" → renderer reads
+        // hasHeader=false. Alignment still carried per column.
+        val al = MutableList(colCount) { alignments.getOrNull(it) ?: 0 }
+        sb.append("| ").append(al.joinToString(" | ") { a -> "\u0005" + when (a) {
+            1 -> ":---:"; 2 -> "---:"; else -> "---"
+        } }).append(" |\n")
+    }
+    for (row in body) {
+        val padded = row + List((colCount - row.size).coerceAtLeast(0)) { "" }
+        sb.append("| ").append(padded.take(colCount).joinToString(" | ")).append(" |\n")
+    }
+    sb.append("\n")
+    return sb.toString()
+}
+
 // ── Parsing ─────────────────────────────────────────────────────────
+// Hot-path patterns compiled ONCE. parseMarkdown runs per line over docs up
+// to 200K chars; inline Regex(...) construction per call site used to compile
+// the same patterns thousands of times per document (measurable on 1MB
+// awesome-lists, and pure waste).
+
+private val RX_HR_DASH = Regex("^-{3,}\\s*$")
+private val RX_HR_STAR = Regex("^\\*{3,}\\s*$")
+private val RX_HEADING = Regex("^(#{1,6})\\s+(.+)")
+private val RX_SETEXT_H1 = Regex("^=+\\s*$")
+private val RX_SETEXT_H2 = Regex("^-+\\s*$")
+private val RX_FENCE_OPEN_LINE = Regex("^\\s*(`{3,}|~{3,})(.*)$")
+private val RX_FENCE_CLOSE = Regex("^\\s*(`{3,}|~{3,})\\s*$")
+private val RX_OL_ITEM = Regex("^\\s*(\\d+)\\.\\s+(.+)")
+private val RX_UL_ITEM = Regex("^\\s*[-*+]\\s+.+")
+private val RX_UL_RAW = Regex("^\\s*[-*+]\\s+")
+private val RX_TASK = Regex("^\\[([ xX])]\\s+(.*)")
+private val RX_BLOCKSTART_FENCE = Regex("^[`~]{3,}")
+private val RX_BLOCKSTART_OL = Regex("^\\s*\\d+\\.\\s+.+")
+private val RX_BLOCKSTART_UL = Regex("^\\s*[-*+]\\s+.+")
 
 internal val TABLE_SEP_REGEX = Regex("^\\|?\\s*:?-+:?\\s*(\\|\\s*:?-+:?\\s*)*\\|?$")
 
 internal fun isTableSeparator(line: String): Boolean {
-    val l = line.trim()
+    val l = stripHeaderlessMark(line.trim())
     return l.contains("-") && l.contains("|") && TABLE_SEP_REGEX.matches(l)
 }
 
@@ -268,10 +451,10 @@ internal fun parseMarkdown(src: String): List<MdBlock> {
         idx + 1 < lines.size && looksLikeTableRow(lines[idx]) && isTableSeparator(lines[idx + 1])
 
     val isBlockStart: (String) -> Boolean = { l ->
-        l.isBlank() || l.startsWith("#") || Regex("^[`~]{3,}").containsMatchIn(l.trim()) ||
+        l.isBlank() || l.startsWith("#") || RX_BLOCKSTART_FENCE.containsMatchIn(l.trim()) ||
             l.trimStart().startsWith(">") ||
-            l.matches(Regex("^\\s*[-*+]\\s+.+")) || l.matches(Regex("^\\s*\\d+\\.\\s+.+")) ||
-            l.matches(Regex("^-{3,}\\s*$")) || l.matches(Regex("^\\*{3,}\\s*$"))
+            RX_BLOCKSTART_UL.containsMatchIn(l) || RX_BLOCKSTART_OL.containsMatchIn(l) ||
+            RX_HR_DASH.matches(l) || RX_HR_STAR.matches(l)
     }
 
     while (i < lines.size) {
@@ -279,11 +462,11 @@ internal fun parseMarkdown(src: String): List<MdBlock> {
 
         if (line.isBlank()) { i++; continue }
 
-        if (line.matches(Regex("^-{3,}\\s*$")) || line.matches(Regex("^\\*{3,}\\s*$"))) {
+        if (RX_HR_DASH.matches(line) || RX_HR_STAR.matches(line)) {
             blocks.add(MdBlock.HorizontalRule); i++; continue
         }
 
-        val headingMatch = Regex("^(#{1,6})\\s+(.+)").matchEntire(line)
+        val headingMatch = RX_HEADING.matchEntire(line)
         if (headingMatch != null) {
             val level = headingMatch.groupValues[1].length
             // Closed ATX heading: strip a trailing " ###" sequence (GFM).
@@ -292,14 +475,20 @@ internal fun parseMarkdown(src: String): List<MdBlock> {
             i++; continue
         }
 
-        // Setext heading: non-blank line followed by === (H1) or --- (H2)
-        if (i + 1 < lines.size && line.isNotBlank() && !line.startsWith("#")) {
+        // Setext heading: non-blank line followed by === (H1) or --- (H2).
+        // The dash form must NOT fire when the content line is a table row —
+        // a two-column table like `| a | b |` + `|---|---|` (offset by one
+        // blank line from the separator) would otherwise eat the header row
+        // as a "heading". GitHub's rule: table row + dashes = table, not text.
+        if (i + 1 < lines.size && line.isNotBlank() && !line.startsWith("#") &&
+            !looksLikeTableRow(line)
+        ) {
             val next = lines[i + 1]
-            if (next.matches(Regex("^=+\\s*$")) && line.isNotBlank()) {
+            if (next.matches(RX_SETEXT_H1) && line.isNotBlank()) {
                 blocks.add(MdBlock.Heading(1, line.trim()))
                 i += 2; continue
             }
-            if (next.matches(Regex("^-+\\s*$")) && line.isNotBlank() && !line.matches(Regex("^-{3,}\\s*$"))) {
+            if (next.matches(RX_SETEXT_H2) && line.isNotBlank() && !RX_HR_DASH.matches(line)) {
                 blocks.add(MdBlock.Heading(2, line.trim()))
                 i += 2; continue
             }
@@ -309,7 +498,7 @@ internal fun parseMarkdown(src: String): List<MdBlock> {
         // must be the same character and at least as long as the opening one,
         // so a ``` inside a ```` block stays content. Info string params after
         // the language (e.g. ```js hl_lines=3) are dropped.
-        val fenceMatch = Regex("^\\s*(`{3,}|~{3,})(.*)$").find(line)
+        val fenceMatch = RX_FENCE_OPEN_LINE.find(line)
         if (fenceMatch != null) {
             val marker = fenceMatch.groupValues[1]
             val fenceChar = marker[0]
@@ -317,7 +506,7 @@ internal fun parseMarkdown(src: String): List<MdBlock> {
             val codeLines = mutableListOf<String>()
             i++
             while (i < lines.size) {
-                val close = Regex("^\\s*(`{3,}|~{3,})\\s*$").find(lines[i])
+                val close = RX_FENCE_CLOSE.find(lines[i])
                 if (close != null && close.groupValues[1][0] == fenceChar &&
                     close.groupValues[1].length >= marker.length
                 ) break
@@ -332,7 +521,10 @@ internal fun parseMarkdown(src: String): List<MdBlock> {
         if (line.trimStart().startsWith(">")) {
             val quoteLines = mutableListOf<String>()
             while (i < lines.size && lines[i].trimStart().startsWith(">")) {
-                quoteLines.add(lines[i].trimStart().removePrefix(">").trim())
+                // Strip exactly one level of ">" per line (">" + optional one
+                // space) so nested quotes ("> > x") keep their inner marker
+                // and the text pass can see it instead of leaking "> ".
+                quoteLines.add(lines[i].trimStart().replaceFirst(Regex("^> ?"), ""))
                 i++
             }
             // GFM alert: the first quote line is a bare [!KIND] marker → themed card
@@ -346,24 +538,32 @@ internal fun parseMarkdown(src: String): List<MdBlock> {
             continue
         }
 
-        // Ordered list
-        if (line.matches(Regex("^\\s*\\d+\\.\\s+.+"))) {
-            var orderedIndex = 0
-            while (i < lines.size && lines[i].matches(Regex("^\\s*\\d+\\.\\s+.+"))) {
-                orderedIndex++
-                val text = lines[i].trim().substringAfter(". ").trim()
-                blocks.add(MdBlock.ListItem(text, ordered = true, index = orderedIndex, level = listLevel(lines[i])))
+        // Ordered list. Source numbering is PRESERVED (GFM start-number rule):
+        // a fenced code block mid-list splits the run, and restarting at 1 made
+        // "1. 2. ``` 3." render as "1. 2. ``` 1." — keep the author's numbers
+        // when they form a sane sequence, otherwise fall back to +1 counting.
+        RX_OL_ITEM.find(line)?.let { olStart ->
+            var expected = olStart.groupValues[1].toIntOrNull() ?: 1
+            var index = 0
+            while (i < lines.size) {
+                val m = RX_OL_ITEM.find(lines[i]) ?: break
+                index++
+                val num = m.groupValues[1].toIntOrNull() ?: expected
+                val display = if (index == 1 || num == expected) num else expected
+                expected = display + 1
+                val text = m.groupValues[2].trim()
+                blocks.add(MdBlock.ListItem(text, ordered = true, index = display, level = listLevel(lines[i])))
                 i++
             }
             i = absorbContinuation(blocks, lines, i)
-            continue
         }
+        if (RX_OL_ITEM.containsMatchIn(line)) continue
 
         // Unordered list (with optional GitHub task-list checkbox)
-        if (line.matches(Regex("^\\s*[-*+]\\s+.+"))) {
-            while (i < lines.size && lines[i].matches(Regex("^\\s*[-*+]\\s+.+"))) {
-                val raw = lines[i].trim().substringAfter(" ").trim()
-                val taskMatch = Regex("^\\[([ xX])]\\s+(.*)").matchEntire(raw)
+        if (line.matches(RX_UL_ITEM)) {
+            while (i < lines.size && lines[i].matches(RX_UL_ITEM)) {
+                val raw = RX_UL_RAW.replaceFirst(lines[i].trim(), "").trim()
+                val taskMatch = RX_TASK.matchEntire(raw)
                 val (text, task) = if (taskMatch != null) {
                     val checked = taskMatch.groupValues[1].equals("x", ignoreCase = true)
                     taskMatch.groupValues[2] to (if (checked) 'x' else ' ')
@@ -378,23 +578,20 @@ internal fun parseMarkdown(src: String): List<MdBlock> {
         }
 
         // GitHub-style pipe table
-        if (isTableHeaderAt(i)) {
-            val headers = splitTableRow(lines[i])
+        val headerlessRow = lines.getOrNull(i)?.contains(HEADERLESS_MARK) == true &&
+            looksLikeTableRow(lines[i]) && isTableSeparator(stripHeaderlessMark(lines[i]))
+        if (headerlessRow || isTableHeaderAt(i)) {
+            val hasHeader = !headerlessRow
+            val headers = if (hasHeader) splitTableRow(lines[i]) else emptyList()
             // GFM column alignment from the separator row: :-- left, :--: center, --: right
-            val alignments = splitTableRow(lines[i + 1]).map { sep ->
-                when {
-                    sep.startsWith(":") && sep.endsWith(":") && sep.length > 2 -> 1
-                    sep.endsWith(":") -> 2
-                    else -> 0
-                }
-            }
-            i += 2 // skip header + separator
+            val alignments = splitTableRow(lines[i + 1]).map { sep -> alignmentOfSep(sep) }
+            i += if (hasHeader) 2 else 1 // header + separator, or marker separator only
             val rows = mutableListOf<List<String>>()
             while (i < lines.size && looksLikeTableRow(lines[i]) && !isTableSeparator(lines[i]) && !lines[i].isBlank()) {
                 rows.add(splitTableRow(lines[i]))
                 i++
             }
-            blocks.add(MdBlock.Table(headers, rows, alignments))
+            blocks.add(MdBlock.Table(headers, rows, alignments, hasHeader))
             continue
         }
 
@@ -449,6 +646,24 @@ internal fun joinParagraphLines(paraLines: List<String>): String =
 /** Bare `[!NOTE]`-style marker on a blockquote's first line (GFM alerts). */
 private val ALERT_KIND_REGEX =
     Regex("^\\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)]\\s*$", RegexOption.IGNORE_CASE)
+
+/**
+ * Marker cell in a separator row produced by [htmlTableToMarkdown] for
+ * headerless HTML tables (screenshot/logo grids). "\u0005" + alignment code;
+ * the block parser strips it and sets hasHeader=false.
+ */
+internal const val HEADERLESS_MARK = "\u0005"
+
+internal fun stripHeaderlessMark(sep: String): String = sep.replace(HEADERLESS_MARK, "")
+
+internal fun alignmentOfSep(sepRaw: String): Int {
+    val sep = stripHeaderlessMark(sepRaw).trim()
+    return when {
+        sep.startsWith(":") && sep.endsWith(":") && sep.length > 2 -> 1
+        sep.endsWith(":") -> 2
+        else -> 0
+    }
+}
 
 private val REF_DEF_REGEX =
     Regex("^\\s{0,3}\\[([^\\]]+)]:\\s*(?:<([^<>]+)>|(\\S+))[^\\n]*$")

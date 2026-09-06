@@ -6,6 +6,7 @@ package com.pockethub.ui.markdown
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -157,6 +158,34 @@ private fun splitAltHint(alt: String): Triple<String, Int?, Int?> {
     return Triple(display, m.groupValues[1].toIntOrNull(), m.groupValues[2].toIntOrNull())
 }
 
+/** Segments of a <picture> alt produced by cleanSegment: "alt\u0001WxH\u0003darkSrc\u0002lightSrc". */
+private data class PictureAlt(val base: String, val w: Int?, val h: Int?, val darkSrc: String?, val lightSrc: String?)
+
+private fun splitPictureAlt(alt: String): PictureAlt {
+    val p1 = alt.indexOf('\u0001')
+    val p3 = alt.indexOf('\u0003')
+    val baseEnd = if (p1 >= 0) p1 else if (p3 >= 0) p3 else alt.length
+    val base = alt.substring(0, baseEnd)
+    var w: Int? = null
+    var h: Int? = null
+    if (p1 in 0 until p3.coerceAtLeast(alt.length)) {
+        IMG_ALT_DIMENSION_REGEX.find(alt, p1 + 1)?.let {
+            w = it.groupValues[1].toIntOrNull(); h = it.groupValues[2].toIntOrNull()
+        }
+    }
+    var dark: String? = null
+    var light: String? = null
+    if (p3 >= 0) {
+        val pair = alt.substring(p3 + 1)
+        val p2 = pair.indexOf('\u0002')
+        if (p2 >= 0) {
+            dark = pair.substring(0, p2).trim().takeIf { it.isNotBlank() }
+            light = pair.substring(p2 + 1).trim().takeIf { it.isNotBlank() }
+        }
+    }
+    return PictureAlt(base, w, h, dark, light)
+}
+
 /** Badge/small-image threshold: web badges are ~20 CSS px tall. */
 private val SMALL_IMAGE_MAX_DP = 48.dp
 private val MEDIUM_IMAGE_MAX_DP = 160.dp
@@ -202,19 +231,24 @@ private fun rememberIntrinsicImageSize(src: String): androidx.compose.ui.unit.In
 private fun AdaptiveImage(img: InlineToken.Image, onTap: (String, LinkKind) -> Unit) {
     val clickTarget = img.wrapUrl ?: img.src
     val kind = if (img.wrapUrl != null) classifyLink(img.wrapUrl) else LinkKind.IMAGE_URL
-    val intrinsic = rememberIntrinsicImageSize(img.src)
+    // <picture> dark/light variants: GitHub swaps by prefers-color-scheme.
+    val pic = splitPictureAlt(img.alt)
+    val themeSrc = if (isSystemInDarkTheme()) pic.darkSrc ?: img.src else pic.lightSrc ?: img.src
+    val effectiveImg = if (themeSrc != img.src) img.copy(src = themeSrc, alt = pic.base) else img
+    val intrinsic = rememberIntrinsicImageSize(effectiveImg.src)
 
     when {
-        isBadgeUrl(img.src) -> {
+        isBadgeUrl(effectiveImg.src) -> {
             val aspect = intrinsic?.let { it.width.toFloat() / it.height.coerceAtLeast(1) } ?: 0f
             val h = 20.dp
             val w = if (aspect > 0f) (h * aspect).coerceIn(24.dp, 300.dp) else 96.dp
-            RenderStripImage(img, w, h, clickTarget, kind, onTap)
+            RenderStripImage(effectiveImg, w, h, clickTarget, kind, onTap)
         }
-        img.hintW != null && img.hintH != null && img.hintW > 0 && img.hintH > 0 -> {
-            val wDp = img.hintW.dp.coerceAtMost(320.dp)
-            val hDp = img.hintH.dp.coerceAtMost(360.dp)
-            RenderSizedImage(img, wDp, hDp, clickTarget, kind, onTap)
+        (img.hintW != null && img.hintH != null && img.hintW > 0 && img.hintH > 0) ||
+            (pic.w != null && pic.h != null && pic.w > 0 && pic.h > 0) -> {
+            val wDp = (img.hintW ?: pic.w ?: 0).dp.coerceAtMost(320.dp)
+            val hDp = (img.hintH ?: pic.h ?: 0).dp.coerceAtMost(360.dp)
+            RenderSizedImage(effectiveImg, wDp, hDp, clickTarget, kind, onTap)
         }
         intrinsic == null -> Box(
             Modifier.fillMaxWidth().height(24.dp),
@@ -228,18 +262,18 @@ private fun AdaptiveImage(img: InlineToken.Image, onTap: (String, LinkKind) -> U
             val wDp = intrinsic.width.dp
             when {
                 hDp <= SMALL_IMAGE_MAX_DP -> RenderStripImage(
-                    img,
+                    effectiveImg,
                     wDp.coerceIn(12.dp, 300.dp),
                     hDp.coerceAtLeast(12.dp),
                     clickTarget, kind, onTap,
                 )
                 hDp <= MEDIUM_IMAGE_MAX_DP -> RenderStripImage(
-                    img,
+                    effectiveImg,
                     wDp.coerceIn(24.dp, 320.dp),
                     hDp.coerceAtMost(MEDIUM_IMAGE_MAX_DP),
                     clickTarget, kind, onTap,
                 )
-                else -> RenderContentImage(img, clickTarget, kind, onTap)
+                else -> RenderContentImage(effectiveImg, clickTarget, kind, onTap)
             }
         }
     }
@@ -371,6 +405,9 @@ private fun RenderContentImage(
 
 // ── Tables ───────────────────────────────────────────────────────────
 
+/** Max rows rendered before the "show all rows" affordance appears. */
+private const val TABLE_ROW_CAP = 50
+
 @Composable
 internal fun TableBlock(
     table: MdBlock.Table,
@@ -385,30 +422,76 @@ internal fun TableBlock(
 ) {
     val headerBg = MaterialTheme.colorScheme.surfaceVariant
     val borderColor = MaterialTheme.colorScheme.outlineVariant
-    val colCount = table.headers.size.coerceAtLeast(1)
+    // Column count comes from headers AND rows — headerless HTML grids
+    // (screenshot/logo walls) carry empty headers but multi-cell rows.
+    val colCount = (table.rows.maxOfOrNull { it.size } ?: 0)
+        .coerceAtLeast(table.headers.size).coerceAtLeast(1)
+    // Content-weighted column widths for the scrolled layout. Equal
+    // weight(1f) crushed 4+ column tables (10% of corpus): a 2-char column
+    // got the same width as a 60-char one.
+    val colWidths = remember(table) { columnWidths(table, colCount) }
+    val needsScroll = colCount > 3
+    // Row cap: a 1000-row table eagerly composed ~1000 Rows of ClickableText
+    // on first layout = seconds of jank on low-end phones. 50 rows render
+    // instantly; deeper rows unfold on tap.
+    var expanded by remember(table) { androidx.compose.runtime.mutableStateOf(false) }
+    val visibleRows = if (expanded || table.rows.size <= TABLE_ROW_CAP) table.rows else table.rows.take(TABLE_ROW_CAP)
+
     Column(
         Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
             .clip(RoundedCornerShape(8.dp))
-            .border(1.dp, borderColor, RoundedCornerShape(8.dp)),
+            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
+            .then(if (needsScroll) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
     ) {
-        Row(Modifier.fillMaxWidth().background(headerBg)) {
-            table.headers.forEachIndexed { col, cell ->
-                val parts = rememberRichInline(cell, resolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
-                TableCell(parts, Modifier.width(0.dp).weight(1f), bold = true, align = table.alignments.getOrNull(col) ?: 0, onTap = onTap)
+        if (table.hasHeader) {
+            Row(Modifier.fillMaxWidth().background(headerBg)) {
+                table.headers.forEachIndexed { col, cell ->
+                    val parts = rememberRichInline(cell, resolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
+                    TableCell(parts, if (needsScroll) Modifier.width(colWidths[col.coerceAtMost(colWidths.size - 1)].dp) else Modifier.width(0.dp).weight(1f), bold = true, align = table.alignments.getOrNull(col) ?: 0, onTap = onTap)
+                }
             }
+            HorizontalDivider(color = borderColor)
         }
-        HorizontalDivider(color = borderColor)
-        table.rows.forEach { row ->
+        visibleRows.forEach { row ->
             val padded = (row + List((colCount - row.size).coerceAtLeast(0)) { "" }).take(colCount)
             Row(Modifier.fillMaxWidth()) {
                 padded.forEachIndexed { col, cell ->
                     val parts = rememberRichInline(cell, resolver, imageResolver, codeBackgroundColor, linkColor, downloadColor, imageLinkColor, externalColor)
-                    TableCell(parts, Modifier.width(0.dp).weight(1f), bold = false, align = table.alignments.getOrNull(col) ?: 0, onTap = onTap)
+                    TableCell(parts, if (needsScroll) Modifier.width(colWidths[col.coerceAtMost(colWidths.size - 1)].dp) else Modifier.width(0.dp).weight(1f), bold = false, align = table.alignments.getOrNull(col) ?: 0, onTap = onTap)
                 }
             }
+            HorizontalDivider(color = borderColor.copy(alpha = 0.4f))
         }
+        if (!expanded && table.rows.size > TABLE_ROW_CAP) {
+            Text(
+                "+${table.rows.size - TABLE_ROW_CAP} rows — tap to expand",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = true }
+                    .padding(10.dp),
+            )
+        }
+    }
+}
+
+/**
+ * Per-column display width in dp for the horizontally-scrolling layout:
+ * the longest cell in the first ~30 rows drives the width, discounted for
+ * markdown syntax chars, clamped so extreme columns can't dominate.
+ */
+private fun columnWidths(table: MdBlock.Table, colCount: Int): List<Int> {
+    val w = IntArray(colCount)
+    table.headers.forEachIndexed { i, c -> if (i < colCount) w[i] = c.length }
+    for (row in table.rows.take(30)) {
+        row.forEachIndexed { i, c -> if (i < colCount) w[i] = maxOf(w[i], c.length) }
+    }
+    return w.map { len ->
+        val text = (len * 0.7f).toInt() // discount ![]() ** `` syntax noise
+        (text * 7).coerceIn(56, 220)
     }
 }
 
@@ -420,6 +503,15 @@ internal fun TableCell(
     align: Int = 0,
     onTap: (String, LinkKind) -> Unit,
 ) {
+    // Image cells (screenshot grids / logo walls from HTML tables): the old
+    // code appended only Text tokens — every image inside a cell silently
+    // vanished. RichParagraph renders image runs + text together.
+    if (parts.any { it is InlineToken.Image }) {
+        Column(modifier.padding(4.dp)) {
+            RichParagraph(parts, onTap, paragraphSpacing = 0.dp)
+        }
+        return
+    }
     val span = buildAnnotatedString {
         parts.forEach { if (it is InlineToken.Text) append(it.span) }
     }
@@ -492,6 +584,25 @@ internal fun renderRichInline(
         }
     }
 
+    /**
+     * Resolve the <picture> dark/light variant URLs embedded in the alt by
+     * cleanSegment ("alt\u0001WxH\u0003dark\u0002light") through the same
+     * imageResolver as the main src, so relative "./dark.png" variants load.
+     */
+    fun resolvePictureAlt(alt: String): String {
+        val p3 = alt.indexOf('\u0003')
+        if (p3 == -1) return alt
+        val head = alt.substring(0, p3)
+        val pair = alt.substring(p3 + 1)
+        val p2 = pair.indexOf('\u0002')
+        val dark = pair.substring(0, p2.coerceAtLeast(0)).trim()
+        val light = pair.substring(p2 + 1).trim().takeIf { p2 >= 0 }
+        return head + "\u0003" +
+            dark.takeIf { it.isNotBlank() }?.let { imageResolver(it) }.orEmpty() +
+            "\u0002" +
+            light?.let { imageResolver(it) }.orEmpty()
+    }
+
     var i = 0
     val len = text.length
     while (i < len) {
@@ -504,7 +615,7 @@ internal fun renderRichInline(
             val src = imageResolver(wrappedMatch.groupValues[2].trim())
             val href = wrappedMatch.groupValues[3].trim()
             val resolvedHref = resolver(href) ?: href
-            out.add(InlineToken.Image(src = src, alt = alt, wrapUrl = resolvedHref, hintW = hw, hintH = hh))
+            out.add(InlineToken.Image(src = src, alt = resolvePictureAlt(alt), wrapUrl = resolvedHref, hintW = hw, hintH = hh))
             i += wrappedMatch.value.length
             continue
         }
@@ -514,7 +625,7 @@ internal fun renderRichInline(
             flushImageGap()
             val (alt, hw, hh) = splitAltHint(imgMatch.groupValues[1])
             val src = imageResolver(imgMatch.groupValues[2].trim())
-            out.add(InlineToken.Image(src = src, alt = alt, wrapUrl = null, hintW = hw, hintH = hh))
+            out.add(InlineToken.Image(src = src, alt = resolvePictureAlt(alt), wrapUrl = null, hintW = hw, hintH = hh))
             i += imgMatch.value.length
             continue
         }
