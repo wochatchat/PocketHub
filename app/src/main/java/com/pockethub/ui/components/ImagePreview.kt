@@ -44,10 +44,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -185,7 +185,6 @@ private fun ZoomableImage(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val density = LocalDensity.current
     val scale = remember(url) { Animatable(1f) }
     val offsetX = remember(url) { Animatable(0f) }
     val offsetY = remember(url) { Animatable(0f) }
@@ -245,7 +244,7 @@ private fun ZoomableImage(
                         var isMultitouch = false
                         var pastEdgeDrag = 0f
                         var edgeFlipDone = false
-                        val slop = with(density) { viewConfiguration.touchSlop.toPx() }
+                        val slop = viewConfiguration.touchSlop
                         do {
                             val event = awaitPointerEvent()
                             val pointers = event.changes.filter { it.isConsumed.not() }
