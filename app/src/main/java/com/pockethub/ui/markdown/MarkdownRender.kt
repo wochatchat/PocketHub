@@ -266,6 +266,13 @@ private fun AdaptiveImage(img: InlineToken.Image, onTap: (String, LinkKind) -> U
     val intrinsic = meta.size
 
     when {
+        // GitHub contributor-wall avatars: small square cells no matter what
+        // the CDN serves (intrinsic can be 460px → full-width blowups).
+        isAvatarUrl(effectiveImg.src) -> {
+            val hDp = img.hintH?.dp?.coerceIn(24.dp, 100.dp) ?: 44.dp
+            val wDp = img.hintW?.dp?.coerceIn(24.dp, 100.dp) ?: hDp
+            RenderStripImage(effectiveImg, wDp, hDp, clickTarget, kind, onTap)
+        }
         isBadgeUrl(effectiveImg.src) -> {
             val aspect = intrinsic?.let { it.width.toFloat() / it.height.coerceAtLeast(1) } ?: 0f
             val h = 20.dp
@@ -508,19 +515,31 @@ internal fun TableBlock(
 
 /**
  * Per-column display width in dp for the horizontally-scrolling layout:
- * the longest cell in the first ~30 rows drives the width, discounted for
- * markdown syntax chars, clamped so extreme columns can't dominate.
+ * the widest content in the first ~30 rows drives the width. Image cells
+ * contribute their display HINT (avatar/logo grids), text cells their
+ * char length (discounted for markdown syntax), clamped so extreme
+ * columns can't dominate.
  */
+private val IMG_HINT_RX = Regex("!\\[[^\\]]*\u0001(\\d+)x(\\d+)")
+private val IMG_SYNTAX_RX = Regex("!\\[[^\\]]*\\]\\([^)]*\\)")
+
 private fun columnWidths(table: MdBlock.Table, colCount: Int): List<Int> {
     val w = IntArray(colCount)
-    table.headers.forEachIndexed { i, c -> if (i < colCount) w[i] = c.length }
+    fun absorb(cell: String, idx: Int) {
+        if (idx >= colCount) return
+        var cellW = 0
+        IMG_HINT_RX.findAll(cell).forEach { m ->
+            m.groupValues[1].toIntOrNull()?.let { cellW = maxOf(cellW, it) }
+        }
+        val textOnly = cell.replace(IMG_SYNTAX_RX, " ").replace(Regex("[*_`~\\[\\]()#]"), "")
+        cellW = maxOf(cellW, (textOnly.length * 0.7f).toInt() * 7)
+        w[idx] = maxOf(w[idx], cellW)
+    }
+    table.headers.forEachIndexed { i, c -> absorb(c, i) }
     for (row in table.rows.take(30)) {
-        row.forEachIndexed { i, c -> if (i < colCount) w[i] = maxOf(w[i], c.length) }
+        row.forEachIndexed { i, c -> absorb(c, i) }
     }
-    return w.map { len ->
-        val text = (len * 0.7f).toInt() // discount ![]() ** `` syntax noise
-        (text * 7).coerceIn(56, 220)
-    }
+    return w.map { it.coerceIn(56, 220) }
 }
 
 @Composable
