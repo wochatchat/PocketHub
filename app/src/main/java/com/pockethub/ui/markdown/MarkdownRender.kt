@@ -298,6 +298,7 @@ private fun AdaptiveImage(img: InlineToken.Image, onTap: (String, LinkKind) -> U
             // 1 image px == 1 dp, mirroring how a phone browser lays these out.
             val hDp = intrinsic.height.dp
             val wDp = intrinsic.width.dp
+            val aspect = intrinsic.width.toFloat() / intrinsic.height.coerceAtLeast(1)
             when {
                 hDp <= SMALL_IMAGE_MAX_DP -> RenderStripImage(
                     effectiveImg,
@@ -311,9 +312,70 @@ private fun AdaptiveImage(img: InlineToken.Image, onTap: (String, LinkKind) -> U
                     hDp.coerceAtMost(MEDIUM_IMAGE_MAX_DP),
                     clickTarget, kind, onTap,
                 )
-                else -> RenderContentImage(effectiveImg, clickTarget, kind, onTap)
+                // Square-ish large logos (1252×1252 SVGs with no hint) at
+                // full phone width read as a giant jarring block — render
+                // them centered at a bounded size instead, which matches the
+                // visual weight the author's page had next to body text.
+                aspect in 0.7f..1.5f -> RenderSquareImage(
+                    effectiveImg,
+                    wDp.coerceAtMost(200.dp),
+                    hDp.coerceAtMost(200.dp),
+                    clickTarget, kind, onTap,
+                )
+                else -> {
+                    // Exact-size banner: whole image always visible (no
+                    // FillWidth clipping of portrait screenshots), centered.
+                    val w0 = wDp.coerceAtMost(360.dp)
+                    val h0 = (w0 / aspect).coerceAtMost(420.dp)
+                    val w1 = if (h0 * aspect < w0) h0 * aspect else w0
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                        RenderSizedImage(effectiveImg, w1, h0, clickTarget, kind, onTap)
+                    }
+                }
             }
         }
+    }
+}
+
+/** Square-ish logo/diagram: centered, width-bounded (no full-bleed), no card. */
+@Composable
+private fun RenderSquareImage(
+    img: InlineToken.Image,
+    width: androidx.compose.ui.unit.Dp,
+    height: androidx.compose.ui.unit.Dp,
+    clickTarget: String,
+    kind: LinkKind,
+    onTap: (String, LinkKind) -> Unit,
+) {
+    Box(
+        Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center,
+    ) {
+        SubcomposeAsyncImage(
+            model = img.src,
+            imageLoader = LocalAppImageLoader.current,
+            contentDescription = img.alt.takeIf { it.isNotBlank() },
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .width(width)
+                .height(height)
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { onTap(clickTarget, kind) },
+            loading = {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 1.5.dp)
+                }
+            },
+            error = {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Outlined.BrokenImage, null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            },
+        )
     }
 }
 
@@ -483,7 +545,11 @@ private fun RenderContentImage(
         contentScale = ContentScale.FillWidth,
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 120.dp, max = 360.dp)
+            // 360dp crushed full-page screenshots into illegibility on
+            // phones; 420dp keeps them readable while capping scroll cost.
+            // Portrait (>2.2:1 tall) shots center at 300dp width instead of
+            // stretching edge-to-edge for a thin strip of content.
+            .heightIn(min = 120.dp, max = 420.dp)
             .clip(RoundedCornerShape(8.dp))
             .clickable { onTap(clickTarget, kind) },
         loading = {
