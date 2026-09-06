@@ -613,6 +613,8 @@
     <string name="action_follow">Follow</string>
     <string name="action_unfollow">Unfollow</string>
     <string name="no_followers">No followers yet</string>
+    <string name="follow_list_load_failed">Couldn\'t load the list — check your connection</string>
+    <string name="user_type_organization">Organization</string>
     <string name="not_following_anyone">Not following anyone yet</string>
 
     <!-- Profile work-list -->

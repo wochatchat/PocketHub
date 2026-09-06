@@ -62,6 +62,22 @@ class UserDetailViewModel @Inject constructor(
     private val _isSelf = MutableStateFlow(false)
     val isSelf: StateFlow<Boolean> = _isSelf
 
+    /** Whether the profile is an Organization — orgs can't be followed on GitHub. */
+    private val _isOrganization = MutableStateFlow(false)
+    val isOrganization: StateFlow<Boolean> = _isOrganization
+
+    /** One-shot message for follow / follow-list failures (shown as a toast). */
+    private val _followMessage = MutableStateFlow<String?>(null)
+    val followMessage: StateFlow<String?> = _followMessage
+
+    /** True when the last follow-lists load failed — the sheet shows retry. */
+    private val _followListsFailed = MutableStateFlow(false)
+    val followListsFailed: StateFlow<Boolean> = _followListsFailed
+
+    fun consumeFollowMessage() {
+        _followMessage.update { null }
+    }
+
     fun loadUser(login: String, force: Boolean = false) {
         if (!force && loadedLogin == login && _user.value != null) return
         loadedLogin = login
@@ -75,6 +91,9 @@ class UserDetailViewModel @Inject constructor(
                     _events.value = emptyList()
                 }
                 _user.update { api.getUser(login) }
+                // Orgs can't be followed (GitHub web shows no follow button on
+                // org pages either) — gate the follow button on account type.
+                _isOrganization.update { _user.value?.type.equals("Organization", ignoreCase = true) }
                 // Load repos in parallel
                 launch {
                     try {
@@ -140,9 +159,16 @@ class UserDetailViewModel @Inject constructor(
                     _user.update { u ->
                         u?.copy(followers = (u.followers ?: 0) + if (currentlyFollowing) -1 else 1)
                     }
+                } else {
+                    // Surface the failure — a silent no-op reads as "follow is broken".
+                    _followMessage.update {
+                        "HTTP ${resp.code()}: ${resp.message()}"
+                    }
                 }
+            } catch (e: IOException) {
+                _followMessage.update { e.userMessage("Network error") }
             } catch (_: Exception) {
-                // Non-fatal
+                _followMessage.update { "Unexpected error" }
             } finally {
                 _followActionInProgress.update { false }
             }
@@ -156,10 +182,28 @@ class UserDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoadingFollowLists.update { true }
             try {
-                val f1 = runCatching { api.getFollowers(login) }.getOrDefault(emptyList())
-                val f2 = runCatching { api.getFollowing(login) }.getOrDefault(emptyList())
+                // Each list loads independently; a failure surfaces a retryable
+                // message instead of silently reading as "no followers" (an
+                // unreachable GitHub is not the same thing as an empty list).
+                var firstError: Exception? = null
+                val f1 = try {
+                    api.getFollowers(login)
+                } catch (e: Exception) {
+                    if (e !is kotlinx.coroutines.CancellationException) firstError = firstError ?: e
+                    emptyList()
+                }
+                val f2 = try {
+                    api.getFollowing(login)
+                } catch (e: Exception) {
+                    if (e !is kotlinx.coroutines.CancellationException) firstError = firstError ?: e
+                    emptyList()
+                }
                 _followers.update { f1 }
                 _followingList.update { f2 }
+                firstError?.let { e ->
+                    issueReporter.reportError("UserDetail", "loadFollowLists", e)
+                }
+                _followListsFailed.update { firstError != null }
             } finally {
                 _isLoadingFollowLists.update { false }
             }
