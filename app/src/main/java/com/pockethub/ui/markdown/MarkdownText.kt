@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -210,19 +211,25 @@ fun MarkdownText(
                     if (block.level <= 2) Spacer(Modifier.height(if (block.level == 1) 10.dp else 6.dp))
                     // Render inline markdown (links, code, bold) inside headings so `## Getting `code``
                     // shows a code chip instead of literal backticks.
-                    RenderInlineParts(parts, style.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        lineHeight = when (block.level) {
-                            1 -> 32.sp
-                            2 -> 28.sp
-                            else -> 24.sp
-                        },
-                    ), onTap)
+                    androidx.compose.foundation.layout.Column(
+                        Modifier.fillMaxWidth(),
+                        horizontalAlignment = if (block.centered) androidx.compose.ui.Alignment.CenterHorizontally else androidx.compose.ui.Alignment.Start,
+                    ) {
+                        RenderInlineParts(parts, style.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = if (block.centered) TextAlign.Center else null,
+                            lineHeight = when (block.level) {
+                                1 -> 32.sp
+                                2 -> 28.sp
+                                else -> 24.sp
+                            },
+                        ), onTap)
+                    }
                     if (block.level <= 2) Spacer(Modifier.height(2.dp))
                 }
 
                 is MdBlock.Paragraph -> {
-                    RichParagraph(parts, onTap, paragraphSpacing = 4.dp)
+                    RichParagraph(parts, onTap, paragraphSpacing = 4.dp, centered = block.centered)
                 }
 
                 is MdBlock.CodeBlock -> {
@@ -551,8 +558,9 @@ internal fun MarkdownErrorBox(error: Throwable) {
 // ── Block types ──────────────────────────────────────────────────────
 
 internal sealed class MdBlock {
-    data class Heading(val level: Int, val text: String) : MdBlock()
-    data class Paragraph(val text: String) : MdBlock()
+    /** `centered`: carried from <div align="center"> wrappers (hero areas). */
+    data class Heading(val level: Int, val text: String, val centered: Boolean = false) : MdBlock()
+    data class Paragraph(val text: String, val centered: Boolean = false) : MdBlock()
     data class CodeBlock(val code: String, val lang: String?) : MdBlock()
     data class Blockquote(val text: String) : MdBlock()
     /**
