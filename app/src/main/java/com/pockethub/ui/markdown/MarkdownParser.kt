@@ -63,10 +63,9 @@ private fun cleanSegment(markdown: String): String {
                 val firstImg = Regex("<img\\b[^>]*>", RegexOption.IGNORE_CASE).find(inner)?.value
                 val dim = firstImg?.let {
                     fun sizeOf(attr: String): String? {
-                        val v = Regex("$attr\\s*=\\s*[\"']([^\"']*)[\"']|$attr\\s*=\\s*([^\\s>]+)", RegexOption.IGNORE_CASE)
-                            .find(it)?.groupValues?.let { g -> g.groupValues[1].ifEmpty { g.groupValues[2] } }
-                            ?.trim() ?: return null
-                        if (v.endsWith("%")) return null
+                        val m = Regex("$attr\\s*=\\s*[\"']([^\"']*)[\"']|$attr\\s*=\\s*([^\\s>]+)", RegexOption.IGNORE_CASE).find(it) ?: return null
+                        val v = m.groupValues[1].ifEmpty { m.groupValues[2] }.trim()
+                        if (v.isEmpty() || v.endsWith("%")) return null
                         return v.removeSuffix("px").toFloatOrNull()?.roundToInt()?.coerceIn(1, 4000)?.toString()
                     }
                     val w = sizeOf("width")
@@ -103,10 +102,9 @@ private fun cleanSegment(markdown: String): String {
                 // ONE dimension alone also applies (width-only is MORE common
                 // than w+h: 580 vs 192 in the corpus). Missing side → 0.
                 fun sizeOf(attr: String): String? {
-                    val v = Regex("$attr\\s*=\\s*[\"']([^\"']*)[\"']|$attr\\s*=\\s*([^\\s>]+)", RegexOption.IGNORE_CASE)
-                        .find(tag)?.groupValues?.let { it.groupValues[1].ifEmpty { it.groupValues[2] } }
-                        ?.trim() ?: return null
-                    if (v.endsWith("%")) return null
+                    val m = Regex("$attr\\s*=\\s*[\"']([^\"']*)[\"']|$attr\\s*=\\s*([^\\s>]+)", RegexOption.IGNORE_CASE).find(tag) ?: return null
+                    val v = m.groupValues[1].ifEmpty { m.groupValues[2] }.trim()
+                    if (v.isEmpty() || v.endsWith("%")) return null
                     val num = v.removeSuffix("px").toFloatOrNull() ?: return null
                     return num.roundToInt().coerceIn(1, 4000).toString()
                 }
