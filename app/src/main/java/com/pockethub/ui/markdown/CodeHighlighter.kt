@@ -29,7 +29,11 @@ object CodeHighlighter {
 
     /** Infer a language tag from a file name's extension. */
     fun languageFor(fileName: String): String {
-        val base = fileName.substringAfterLast('/', "")
+        // The missing-delimiter default must be the full name: entry names are
+        // bare ("PocketHubApp.kt", no slash). Using "" here silently mapped
+        // EVERY bare file name to "unknown language", and the highlight guard
+        // short-circuited to plain text before the tokenizer ever ran.
+        val base = fileName.substringAfterLast('/', fileName)
         val ext = base.substringAfterLast('.', "").lowercase()
         return when (ext) {
             "kt", "kts" -> "kotlin"
