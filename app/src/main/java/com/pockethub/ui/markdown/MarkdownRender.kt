@@ -160,7 +160,11 @@ private fun splitAltHint(alt: String): Triple<String, Int?, Int?> {
     val marker = alt.indexOf('\u0001')
     if (marker == -1) return Triple(alt, null, null)
     val display = alt.substring(0, marker)
-    val m = IMG_ALT_DIMENSION_REGEX.find(alt, marker + 1)
+    // Anchor the match AT the marker: the hint is always OUR converter's
+    // "\u0001WxH" suffix, so the regex must start exactly at marker+1.
+    // find(alt, marker + 1) could drift forward past a malformed dimension
+    // and latch onto unrelated "NxM" digits later in the alt text.
+    val m = IMG_ALT_DIMENSION_REGEX.matchAt(alt, marker + 1)
         ?: return Triple(display, null, null)
     return Triple(display, m.groupValues[1].toIntOrNull(), m.groupValues[2].toIntOrNull())
 }
@@ -176,7 +180,8 @@ private fun splitPictureAlt(alt: String): PictureAlt {
     var w: Int? = null
     var h: Int? = null
     if (p1 in 0 until p3.coerceAtLeast(alt.length)) {
-        IMG_ALT_DIMENSION_REGEX.find(alt, p1 + 1)?.let {
+        // Same anchor fix as splitAltHint: match must start AT p1+1.
+        IMG_ALT_DIMENSION_REGEX.matchAt(alt, p1 + 1)?.let {
             w = it.groupValues[1].toIntOrNull(); h = it.groupValues[2].toIntOrNull()
         }
     }
@@ -719,6 +724,11 @@ private fun columnWidths(table: MdBlock.Table, colCount: Int): List<Int> {
         }
         val textOnly = cell.replace(IMG_SYNTAX_RX, " ").replace(Regex("[*_`~\\[\\]()#]"), "")
         cellW = maxOf(cellW, (textOnly.length * 0.7f).toInt() * 7)
+        // Longest single word must fit on one line, or the cell wraps
+        // MID-WORD ("Incomin g", "Protoc ol" — localsend's firewall table).
+        // Full char width (no 0.7 discount) + cell horizontal padding.
+        val longest = textOnly.split(Regex("[\\s/|,]+")).maxOfOrNull { it.length } ?: 0
+        if (longest > 0) cellW = maxOf(cellW, longest * 7 + 14)
         w[idx] = maxOf(w[idx], cellW)
     }
     table.headers.forEachIndexed { i, c -> absorb(c, i) }

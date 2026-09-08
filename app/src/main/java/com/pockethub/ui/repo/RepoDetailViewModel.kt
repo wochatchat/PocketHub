@@ -9,6 +9,8 @@ import com.pockethub.data.remote.AccountRepository
 import com.pockethub.data.remote.CachedRepository
 import com.pockethub.data.remote.GitHubApi
 import com.pockethub.data.remote.SettingsRepository
+import com.pockethub.ui.markdown.isRstReadme
+import com.pockethub.ui.markdown.rstToMarkdown
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -397,7 +399,7 @@ class RepoDetailViewModel @Inject constructor(
     /** True while a README fetch is in flight — overview shows a skeleton instead of blank space. */
     val isLoadingReadme: StateFlow<Boolean> = _isLoadingReadme.asStateFlow()
 
-    internal fun loadReadme(owner: String, repo: String, ref: String? = null): Job = viewModelScope.launch {
+    fun loadReadme(owner: String, repo: String, ref: String? = null): Job = viewModelScope.launch {
         _isLoadingReadme.update { true }
         try {
             val resp = cache.getReadme(owner, repo, ref = ref)
@@ -406,8 +408,12 @@ class RepoDetailViewModel @Inject constructor(
             } else {
                 resp.content
             }
-            _readme.update { markdown }
-            _readmeMissing.update { markdown.isNullOrBlank() }
+            // GitHub renders .rst/.adoc server-side but the API returns raw
+            // source — convert the RST subset to markdown so directives don't
+            // render as literal text (obs-studio's `.. image::` wall).
+            val converted = if (isRstReadme(resp.name)) rstToMarkdown(markdown) else markdown
+            _readme.update { converted }
+            _readmeMissing.update { converted.isNullOrBlank() }
             readmeRef = ref
             // Settings enabled a target language → translate the freshly loaded
             // README automatically so the 译文 state matches the user's choice.

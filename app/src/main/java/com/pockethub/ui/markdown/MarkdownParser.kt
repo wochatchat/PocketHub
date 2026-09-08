@@ -146,10 +146,63 @@ private fun cleanSegment(markdown: String): String {
                     setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
                 )
             ) { m ->
-                // Collapse inner whitespace/newlines so multi-line anchors like
-                // <a href="…">\n  <img …>\n</a> become a single-line markdown
-                // link the inline tokenizer can match.
-                "[${m.groupValues[2].replace(Regex("\\s+"), " ").trim()}](${m.groupValues[1]})"
+                // Normalize the anchor's inner HTML to single-line markdown
+                // BEFORE wrapping: <kbd>/<code>/<sub>/<br>/<b>/<i> all appear
+                // INSIDE <a> in the wild (orca's agent chips are
+                // <a><kbd><img/> Label</kbd></a>, tabby's contributor walls are
+                // <a><img/><br/><sub><b>Name</b></sub></a>). If <br> survives
+                // into the produced [text](href), the closing "](href)" lands
+                // on a LATER line after the br→\n pass and the inline
+                // tokenizer can never re-join them — the chip leaked as
+                // "[`", an unlinked image and a raw "](url)" line.
+                val inner = m.groupValues[2]
+                    // line breaks inside a label are layout, not content
+                    .replace(Regex("<\\s*br\\s*/?>", RegexOption.IGNORE_CASE), " ")
+                    // sub/sup/small/font/span wrappers: drop, keep text
+                    .replace(Regex("</?\\s*(?:sub|sup|small|font|span)\\b[^>]*>", RegexOption.IGNORE_CASE), "")
+                    // emphasis → markdown so nested styling survives
+                    .replace(
+                        Regex("<\\s*(?:strong|b)\\b[^>]*>(.*?)<\\s*/\\s*(?:strong|b)\\s*>",
+                            setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
+                    ) { it.groupValues[1].let { t -> "**$t**" } }
+                    .replace(
+                        Regex("<\\s*(?:em|i)\\b[^>]*>(.*?)<\\s*/\\s*(?:em|i)\\s*>",
+                            setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
+                    ) { it.groupValues[1].let { t -> "*$t*" } }
+                    // <kbd>/<code> inside an anchor label: GitHub draws a
+                    // key-cap box around the whole chip; on mobile the box
+                    // styling around a link label is noise — keep the text
+                    // plain so the label stays inside the tappable link.
+                    .replace(Regex("</?\\s*(?:kbd|code)\\b[^>]*>", RegexOption.IGNORE_CASE), "")
+                    .replace(Regex("\\s+"), " ")
+                    .trim()
+                val href = m.groupValues[1]
+                // Anchor = image + trailing label ("<img…/> Claude Code") —
+                // split into a wrapped image link + separately linked label so
+                // BOTH are tappable and the wrapped-image tokenizer sees a
+                // clean "[![alt](src)](href)" instead of choking on the label.
+                val imgLabel = Regex("^(\\s*)(!\\[[^\n]*\\]\\([^)\n]*\\))(\\s+)(.+)$").find(inner)
+                if (imgLabel != null) {
+                    val img = imgLabel.groupValues[2]
+                    val label = imgLabel.groupValues[4].trim()
+                    if (label.isNotEmpty()) "[$img]($href) [$label]($href)" else "[$img]($href)"
+                } else {
+                    "[$inner]($href)"
+                }
+            }
+            // Link text = image + label ("[![flag](src) Docs](href)") —
+            // markdown-authored chip rows and the <a> split above both produce
+            // it. Tearing (image extracted, label orphaned from its href) is
+            // worse than splitting: normalize to wrapped image + linked label.
+            // Skips labels containing brackets/images (decorator forms are
+            // handled by the pass below).
+            .replace(
+                Regex("\\[(!\\[[^\]\n]*\\]\\([^)\n]*\\))[ \t]+([^\]\n]+?)\\]\\(([^)\n]*)\\)")
+            ) { m ->
+                val img = m.groupValues[1]
+                val label = m.groupValues[2].trim()
+                val href = m.groupValues[3]
+                "[$img]($href) [$label]($href)"
             }
             // ── Decorator-wrapped image links: [**![flag](src) Label**](href)
             // (hiddify-style language switchers). Emphasis markers around the
@@ -234,8 +287,15 @@ private fun cleanSegment(markdown: String): String {
             // ── HTML tables → native pipe-table blocks. 13% of popular READMEs
             // lay out sponsor walls / screenshot grids / comparison charts as
             // real <table> markup — flattening them to bare text destroyed
-            // both the grid layout and the 4k+ images they embed. Runs AFTER
-            // the <img>/<a> conversions so cells arrive as ready markdown.
+            // both the grid layout and the 4k+ images they embed.
+            // TWO passes so cells arrive as READY markdown: pass 1 converts
+            // every <a>/<img>/<kbd>/<sub>/<b>/<br> INSIDE the table
+            // (contributor-wall cells become "[![avatar](src)](home)
+            // [**Name**](home) [💻](stat)"); pass 2 does the structural
+            // <tr>/<td> → "|" split. The old single pass (structure first,
+            // relying on the later global <a> conversion) left cells as raw
+            // "[**Name**](home)" text: the global <a> pass had ALREADY run
+            // before the table existed, so nothing ever re-visited the cells.
             .replace(
                 Regex(
                     "<table\\b[^>]*>([\\s\\S]*?)</\\s*table\\s*>",
@@ -311,6 +371,10 @@ private fun cleanSegment(markdown: String): String {
             .replace("&mdash;", "—")
             .replace("&ndash;", "–")
             .replace("&nbsp;", " ")
+            // Bare "&nbsp" WITHOUT the semicolon appears in the wild (tabby's
+            // badge row: "</a> &nbsp <a …>"). Browsers tolerate it (HTML5
+            // named-ref lookahead), so decode it too — AFTER the strict form.
+            .replace("&nbsp", " ")
             .replace("&hellip;", "…")
             .replace("&times;", "×")
             .replace("&divide;", "÷")
@@ -333,12 +397,23 @@ private fun cleanSegment(markdown: String): String {
             // — the standard hero/badge-wall wrapper (55% of corpus uses
             // align=). Content between the \u0006 markers renders centered;
             // images inside have already been converted to markdown above.
+            // The wrapper can span MANY lines (orca's <p align="center"> agent
+            // chip wall wraps 25+ anchors). One \u0006 run crossing blank
+            // lines swallowed every following list into a single paragraph —
+            // the list parser never saw its items. Split the run at blank
+            // lines: each segment carries its own \u0006 pair, and the
+            // renderer centers the whole run either way (the marker is
+            // paragraph-level, not per-line).
             .replace(
                 Regex(
                     "<(?:div|p)\\b[^>]*align\\s*=\\s*[\"']center[\"'][^>]*>([\\s\\S]*?)</\\s*(?:div|p)\\s*>",
                     setOf(RegexOption.IGNORE_CASE),
                 ),
-            ) { m -> "\n\u0006${m.groupValues[1].trim()}\u0006\n" }
+            ) { m ->
+                val body = m.groupValues[1].trim()
+                val segments = body.split(Regex("\\n\\s*\\n")).filter { it.isNotBlank() }
+                "\n" + segments.joinToString("\n\n") { "\u0006${it.trim()}\u0006" } + "\n"
+            }
             // ── New numeric / hex entity decode (&#8230; / &#x2026;) — single
             // pass; out-of-range codepoints fall back to the original text.
             .replace(Regex("&#(\\d+);")) { m ->
@@ -374,6 +449,87 @@ private val RX_CELL_HEADING = Regex("(?m)^\\s*#{1,6}\\s+")
 private val RX_CELL_BULLET = Regex("(?m)^\\s*[-*+]\\s+")
 private val RX_WS = Regex("\\s+")
 
+/**
+ * Pass 1 of table conversion: convert INLINE html (<img>, <a>, <kbd>, <b>,
+ * <br>, …) inside a cell fragment to ready markdown. Mirrors the global
+ * cleanSegment rules but scoped to the table so nothing is lost to ordering.
+ */
+private fun convertCellInlineHtml(fragment: String): String {
+    return fragment
+        // img with size hints → markdown alt-hint form (same as cleanSegment)
+        .replace(
+            Regex(
+                "<\\s*img\\s+[^>]*?src\\s*=\\s*[\"']([^\"']+)[\"'][^>]*?(?:alt\\s*=\\s*[\"']([^\"']*)[\"'])?[^>]*?/?>",
+                RegexOption.IGNORE_CASE,
+            )
+        ) { m ->
+            val src = m.groupValues[1]
+            var alt = m.groupValues[2]
+            fun sizeOf(attr: String): Int? {
+                val v = Regex("$attr\\s*=\\s*[\"']?([^\\s\"'>]+)", RegexOption.IGNORE_CASE)
+                    .find(m.value)?.groupValues?.getOrNull(1)?.trim() ?: return null
+                if (v.isEmpty() || v.endsWith("%")) return null
+                return v.removeSuffix("px").toFloatOrNull()?.roundToInt()?.coerceIn(1, 4000)
+            }
+            val w = sizeOf("width")
+            val h = sizeOf("height")
+            if (w != null && h != null) alt += "\u0001${w}x${h}"
+            else if (w != null) alt += "\u0001${w}x0"
+            else if (h != null) alt += "\u00010x${h}"
+            "![${alt}]($src)"
+        }
+        // anchor — same inner normalization as the global <a> rule (label
+        // split, kbd/code unwrap, emphasis → markdown, br → space)
+        .replace(
+            Regex(
+                "<\\s*a\\s+[^>]*?href\\s*=\\s*[\"']([^\"']+)[\"'][^>]*?>(.*?)<\\s*/\\s*a\\s*>",
+                setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+            )
+        ) { m ->
+            val href = m.groupValues[1]
+            val inner = m.groupValues[2]
+                .replace(Regex("<\\s*br\\s*/?>", RegexOption.IGNORE_CASE), " ")
+                .replace(Regex("</?\\s*(?:sub|sup|small|font|span)\\b[^>]*>", RegexOption.IGNORE_CASE), "")
+                .replace(
+                    Regex("<\\s*(?:strong|b)\\b[^>]*>(.*?)<\\s*/\\s*(?:strong|b)\\s*>",
+                        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
+                ) { "**${it.groupValues[1]}**" }
+                .replace(
+                    Regex("<\\s*(?:em|i)\\b[^>]*>(.*?)<\\s*/\\s*(?:em|i)\\s*>",
+                        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
+                ) { "*${it.groupValues[1]}*" }
+                .replace(Regex("</?\\s*(?:kbd|code)\\b[^>]*>", RegexOption.IGNORE_CASE), "")
+                .replace(Regex("\\s+"), " ")
+                .trim()
+            val imgLabel = Regex("^(\\s*)(!\\[[^\n]*\\]\\([^)\n]*\\))(\\s+)(.+)$").find(inner)
+            if (imgLabel != null && imgLabel.groupValues[4].isNotBlank()) {
+                "[${imgLabel.groupValues[2]}]($href) [${imgLabel.groupValues[4].trim()}]($href)"
+            } else {
+                "[$inner]($href)"
+            }
+        }
+        .replace(
+            Regex("<\\s*(?:strong|b)\\b[^>]*>(.*?)<\\s*/\\s*(?:strong|b)\\s*>",
+                setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
+        ) { "**${it.groupValues[1]}**" }
+        .replace(
+            Regex("<\\s*(?:em|i)\\b[^>]*>(.*?)<\\s*/\\s*(?:em|i)\\s*>",
+                setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
+        ) { "*${it.groupValues[1]}*" }
+        .replace(
+            Regex("<\\s*(?:code|kbd)\\b[^>]*>(.*?)<\\s*/\\s*(?:code|kbd)\\s*>",
+                setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
+        ) { "`${it.groupValues[1]}`" }
+        .replace(
+            Regex("<\\s*(?:del|s|strike)\\b[^>]*>(.*?)<\\s*/\\s*(?:del|s|strike)\\s*>",
+                setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
+        ) { "~~${it.groupValues[1]}~~" }
+        .replace(Regex("<\\s*br\\s*/?>", RegexOption.IGNORE_CASE), " ")
+        .replace(Regex("</?\\s*a\\b[^>]*>", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("</?\\s*(?:picture|source)\\b[^>]*/?>", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("</?\\s*(?:sub|sup|small|font|span|u|mark|big)\\b[^>]*>", RegexOption.IGNORE_CASE), "")
+}
+
 /** `:shortcode:` — whitelist-checked against [EMOJI_SHORTCODES]. */
 private val EMOJI_SHORTCODE_REGEX = Regex(":([a-z0-9_+-]+):")
 
@@ -404,13 +560,14 @@ internal fun htmlTableToMarkdown(tableHtml: String): String {
                 }
                 else -> 0
             })
-            // Strip leftover tags, collapse whitespace; markdown links/images
-            // produced upstream are preserved verbatim. NOTE: the cell text
-            // keeps newlines out via \s+ collapse; escaped pipe keeps cell-
-            // internal `|` from breaking the row split. HTML cells sometimes
-            // carry BLOCK-level markdown (### headings, - bullets) — strip the
-            // markers so they don't leak as literal "###" inside the cell.
-            c.groupValues[3].replace(RX_TAG_STRIP, " ")
+            // Inline HTML → ready markdown FIRST (pass 1), then structural
+            // tags are stripped below (pass 2). Markdown links/images produced
+            // here are preserved verbatim by the tag strip. HTML cells
+            // sometimes carry BLOCK-level markdown (### headings, - bullets) —
+            // strip the markers so they don't leak as literal "###" inside
+            // the cell.
+            convertCellInlineHtml(c.groupValues[3])
+            .replace(RX_TAG_STRIP, " ")
                 .replace(RX_CELL_HEADING, "")
                 .replace(RX_CELL_BULLET, "")
                 .replace(RX_WS, " ")
