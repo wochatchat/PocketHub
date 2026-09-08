@@ -18,8 +18,8 @@ package com.pockethub.ui.markdown
 //   - `::` literal blocks → fenced code (dedented)
 // Everything else (footnotes, citations, tables) passes through as text.
 
-private val RST_DIRECTIVE = Regex("^\\.\\.\s+(image|figure|note|warning|tip|important|caution|code|code-block)::\\s*(.*)$")
-private val RST_SUB_DEF = Regex("^\\.\\.\s+\\|([^|]+)\\|\s+(image|figure)::\\s*(\\S+)\\s*$")
+private val RST_DIRECTIVE = Regex("^\\.\\.\\s+(image|figure|note|warning|tip|important|caution|code|code-block)::\\s*(.*)$")
+private val RST_SUB_DEF = Regex("^\\.\\.\\s+\\|([^|]+)\\|\\s+(image|figure)::\\s*(\\S+)\\s*$")
 private val RST_OPTION = Regex("^:(alt|target|align|width|height):\\s*(.*)$")
 private val RST_ADMONITION = Regex("^(note|warning|tip|important|caution|attention|danger|error|hint|admonition)$", RegexOption.IGNORE_CASE)
 private val RST_INLINE_LINK = Regex("(`+)([^`<>]+)\\s*<([^<>`]+)>\\1_?(_?)")
@@ -54,9 +54,10 @@ internal fun rstToMarkdown(rst: String): String {
         val trimmed = line.trim()
 
         // ── Substitution definition: .. |name| image:: URL
-        RST_SUB_DEF.matchEntire(trimmed)?.let { def ->
-            val name = def.groupValues[1].trim()
-            val url = def.groupValues[3]
+        val subDef = RST_SUB_DEF.matchEntire(trimmed)
+        if (subDef != null) {
+            val name = subDef.groupValues[1].trim()
+            val url = subDef.groupValues[3]
             var alt = ""
             var target: String? = null
             var w: String? = null
@@ -80,7 +81,8 @@ internal fun rstToMarkdown(rst: String): String {
         }
 
         // ── Directives: image / figure / admonitions / code
-        RST_DIRECTIVE.matchEntire(trimmed)?.let { dir ->
+        val dir = RST_DIRECTIVE.matchEntire(trimmed)
+        if (dir != null) {
             val kind = dir.groupValues[1].lowercase()
             val arg = dir.groupValues[2].trim()
             // collect indented option/content block
@@ -98,12 +100,12 @@ internal fun rstToMarkdown(rst: String): String {
                         var w: String? = null
                         var h: String? = null
                         for (b in block) {
-                            val om = RST_OPTION.matchEntire(b.trim()) ?: continue
-                            when (om.groupValues[1]) {
-                                "alt" -> alt = om.groupValues[2].trim()
-                                "target" -> target = om.groupValues[2].trim()
-                                "width" -> w = om.groupValues[2].trim()
-                                "height" -> h = om.groupValues[2].trim()
+                            val om = RST_OPTION.matchEntire(b.trim())
+                            when (om?.groupValues?.getOrNull(1)) {
+                                "alt" -> alt = om!!.groupValues[2].trim()
+                                "target" -> target = om!!.groupValues[2].trim()
+                                "width" -> w = om!!.groupValues[2].trim()
+                                "height" -> h = om!!.groupValues[2].trim()
                             }
                         }
                         fun dim(v: String?): Int? =
@@ -149,24 +151,21 @@ internal fun rstToMarkdown(rst: String): String {
         if (i + 1 < n && trimmed.isNotEmpty() && !trimmed.startsWith("..") && trimmed.contains('|').not()) {
             val next = lines[i + 1].trim()
             val m = RST_SETTEXT.matchEntire(next)
-            if (m != null && next.length >= trimmed.length * 0.5 &&
+            val isHeading = m != null && next.length >= trimmed.length * 0.5 &&
                 !trimmed.startsWith("|") && !RST_ENUM_LIST.containsMatchIn(trimmed) &&
                 !RST_FIELD.containsMatchIn(trimmed)
-            ) {
-                // Overline form ("====\nTitle\n====") is handled implicitly:
-                // the first ===== line hits this rule only if the NEXT line is
-                // also an adornment — guarded below.
-                val isTablePipeRow = trimmed.startsWith("|") || next.startsWith("|")
-                if (!isTablePipeRow) {
-                    val level = when (m.value[0]) {
-                        '=' -> 1
-                        '-' -> 2
-                        else -> 3
-                    }
-                    out.append('\n').append("#".repeat(level)).append(' ').append(trimmed).append("\n\n")
-                    i += 2
-                    continue
+            // Overline form ("====\nTitle\n====") is handled implicitly:
+            // the first ===== line hits this rule only if the NEXT line is
+            // also an adornment — guarded below.
+            if (isHeading && !(trimmed.startsWith("|") || next.startsWith("|"))) {
+                val level = when (m!!.value[0]) {
+                    '=' -> 1
+                    '-' -> 2
+                    else -> 3
                 }
+                out.append('\n').append("#".repeat(level)).append(' ').append(trimmed).append("\n\n")
+                i += 2
+                continue
             }
         }
 

@@ -197,7 +197,7 @@ private fun cleanSegment(markdown: String): String {
             // Skips labels containing brackets/images (decorator forms are
             // handled by the pass below).
             .replace(
-                Regex("\\[(!\\[[^\]\n]*\\]\\([^)\n]*\\))[ \t]+([^\]\n]+?)\\]\\(([^)\n]*)\\)")
+                Regex("\\[(!\\[[^\\]\n]*\\]\\([^)\\n]*\\))[ \t]+([^\\]\n]+?)\\]\\(([^)\\n]*)\\)")
             ) { m ->
                 val img = m.groupValues[1]
                 val label = m.groupValues[2].trim()
