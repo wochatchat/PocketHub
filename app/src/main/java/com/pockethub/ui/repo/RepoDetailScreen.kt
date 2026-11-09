@@ -184,10 +184,16 @@ fun RepoDetailScreen(
         // unconditionally on every re-entry (e.g. returning from a workflow run
         // detail) blanked the branch chip row until loadBranches refetched, which
         // read as the filter chips flashing between one and two rows.
-        // Deep-link / in-app link routing: open the repo on the tab the URL
-        // asked for (e.g. github.com/o/r/issues → Issues tab).
-        initialTab?.let { requested ->
-            RepoTabTarget.fromWire(requested)?.let { target ->
+    }
+    // Deep-link / in-app link routing: open the repo on the tab the URL asked
+    // for (e.g. github.com/o/r/issues → Issues tab). Keyed on initialTab (not
+    // owner/repo) so it ALSO re-applies when a singleTop navigate only updates
+    // the tab argument on an existing entry — the composable isn't recreated
+    // then, and the owner/repo effect above never re-runs.
+    LaunchedEffect(initialTab) {
+        vm.issueReporter.breadcrumb("RepoDetail initialTab=$initialTab")
+        if (initialTab != null) {
+            RepoTabTarget.fromWire(initialTab)?.let { target ->
                 target.toRepoTab()?.let { vm.currentTab.value = it }
             }
         }
