@@ -217,9 +217,14 @@ fun PocketHubApp(
                 val route = uri.host + uri.path?.let { if (it.isBlank()) "" else it } +
                     uri.encodedQuery?.let { q -> "?$q" }.orEmpty()
                 if (route.isNotBlank()) {
-                    navController.navigate(route) {
-                        launchSingleTop = true
-                    }
+                    // No launchSingleTop: when the stack top is already a repo
+                    // detail, a singleTop navigate would just update the tab arg
+                    // on the existing entry WITHOUT re-running the entry's
+                    // LaunchedEffect — initialTab would never be applied and the
+                    // user would stay on the old tab. Pushing a fresh entry
+                    // guarantees the destination re-runs its tab setup (matches
+                    // how the markdown link callbacks navigate).
+                    navController.navigate(route)
                 }
                 onDeepLinkConsumed()
             }
