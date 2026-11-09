@@ -1,81 +1,50 @@
 package com.pockethub.ui.main
 
 import android.net.Uri
+import com.pockethub.ui.markdown.GitHubLinkTarget
+import com.pockethub.ui.markdown.parseGitHubLink
 
 /**
- * Parses a github.com web URL into an internal Compose route (see [Routes]).
+ * Issue #37: open github.com web links (browser / shared links) inside
+ * PocketHub.
  *
- * Supported shapes (issue #37 — open GitHub links in PocketHub):
- *   https://github.com/{owner}                          → user profile
- *   https://github.com/{owner}/{repo}                   → repo detail
- *   https://github.com/{owner}/{repo}/issues/{number}   → issue detail
- *   https://github.com/{owner}/{repo}/pull/{number}     → PR detail
- *   https://github.com/{owner}/{repo}/pulls/{number}    → PR detail
- *   https://github.com/{owner}/{repo}/commit/{sha}      → commit detail
- *   https://github.com/{owner}/{repo}/commits/{sha}     → commit detail
- *   https://github.com/{owner}/{repo}/blob/{ref}/{path} → file viewer
- *   https://github.com/{owner}/{repo}/tree/{ref}[/{path}] → repo detail
- *
- * Returns null for anything unrecognized (gists, orgs, settings, ...) —
- * the caller should fall back to the system browser.
+ * Parsing is delegated to [parseGitHubLink] — the same battle-tested router
+ * the markdown renderer uses (orgs, reserved segments, .git suffixes, workflow
+ * runs, create-issue, blob file links). This class only converts the parsed
+ * target into an internal [Routes] string so MainActivity can feed it through
+ * the existing pockethub:// deep-link channel.
  */
 object GitHubUrlRouter {
 
-    private val GITHUB_HOSTS = setOf("github.com", "www.github.com")
-
     /** True when this URI is a github.com web link we may want to claim. */
     fun isGithubUrl(uri: Uri): Boolean =
-        (uri.scheme == "https" || uri.scheme == "http") && uri.host?.lowercase() in GITHUB_HOSTS
+        (uri.scheme == "https" || uri.scheme == "http") &&
+            uri.host?.lowercase() in setOf("github.com", "www.github.com")
 
     /**
      * Map a github.com URL to an internal [Routes] string, or null when the
-     * URL shape is unsupported. The returned value is an app-internal route
-     * (same strings the NavHost registers), NOT a pockethub:// URI.
+     * app can't render it (caller should fall back to the system browser).
      */
     fun parse(uri: Uri): String? {
         if (!isGithubUrl(uri)) return null
-        val segments = uri.pathSegments ?: return null
-        if (segments.isEmpty()) return null // github.com homepage
-
-        return when (segments.size) {
-            1 -> Routes.userDetail(segments[0])
-            else -> parseRepoUrl(segments)
+        return when (val target = parseGitHubLink(uri.toString())) {
+            is GitHubLinkTarget.Repo ->
+                Routes.repoDetail(target.owner, target.repo, target.tab?.wire)
+            is GitHubLinkTarget.Issue ->
+                Routes.issueDetail(target.owner, target.repo, target.number)
+            is GitHubLinkTarget.Pull ->
+                Routes.prDetail(target.owner, target.repo, target.number)
+            is GitHubLinkTarget.Commit ->
+                Routes.commitDetail(target.owner, target.repo, target.sha)
+            is GitHubLinkTarget.WorkflowRun ->
+                Routes.workflowRunDetail(target.owner, target.repo, target.runId)
+            is GitHubLinkTarget.User -> Routes.userDetail(target.login)
+            is GitHubLinkTarget.CreateIssue ->
+                Routes.createIssue(target.owner, target.repo)
+            is GitHubLinkTarget.File ->
+                Routes.fileViewer(target.owner, target.repo, target.path, target.ref)
+            GitHubLinkTarget.Unknown -> null
         }
-    }
-
-    /** segments = [owner, repo, ...rest], rest.size >= 1 */
-    private fun parseRepoUrl(segments: List<String>): String? {
-        val owner = segments[0]
-        val repo = segments[1]
-        val rest = segments.drop(2)
-
-        // Reserved single-segment paths are repo views, not sub-pages.
-        val reserved = setOf("issues", "pulls", "pulse", "graphs", "network", "projects", "wiki", "archive")
-        if (rest.size == 1 && rest[0] in reserved) return Routes.repoDetail(owner, repo)
-
-        return when (rest[0]) {
-            "issues", "pulls" -> rest.getOrNull(1)?.toIntOrNull()?.let {
-                if (rest[0] == "issues") Routes.issueDetail(owner, repo, it)
-                else Routes.prDetail(owner, repo, it)
-            } ?: Routes.repoDetail(owner, repo, tab = rest[0])
-            "pull" -> rest.getOrNull(1)?.toIntOrNull()?.let { Routes.prDetail(owner, repo, it) }
-                ?: Routes.repoDetail(owner, repo)
-            "commit", "commits" -> rest.getOrNull(1)?.takeIf { it.isNotBlank() }?.let { Routes.commitDetail(owner, repo, it) }
-                ?: Routes.repoDetail(owner, repo, tab = "commits")
-            "blob" -> parseBlob(owner, repo, rest.drop(1))
-            "tree" -> Routes.repoDetail(owner, repo) // tree = folder view; repo page covers it
-            "releases", "tags", "branches", "actions", "stargazers", "forks", "watchers" ->
-                Routes.repoDetail(owner, repo, tab = rest[0])
-            else -> Routes.repoDetail(owner, repo) // unknown sub-path: safest landing is repo home
-        }
-    }
-
-    /** blob/{ref}/{path...} — ref is the first segment, path is everything after. */
-    private fun parseBlob(owner: String, repo: String, rest: List<String>): String? {
-        val ref = rest.getOrNull(0) ?: return Routes.repoDetail(owner, repo)
-        val path = rest.drop(1).joinToString("/")
-        if (path.isBlank()) return Routes.repoDetail(owner, repo)
-        return Routes.fileViewer(owner, repo, path, ref)
     }
 
     /**
