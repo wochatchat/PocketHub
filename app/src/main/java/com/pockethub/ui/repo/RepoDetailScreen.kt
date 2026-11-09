@@ -433,8 +433,18 @@ fun RepoDetailScreen(
                 if (pagerState.currentPage != target) pagerState.animateScrollToPage(target)
             }
             // Swipe settle → hoisted tab state (drives per-tab loaders + FAB).
+            // drop(1): snapshotFlow re-emits the CURRENT settledPage (0,
+            // Overview) the moment this collector starts. Without dropping it,
+            // that initial emission races — and wins against — a deep-link /
+            // markdown requested tab (vm.currentTab set right after
+            // composition, e.g. ?tab=commits), resetting it to OVERVIEW before
+            // the pager ever scrolls there. Every later emission is a real
+            // settle (user swipe or our own animateScrollToPage, which is a
+            // no-op write), so skipping just the first one is safe.
             androidx.compose.runtime.LaunchedEffect(pagerState) {
-                androidx.compose.runtime.snapshotFlow { pagerState.settledPage }.collect { page ->
+                kotlinx.coroutines.flow.drop(1)(
+                    androidx.compose.runtime.snapshotFlow { pagerState.settledPage }
+                ).collect { page ->
                     val newTab = tabs[page]
                     if (vm.currentTab.value != newTab) vm.currentTab.value = newTab
                 }
