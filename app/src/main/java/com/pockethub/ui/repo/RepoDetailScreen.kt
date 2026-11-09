@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import com.pockethub.ui.markdown.RepoTabTarget
 import androidx.hilt.navigation.compose.hiltViewModel
 import java.util.Locale
+import kotlinx.coroutines.flow.drop
 
 /** [RepoTabTarget] wires don't line up with the [RepoTab] enum names
  *  (PULLS→PRS, ACTIONS→WORKFLOWS) — a name match silently fails and leaves
@@ -442,12 +443,12 @@ fun RepoDetailScreen(
             // settle (user swipe or our own animateScrollToPage, which is a
             // no-op write), so skipping just the first one is safe.
             androidx.compose.runtime.LaunchedEffect(pagerState) {
-                kotlinx.coroutines.flow.drop(1)(
-                    androidx.compose.runtime.snapshotFlow { pagerState.settledPage }
-                ).collect { page ->
-                    val newTab = tabs[page]
-                    if (vm.currentTab.value != newTab) vm.currentTab.value = newTab
-                }
+                androidx.compose.runtime.snapshotFlow { pagerState.settledPage }
+                    .drop(1)
+                    .collect { page ->
+                        val newTab = tabs[page]
+                        if (vm.currentTab.value != newTab) vm.currentTab.value = newTab
+                    }
             }
             // Double-tap detection: two taps on the same tab within 400ms open
             // that tab's GitHub web page. The first tap of the pair still
