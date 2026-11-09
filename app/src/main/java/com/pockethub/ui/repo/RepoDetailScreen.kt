@@ -69,6 +69,18 @@ import com.pockethub.ui.markdown.RepoTabTarget
 import androidx.hilt.navigation.compose.hiltViewModel
 import java.util.Locale
 
+/** [RepoTabTarget] wires don't line up with the [RepoTab] enum names
+ *  (PULLS→PRS, ACTIONS→WORKFLOWS) — a name match silently fails and leaves
+ *  the user on Overview. This is the single authoritative mapping. */
+internal fun RepoTabTarget.toRepoTab(): RepoTab? = when (this) {
+    RepoTabTarget.CODE -> RepoTab.CODE
+    RepoTabTarget.ISSUES -> RepoTab.ISSUES
+    RepoTabTarget.PULLS -> RepoTab.PRS
+    RepoTabTarget.RELEASES -> RepoTab.RELEASES
+    RepoTabTarget.COMMITS -> RepoTab.COMMITS
+    RepoTabTarget.ACTIONS -> RepoTab.WORKFLOWS
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RepoDetailScreen(
@@ -176,8 +188,7 @@ fun RepoDetailScreen(
         // asked for (e.g. github.com/o/r/issues → Issues tab).
         initialTab?.let { requested ->
             RepoTabTarget.fromWire(requested)?.let { target ->
-                RepoTab.entries.firstOrNull { it.name.equals(target.name, ignoreCase = true) }
-                    ?.let { vm.currentTab.value = it }
+                target.toRepoTab()?.let { vm.currentTab.value = it }
             }
         }
     }
@@ -541,7 +552,7 @@ fun RepoDetailScreen(
                     onTopicClick = { topic -> onNavigateToSearch(topic) },
                     onNavigateToRepo = onNavigateToRepo,
                     onLinkClick = rememberMarkdownLinkHandler(owner, repo, onNavigateToRepo, onNavigateToRepoTab, onNavigateToFile, onNavigateToUser, onNavigateToIssue, onNavigateToIssueFull, onNavigateToPRFull, onNavigateToCommit, onNavigateToWorkflowRun, onNavigateToCreateIssue, downloadVm = downloadVm, onNavigateToDownloads = onNavigateToDownloads, onSameRepoTab = { target ->
-                        RepoTab.entries.firstOrNull { it.name.equals(target.name, ignoreCase = true) }?.let { vm.currentTab.value = it }
+                        target.toRepoTab()?.let { vm.currentTab.value = it }
                     }),
                 )
                 RepoTab.CODE -> CodeTab(
@@ -584,7 +595,7 @@ fun RepoDetailScreen(
                     isDeletingRelease = isDeletingRelease,
                     isLoading = isLoadingReleases,
                     onLinkClick = rememberMarkdownLinkHandler(owner, repo, onNavigateToRepo, onNavigateToRepoTab, onNavigateToFile, onNavigateToUser, onNavigateToIssue, onNavigateToIssueFull, onNavigateToPRFull, onNavigateToCommit, onNavigateToWorkflowRun, onNavigateToCreateIssue, downloadVm = downloadVm, onNavigateToDownloads = onNavigateToDownloads, onSameRepoTab = { target ->
-                        RepoTab.entries.firstOrNull { it.name.equals(target.name, ignoreCase = true) }?.let { vm.currentTab.value = it }
+                        target.toRepoTab()?.let { vm.currentTab.value = it }
                     }),
                     onNavigateToUser = onNavigateToUser,
                     onDownloadAsset = { asset ->
