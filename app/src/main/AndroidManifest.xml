@@ -65,6 +65,29 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="pockethub" android:host="profile" />
             </intent-filter>
+            <!-- GitHub web links (issue #37): let the user open github.com URLs
+                 in PocketHub. autoVerify is intentionally OFF — assetlinks.json
+                 cannot be hosted on github.com, so Android shows the chooser
+                 ("PocketHub or browser") instead of silently failing. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="github.com" />
+                <data android:scheme="https" android:host="www.github.com" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="pockethub" android:host="repo" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="pockethub" android:host="user" />
+            </intent-filter>
         </activity>
         <!-- FileProvider for downloaded assets (apk install, file open). -->
         <provider

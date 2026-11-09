@@ -26,6 +26,7 @@ import com.pockethub.data.remote.AccountRepository
 import com.pockethub.data.remote.AuthInterceptor
 import com.pockethub.data.remote.SettingsRepository
 import com.pockethub.ui.auth.LoginViewModel
+import com.pockethub.ui.main.GitHubUrlRouter
 import com.pockethub.ui.main.PocketHubApp
 import com.pockethub.ui.settings.SettingsViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -90,6 +91,20 @@ class MainActivity : AppCompatActivity() {
                     } else if (data.scheme == "pockethub") {
                         // Non-OAuth pockethub:// deep link — forward to the NavHost for routing.
                         deepLinkUri.value = data
+                    } else if (GitHubUrlRouter.isGithubUrl(data)) {
+                        // Issue #37: a github.com web link (browser / shared link).
+                        // Map it to an internal route and flow it through the same
+                        // channel; unsupported shapes open in the browser instead
+                        // of silently landing somewhere wrong.
+                        val route = GitHubUrlRouter.parse(data)
+                        if (route != null) {
+                            deepLinkUri.value = GitHubUrlRouter.toInternalUri(route)
+                        } else {
+                            runCatching {
+                                startActivity(Intent(Intent.ACTION_VIEW, data))
+                            }
+                            // Deep-link slot stays empty — nothing to route in-app.
+                        }
                     }
                 }
                 LaunchedEffect(oauthCode.value) {
